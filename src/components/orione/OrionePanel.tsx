@@ -137,6 +137,26 @@ interface OrionePanelProps {
   onConfigure?: (payload: OrioneConfigPayload) => void;
 }
 
+const formatTimestamp = (ts?: number | null): string => {
+  if (!ts || Number.isNaN(ts)) return "—";
+
+  const d = new Date(ts);
+
+  try {
+    return new Intl.DateTimeFormat("it-IT", {
+      timeZone: "Europe/Rome",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit",
+      hour: "2-digit",
+      minute: "2-digit",
+    }).format(d);
+  } catch {
+    // fallback nel caso il browser non supporti la timeZone
+    return d.toLocaleString("it-IT");
+  }
+};
+
 const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
   const [coinsInput, setCoinsInput] = useState<string>("BTC, ETH, SOL");
   const [selectedTfs, setSelectedTfs] = useState<string[]>(["1m", "3m", "5m"]);
@@ -686,15 +706,11 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
                             </div>
                           </div>
                           <div className="text-[11px] text-white/70 mt-0.5">
-                            Prezzo:{" "}
-                            {s.price !== null && s.price !== undefined
-                              ? s.price.toFixed(4)
-                              : "—"}{" "}
-                            · Candela #{s.candle_index}
+                            {formatTimestamp(s.timestamp)} · Candela #{s.candle_index} · Prezzo{" "}
+                            {s.price !== null && s.price !== undefined ? s.price.toFixed(4) : "—"}
                           </div>
                           <div className="text-[11px] text-white/60 mt-0.5">
-                            Pattern:{" "}
-                            {s.patterns_hit.map((p) => p.key).join(", ")}
+                            Pattern: {s.patterns_hit.map((p) => p.key).join(", ")}
                           </div>
                         </div>
                       ))}
