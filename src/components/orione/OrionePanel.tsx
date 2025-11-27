@@ -266,14 +266,9 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
       setError(null);
       setResults(null);
 
-      const baseEnv = process.env.NEXT_PUBLIC_CASSANDRA_API_URL;
-      const baseUrl = (baseEnv && baseEnv.length > 0
-        ? baseEnv
-        : "http://localhost:8000"
-      ).replace(/\/+$/, "");
-      const url = `${baseUrl}/api/orione/scan`;
-
-      const res = await fetch(url, {
+      // Chiamiamo la route Next lato server, che a sua volta
+      // contatta il backend Cassandra con API key e proxy sicuro.
+      const res = await fetch("/api/orione/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
