@@ -1,0 +1,85 @@
+/* src/components/ui/scanlines.css */
+
+/* 1) SCANLINES: sottili linee orizzontali tipo CRT */
+.scanlines {
+    position: relative;
+    isolation: isolate; /* così lo pseudo-element resta sopra solo al suo contenuto */
+  }
+  
+  .scanlines::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    pointer-events: none;
+    opacity: 0.08; /* alza/abbassa per più/meno effetto */
+    background:
+      repeating-linear-gradient(
+        to bottom,
+        transparent 0px,
+        transparent 2px,
+        rgba(255, 255, 255, 0.35) 3px,
+        transparent 4px
+      );
+    mix-blend-mode: screen; /* aiuta l'effetto CRT */
+    z-index: 1;
+  }
+  
+  /* 2) CRT FLICKER: leggerissimo battito di luminosità */
+  .crt-flicker {
+    animation: crt-flicker 2.8s ease-in-out infinite;
+  }
+  @keyframes crt-flicker {
+    0%, 100% { filter: none; opacity: 1; }
+    45% { filter: brightness(1.02) contrast(1.01); opacity: 0.98; }
+    50% { filter: brightness(1.05) contrast(1.02); opacity: 0.97; }
+    55% { filter: brightness(1.02) contrast(1.01); opacity: 0.98; }
+  }
+  
+  /* 3) MATRIX GLOW: alone/vesseggiatura verde molto tenue */
+  .matrix-glow {
+    position: relative;
+  }
+  .matrix-glow::before {
+    content: "";
+    position: absolute;
+    inset: -2px;
+    pointer-events: none;
+    background: radial-gradient(
+      circle at 50% 0%,
+      rgba(16, 185, 129, 0.10),
+      transparent 60%
+    );
+    z-index: 0;
+  }
+  
+  /* Utility: bordo sottile verde pulsante, utile per cards selezionate */
+  .pulse-border {
+    position: relative;
+  }
+  .pulse-border::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    pointer-events: none;
+    box-shadow: 0 0 0 1px rgba(16,185,129,0.20) inset;
+    animation: pulse-border 3.2s ease-in-out infinite;
+  }
+  @keyframes pulse-border {
+    0%, 100% { box-shadow: 0 0 0 1px rgba(16,185,129,0.20) inset; }
+    50% { box-shadow: 0 0 0 1px rgba(16,185,129,0.45) inset; }
+  }
+  
+  /* (opzionale) leggera aberrazione cromatica text-only */
+  .chroma-split {
+    position: relative;
+  }
+  .chroma-split > .chroma-layer {
+    position: absolute;
+    inset: 0;
+    mix-blend-mode: screen;
+    pointer-events: none;
+  }
+  .chroma-split > .chroma-layer.green { color: rgba(16,185,129,0.5); transform: translateX(-0.6px); filter: blur(0.6px); }
+  .chroma-split > .chroma-layer.red   { color: rgba(244,63,94,0.4);  transform: translateX( 0.6px); filter: blur(0.6px); }
+  
