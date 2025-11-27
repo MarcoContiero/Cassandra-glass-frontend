@@ -72,7 +72,10 @@ const PATTERN_OPTIONS: { value: PatternKey; label: string }[] = [
 
 // PRESET ---------------------------------------------------------
 
-const PRESET_INVERSIONE: PatternKey[] = [
+// PRESET ---------------------------------------------------------
+
+// Nota: usiamo PatternConfigKeyUI così possiamo includere anche ALL_OPTION_VALUE
+const PRESET_INVERSIONE: PatternConfigKeyUI[] = [
   "morning_star",
   "evening_star",
   "hammer",
@@ -84,19 +87,15 @@ const PRESET_INVERSIONE: PatternKey[] = [
   "rsi_divergence",
 ];
 
-const PRESET_TREND: PatternKey[] = [
+const PRESET_TREND: PatternConfigKeyUI[] = [
   "ema_cross_9_21",
   "ema_cross_9_50",
   "ema_alignment_trend",
   "bb_squeeze",
 ];
 
-const PRESET_COMPLETO: PatternKey[] = [
-  ...PRESET_INVERSIONE,
-  ...PRESET_TREND,
-  "triple_bottom",
-  "triple_top",
-];
+// Preset completo: usa direttamente "Tutti i pattern principali"
+const PRESET_COMPLETO: PatternConfigKeyUI[] = [ALL_OPTION_VALUE];
 
 interface OrioneConfigPayload {
   coins: string[];
@@ -155,6 +154,7 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
   const [loading, setLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [results, setResults] = useState<OrioneSetup[] | null>(null);
+  const [debugResponse, setDebugResponse] = useState<OrioneScanResponse | null>(null);
 
   const hasAtLeastOnePattern = useMemo(
     () => patterns.some((p) => p.key !== ""),
@@ -195,14 +195,18 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
   };
 
   // Applica preset ------------------------------------------------
-  const applyPreset = (keys: PatternKey[], required: boolean) => {
+  const applyPreset = (keys: PatternConfigKeyUI[], required: boolean) => {
     const uniqueKeys = Array.from(new Set(keys));
     const rows: PatternConfig[] = uniqueKeys.map((k, idx) => ({
-      id: `preset-${k}-${idx}`,
+      id: `preset-${k || "vuoto"}-${idx}`,
       key: k,
       required,
     }));
-    setPatterns(rows.length ? rows : [{ id: "pattern-1", key: "" as PatternConfigKeyUI, required: true }]);
+    setPatterns(
+      rows.length
+        ? rows
+        : [{ id: "pattern-1", key: "" as PatternConfigKeyUI, required: true }]
+    );
   };
 
   const buildPayload = (): OrioneConfigPayload => {
@@ -265,9 +269,8 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
       setLoading(true);
       setError(null);
       setResults(null);
+      setDebugResponse(null);
 
-      // Chiamiamo la route Next lato server, che a sua volta
-      // contatta il backend Cassandra con API key e proxy sicuro.
       const res = await fetch("/api/orione/scan", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -291,13 +294,17 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
       }
 
       const data: OrioneScanResponse = await res.json();
-      setResults(data.setups || []);
+      setDebugResponse(data);
+
+      const setups: OrioneSetup[] = (data.setups ?? []) as OrioneSetup[];
+      setResults(setups);
     } catch (err: any) {
       console.error("[Orione] errore scan:", err);
       setError(
         err?.message ?? "Errore imprevisto durante la scansione di Orione."
       );
       setResults(null);
+      setDebugResponse(null);
     } finally {
       setLoading(false);
     }
@@ -694,6 +701,19 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
                     </div>
                   </>
                 )}
+              </div>
+            )}
+
+            {debugResponse && (
+              <div className="text-[10px] text-white/60">
+                <details>
+                  <summary className="cursor-pointer text-white/70">
+                    Debug JSON Orione (request + response)
+                  </summary>
+                  <pre className="mt-2 p-2 bg-black/60 rounded-md overflow-auto max-h-64">
+                    {JSON.stringify(debugResponse, null, 2)}
+                  </pre>
+                </details>
               </div>
             )}
           </section>

@@ -1053,6 +1053,7 @@ export default function SupportiResistenzeOverlay({
     const magnetStr = formatMagnetPercent(r.magnet);
 
     return (
+
       <Fragment key={key}>
         <tr className={`hover:bg-neutral-800/30 ${isNearest ? 'ring-1 ring-indigo-500/40' : ''}`}>
           <td className="px-4 py-2">
@@ -1202,7 +1203,7 @@ export default function SupportiResistenzeOverlay({
   const resExtra = resSel.extra;
 
   return (
-    <>
+    <OverlayShell>
       <SafeDialogContent
         title={overlayTitle}
         description="Mappa di supporti e resistenze con livelli chiave e dettagli."
@@ -1358,6 +1359,6 @@ export default function SupportiResistenzeOverlay({
           </div>
         </DialogContent>
       </Dialog>
-    </>
+    </OverlayShell>
   );
 } // <-- CHIUSURA della funzione componente
