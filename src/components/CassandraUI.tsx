@@ -24,6 +24,10 @@ import BoxOverlay from './overlays/BoxOverlay';
 import ScenariOverlay from './overlays/ScenariOverlay';
 import AlertOverlay from './overlays/AlertOverlay';
 import ScenariPrevistiOverlay from "@/components/overlays/ScenariPrevistiOverlay";
+import { buildCiclicaViewModel } from "@/lib/ciclica/ciclicaViewModel";
+import { CiclicaOverlay } from "@/components/ciclica/CiclicaOverlay";
+import { mockCiclica } from "@/lib/ciclica/mockCiclica"; // 👈 nuovo
+
 
 // UI
 import { Button } from '@/components/ui/button';
@@ -43,7 +47,8 @@ type OverlayKey =
   | 'middles'
   | 'box'
   | 'comparativa_full'
-  | 'scenari_previsti' // 👈 NEW
+  | 'scenari_previsti'
+  | 'ciclica' // 👈 NEW
   | null;
 
 const TF_PRESET = [
@@ -390,6 +395,13 @@ export default function CassandraUI() {
     };
   }, [overlayData, prezzo, sr, result]);
 
+  // View model per l’analisi ciclica:
+  // usa i dati reali se esistono, altrimenti il mock di test.
+  const ciclicaVm = useMemo(
+    () => buildCiclicaViewModel((result as any)?.ciclica ?? mockCiclica),
+    [result]
+  );
+
   function openOverlay(key: OverlayKey, title: string, data?: any) {
     setOverlayKey(key);
     setOverlayTitle(title);
@@ -415,6 +427,7 @@ export default function CassandraUI() {
     supporti: "Supporti/Resistenze",
     liquidita: "Livelli di liquidità",
     scenari: "Scenari attivi",
+    ciclica: "Analisi ciclica",
   };
 
   // ✅ niente indicizzazione con null
@@ -567,11 +580,13 @@ export default function CassandraUI() {
             atrPeriod={14}
           />
         );
+      case 'ciclica':
+        return <CiclicaOverlay data={ciclicaVm} />;
       default:
         return null;
     }
     // dipendenze minime e sicure
-  }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes]);
+  }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes, ciclicaVm]);
 
   return (
     <div className="min-h-screen w-full bg-black text-white flex justify-start items-stretch">
@@ -708,6 +723,12 @@ export default function CassandraUI() {
               onClick={() => openOverlay('spiegazione', 'Spiegazione', result)}
             >
               🧠 Spiegazione
+            </button>
+            <button
+              className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
+              onClick={() => openOverlay('ciclica', 'Analisi ciclica', result)}
+            >
+              ⏳ Analisi ciclica
             </button>
 
             {/*

@@ -1,0 +1,8 @@
+{
+  "crons": [
+    {
+      "path": "/api/orione/scan",
+      "schedule": "*/2 * * * *"
+    }
+  ]
+}
