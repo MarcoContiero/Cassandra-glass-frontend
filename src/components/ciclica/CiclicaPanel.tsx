@@ -430,7 +430,7 @@ function CompatibilitySection({ scenarios, strategia }: CompatibilitySectionProp
   );
 }
 
-// -----------------------------------------------------------------------------
+// ----------------------------------------------------------------------------- //
 
 interface NarrativeSectionProps {
   narrative: string;
