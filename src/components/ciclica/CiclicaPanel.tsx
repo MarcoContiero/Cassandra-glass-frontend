@@ -431,6 +431,9 @@ function CompatibilitySection({ scenarios, strategia }: CompatibilitySectionProp
 }
 
 // ----------------------------------------------------------------------------- //
+// ----------------------------------------------------------------------------- //
+// test deploy ciclica 2
+
 
 interface NarrativeSectionProps {
   narrative: string;
