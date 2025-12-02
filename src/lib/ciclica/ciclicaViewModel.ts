@@ -343,71 +343,70 @@ function mapCiclicaTfBlock(
   const tfLabel = tfKey;
   const tfDescription = describeTf(tfKey);
 
-  const cicloRilevante: CicloSingoloRaw | null =
+  const ciclo: CicloSingoloRaw | null =
     raw.ciclo_breve ?? raw.ciclo_medio ?? raw.ciclo_lungo ?? null;
 
-  const phaseLabel = mapPhaseLabel(cicloRilevante?.fase_x);
-  const rangePositionLabel = mapRangePositionLabel(cicloRilevante?.posizione_y);
-  const convergenceLabel = mapConvergenceLabel(cicloRilevante?.convergenza_z);
-  const distortionLabel = mapDistortionLabel(cicloRilevante?.distorsione_d);
+  const phaseLabel = mapPhaseLabel(ciclo?.fase_x);
+  const rangePositionLabel = mapRangePositionLabel(ciclo?.posizione_y);
+  const convergenceLabel = mapConvergenceLabel(ciclo?.convergenza_z);
+  const distortionLabel = mapDistortionLabel(ciclo?.distorsione_d);
 
-  const qualityScore = cicloRilevante?.qualita ?? 0;
+  const qualityScore = ciclo?.qualita ?? 0;
 
-  // --- Durata totale / residua del ciclo ------------------------------------
-  const totalBars =
-    cicloRilevante?.durata_media_candele ?? null;
-  const remainingBars =
-    cicloRilevante?.durata_residua_candele ?? null;
+  // ------------------------------------------------------------
+  // Durata totale ciclo
+  // ------------------------------------------------------------
+  let cycleDurationLabel: string | undefined = undefined;
+  if (typeof ciclo?.durata_media_candele === "number") {
+    cycleDurationLabel = `≈ ${Math.round(ciclo.durata_media_candele)} barre`;
+  }
 
-  const cycleDurationLabel =
-    totalBars !== null && totalBars !== undefined
-      ? `≈ ${Math.round(totalBars)} barre`
-      : undefined;
+  // ------------------------------------------------------------
+  // Durata residua ciclo
+  // ------------------------------------------------------------
+  let cycleRemainingLabel: string | undefined = undefined;
+  if (typeof ciclo?.durata_residua_candele === "number") {
+    cycleRemainingLabel = `≈ ${Math.round(ciclo.durata_residua_candele)} barre`;
+  }
 
-  const cycleRemainingLabel =
-    remainingBars !== null && remainingBars !== undefined
-      ? `≈ ${Math.round(remainingBars)} barre`
-      : undefined;
-
-  // --- % completamento e fase residua ---------------------------------------
+  // ------------------------------------------------------------
+  // % completamento ciclo
+  // ------------------------------------------------------------
   const completionPct =
-    typeof cicloRilevante?.completamento_perc === "number"
-      ? cicloRilevante.completamento_perc
+    typeof ciclo?.completamento_perc === "number"
+      ? ciclo.completamento_perc
       : null;
 
-  const phaseRemainingLabel =
-    typeof cicloRilevante?.fase_residua_candele === "number"
-      ? `≈ ${Math.round(cicloRilevante.fase_residua_candele)} barre`
-      : undefined;
+  // ------------------------------------------------------------
+  // Fase residua
+  // ------------------------------------------------------------
+  let phaseRemainingLabel: string | undefined = undefined;
+  if (typeof ciclo?.fase_residua_candele === "number") {
+    phaseRemainingLabel = `≈ ${Math.round(ciclo.fase_residua_candele)} barre`;
+  }
 
-  // --- Prossima finestra: countdown diretto o fallback sulla proiezione 2.5 -
-  let nextWindowCountdownLabel: string | undefined;
-
-  if (typeof cicloRilevante?.countdown_finestra_candele === "number") {
+  // ------------------------------------------------------------
+  // Countdown prossima finestra
+  // ------------------------------------------------------------
+  let nextWindowCountdownLabel: string | undefined = undefined;
+  if (typeof ciclo?.countdown_finestra_candele === "number") {
     nextWindowCountdownLabel = `≈ ${Math.round(
-      cicloRilevante.countdown_finestra_candele
+      ciclo.countdown_finestra_candele
     )} barre`;
-  } else if (
-    typeof window25?.proiezione?.bars_to_pivot === "number" &&
-    !Number.isNaN(window25.proiezione.bars_to_pivot)
-  ) {
-    // fallback: usiamo la proiezione pivot 2.5
-    nextWindowCountdownLabel = `≈ ${window25.proiezione.bars_to_pivot} barre`;
   }
 
   return {
     tfKey,
     tfLabel,
     tfDescription,
+
     phaseLabel,
     rangePositionLabel,
     convergenceLabel,
     distortionLabel,
-    phaseTooltip: undefined,
-    rangeTooltip: undefined,
-    convergenceTooltip: undefined,
-    distortionTooltip: undefined,
+
     qualityScore,
+
     cycleDurationLabel,
     cycleRemainingLabel,
     completionPct,
