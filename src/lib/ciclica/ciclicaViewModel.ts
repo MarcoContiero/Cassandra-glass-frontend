@@ -55,19 +55,20 @@ export type CicliPerTfRaw = {
 };
 
 export type CicloSingoloRaw = {
-  fase_x?: string | null;             // "early_up", "mid_up", "late_up", "early_down", ...
-  posizione_y?: string | null;        // "alta", "media", "bassa"
-  convergenza_z?: string | null;      // "forte", "media", "debole", ...
-  distorsione_d?: string | null;      // "bassa", "moderata", "alta"
-  qualita?: number | null;            // 0-100
+  fase_x?: string | null;              // "early_up", "mid_up", "late_up", ...
+  posizione_y?: string | null;         // "alta", "media", "bassa"
+  convergenza_z?: string | null;       // "forte", "media", "debole", ...
+  distorsione_d?: string | null;       // "bassa", "moderata", "alta"
+  qualita?: number | null;             // 0-100
 
-  // Durate stimate dal builder
+  // Durate stimate dal builder 2.5
   durata_media_candele?: number | null;
   durata_residua_candele?: number | null;
 
-  // Valori opzionali aggiuntivi
-  completamento_pct?: number | null;
-  fase_residua_candele?: number | null;
+  // Metriche aggiuntive lato BE (nomi esatti dal JSON)
+  completamento_perc?: number | null;        // es. 100
+  fase_residua_candele?: number | null;      // es. 0
+  countdown_finestra_candele?: number | null; // es. 28
 };
 
 export type FinestraCiclicaRaw = {
@@ -173,17 +174,12 @@ export type CiclicaTfBlock = {
 
   qualityScore: number;
 
-  // Riquadro temporale
-  cycleDurationLabel?: string;    // "≈ 60 barre"
-  cycleRemainingLabel?: string;   // "≈ 48 barre"
-
-  // Metriche aggiuntive
-  completionPct?: number | null;          // 0-100
-  phaseRemainingLabel?: string | null;    // "≈ 12 barre"
-  nextWindowCountdownLabel?: string | null; // "≈ 48 barre"
-
-  // Per eventuali usi interni
-  projectionLabel?: string;
+  // Nuovi campi per la scheda per-TF
+  cycleDurationLabel?: string;          // es. "≈ 48 barre"
+  cycleRemainingLabel?: string;         // es. "≈ 0 barre"
+  completionPct: number | null;         // es. 100
+  phaseRemainingLabel?: string;         // es. "≈ 0 barre"
+  nextWindowCountdownLabel?: string;    // es. "≈ 28 barre"
 };
 
 export type CiclicaWindowVM = {
@@ -357,47 +353,46 @@ function mapCiclicaTfBlock(
 
   const qualityScore = cicloRilevante?.qualita ?? 0;
 
-  // --------------------------------------------
-  // Durata ciclo / residua / finestra
-  // --------------------------------------------
-  let cycleDurationLabel: string | undefined;
-  let cycleRemainingLabel: string | undefined;
-  let completionPct: number | null = null;
-  let phaseRemainingLabel: string | null = null;
-  let nextWindowCountdownLabel: string | null = null;
-  let projectionLabel: string | undefined;
+  // --- Durata totale / residua del ciclo ------------------------------------
+  const totalBars =
+    cicloRilevante?.durata_media_candele ?? null;
+  const remainingBars =
+    cicloRilevante?.durata_residua_candele ?? null;
 
-  const barsToPivot = window25?.proiezione?.bars_to_pivot;
-  const pivotAge = window25?.pivot_age_bars;
+  const cycleDurationLabel =
+    totalBars !== null && totalBars !== undefined
+      ? `≈ ${Math.round(totalBars)} barre`
+      : undefined;
 
-  if (typeof barsToPivot === "number") {
-    const rem = Math.round(barsToPivot);
-    cycleRemainingLabel = `≈ ${rem} barre`;
-    nextWindowCountdownLabel = `≈ ${rem} barre`;
+  const cycleRemainingLabel =
+    remainingBars !== null && remainingBars !== undefined
+      ? `≈ ${Math.round(remainingBars)} barre`
+      : undefined;
 
-    if (rem <= 3) projectionLabel = `≈ ${rem} barre (svolta molto vicina)`;
-    else if (rem <= 10) projectionLabel = `≈ ${rem} barre (fase matura)`;
-    else projectionLabel = `≈ ${rem} barre (margine ampio)`;
-  }
+  // --- % completamento e fase residua ---------------------------------------
+  const completionPct =
+    typeof cicloRilevante?.completamento_perc === "number"
+      ? cicloRilevante.completamento_perc
+      : null;
 
-  if (typeof pivotAge === "number" && typeof barsToPivot === "number") {
-    const tot = Math.round(pivotAge + barsToPivot);
-    if (tot > 0) cycleDurationLabel = `≈ ${tot} barre`;
-  }
+  const phaseRemainingLabel =
+    typeof cicloRilevante?.fase_residua_candele === "number"
+      ? `≈ ${Math.round(cicloRilevante.fase_residua_candele)} barre`
+      : undefined;
 
-  if (!cycleDurationLabel && cycleRemainingLabel) {
-    cycleDurationLabel = cycleRemainingLabel;
-  }
+  // --- Prossima finestra: countdown diretto o fallback sulla proiezione 2.5 -
+  let nextWindowCountdownLabel: string | undefined;
 
-  // Completamento ciclo
-  const breve = raw.ciclo_breve;
-
-  if (breve?.completamento_pct != null) {
-    completionPct = breve.completamento_pct;
-  }
-
-  if (breve?.fase_residua_candele != null) {
-    phaseRemainingLabel = `≈ ${breve.fase_residua_candele} barre`;
+  if (typeof cicloRilevante?.countdown_finestra_candele === "number") {
+    nextWindowCountdownLabel = `≈ ${Math.round(
+      cicloRilevante.countdown_finestra_candele
+    )} barre`;
+  } else if (
+    typeof window25?.proiezione?.bars_to_pivot === "number" &&
+    !Number.isNaN(window25.proiezione.bars_to_pivot)
+  ) {
+    // fallback: usiamo la proiezione pivot 2.5
+    nextWindowCountdownLabel = `≈ ${window25.proiezione.bars_to_pivot} barre`;
   }
 
   return {
@@ -408,13 +403,16 @@ function mapCiclicaTfBlock(
     rangePositionLabel,
     convergenceLabel,
     distortionLabel,
+    phaseTooltip: undefined,
+    rangeTooltip: undefined,
+    convergenceTooltip: undefined,
+    distortionTooltip: undefined,
     qualityScore,
     cycleDurationLabel,
     cycleRemainingLabel,
     completionPct,
     phaseRemainingLabel,
     nextWindowCountdownLabel,
-    projectionLabel,
   };
 }
 
