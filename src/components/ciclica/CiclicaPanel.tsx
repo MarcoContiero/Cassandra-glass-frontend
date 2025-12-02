@@ -190,6 +190,26 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   <span className="font-medium">{tfBlock.projectionLabel}</span>
                 </div>
               )}
+              {tfBlock.completionPct != null && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">% Completamento</span>
+                  <span className="font-medium">{Math.round(tfBlock.completionPct)}%</span>
+                </div>
+              )}
+
+              {tfBlock.phaseRemainingLabel && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Fase residua</span>
+                  <span className="font-medium">{tfBlock.phaseRemainingLabel}</span>
+                </div>
+              )}
+
+              {tfBlock.nextWindowCountdownLabel && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Prossima finestra</span>
+                  <span className="font-medium">{tfBlock.nextWindowCountdownLabel}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>

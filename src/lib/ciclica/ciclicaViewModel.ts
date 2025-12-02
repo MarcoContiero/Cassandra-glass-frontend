@@ -60,8 +60,14 @@ export type CicloSingoloRaw = {
   convergenza_z?: string | null;      // "forte", "media", "debole", ...
   distorsione_d?: string | null;      // "bassa", "moderata", "alta"
   qualita?: number | null;            // 0-100
+
+  // Durate stimate dal builder
   durata_media_candele?: number | null;
   durata_residua_candele?: number | null;
+
+  // (opzionali) valori già pronti dal backend, se li calcoliamo lato Python
+  completamento_pct?: number | null;
+  fase_residua_candele?: number | null;
 };
 
 export type FinestraCiclicaRaw = {
@@ -150,7 +156,7 @@ export type CiclicaTfBlock = {
   tfLabel: string;          // "1h"
   tfDescription: string;    // "Ciclo breve operativo"
 
-  phaseLabel: string;       // "Late-up"
+  phaseLabel: string;           // "Late-up"
   rangePositionLabel: string;   // "In alto nel range"
   convergenceLabel: string;     // "Convergenza debole"
   distortionLabel: string;      // "Distorsione moderata"
@@ -160,8 +166,18 @@ export type CiclicaTfBlock = {
   convergenceTooltip?: string;
   distortionTooltip?: string;
 
-  qualityScore: number;     // 0-100
+  qualityScore: number;         // 0-100
+
+  // Proiezione complessiva (già esistente)
   projectionLabel?: string;
+
+  // 🔹 Nuovi campi per la card TF
+  //   - percentuale di completamento del ciclo breve
+  //   - barre residue della fase corrente
+  //   - barre alla prossima finestra/pivot
+  completionPct?: number | null;
+  phaseRemainingLabel?: string | null;
+  nextWindowCountdownLabel?: string | null;
 };
 
 export type CiclicaWindowVM = {
@@ -330,17 +346,66 @@ function mapCiclicaTfBlock(
 
   const qualityScore = cicloRilevante?.qualita ?? 0;
 
-  // --- Nuovo: costruzione della label di proiezione ---
-  let projectionLabel: string | undefined;
-  const bars = window25?.proiezione?.bars_to_pivot;
+  // ---------------------------------------------------------------------------
+  // 1) Completamento ciclo e fase residua (dal ciclo breve, se disponibile)
+  // ---------------------------------------------------------------------------
+  const cicloBreve = raw.ciclo_breve;
 
-  if (typeof bars === "number" && !Number.isNaN(bars)) {
-    if (bars <= 3) {
-      projectionLabel = `≈ ${bars} barre (svolta molto vicina)`;
-    } else if (bars <= 10) {
-      projectionLabel = `≈ ${bars} barre (fase matura)`;
+  let completionPct: number | null = null;
+  let phaseRemainingBars: number | null = null;
+
+  if (cicloBreve) {
+    // Se il backend ci dà già il valore, usiamo quello
+    if (typeof cicloBreve.completamento_pct === "number") {
+      completionPct = cicloBreve.completamento_pct;
+    }
+
+    const faseResidua =
+      typeof cicloBreve.fase_residua_candele === "number"
+        ? cicloBreve.fase_residua_candele
+        : cicloBreve.durata_residua_candele ?? null;
+
+    if (typeof faseResidua === "number") {
+      phaseRemainingBars = faseResidua;
+    }
+
+    // Altrimenti lo ricaviamo da durata_media / durata_residua
+    if (
+      completionPct == null &&
+      typeof cicloBreve.durata_media_candele === "number" &&
+      cicloBreve.durata_media_candele > 0 &&
+      typeof cicloBreve.durata_residua_candele === "number" &&
+      cicloBreve.durata_residua_candele >= 0
+    ) {
+      const media = cicloBreve.durata_media_candele;
+      const residua = cicloBreve.durata_residua_candele;
+      const completate = media - residua;
+      const pct = (completate / media) * 100;
+      completionPct = Math.max(0, Math.min(100, pct));
+    }
+  }
+
+  const phaseRemainingLabel =
+    phaseRemainingBars != null ? `≈ ${Math.round(phaseRemainingBars)} barre` : null;
+
+  // ---------------------------------------------------------------------------
+  // 2) Proiezione e countdown prossima finestra (da windows_2_5)
+  // ---------------------------------------------------------------------------
+  let projectionLabel: string | undefined;
+  let nextWindowCountdownLabel: string | null = null;
+
+  const barsToPivot = window25?.proiezione?.bars_to_pivot;
+
+  if (typeof barsToPivot === "number" && !Number.isNaN(barsToPivot)) {
+    const barsRounded = Math.round(barsToPivot);
+    nextWindowCountdownLabel = `≈ ${barsRounded} barre`;
+
+    if (barsRounded <= 3) {
+      projectionLabel = `≈ ${barsRounded} barre (svolta molto vicina)`;
+    } else if (barsRounded <= 10) {
+      projectionLabel = `≈ ${barsRounded} barre (fase matura)`;
     } else {
-      projectionLabel = `≈ ${bars} barre (margine ampio)`;
+      projectionLabel = `≈ ${barsRounded} barre (margine ampio)`;
     }
   }
 
@@ -357,7 +422,10 @@ function mapCiclicaTfBlock(
     convergenceTooltip: undefined,
     distortionTooltip: undefined,
     qualityScore,
-    projectionLabel,   // ← nuovo campo
+    projectionLabel,
+    completionPct,
+    phaseRemainingLabel,
+    nextWindowCountdownLabel,
   };
 }
 
