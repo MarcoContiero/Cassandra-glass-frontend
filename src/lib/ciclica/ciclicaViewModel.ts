@@ -14,6 +14,31 @@ export type CiclicaRaw = {
   compatibilita_scenari?: Record<string, CompatScenarioRaw>;
   compatibilita_strategia_ai?: CompatStrategiaRaw | null;
   narrativa_gassosa?: string;
+  windows_2_5?: CiclicaWindows25Raw;
+};
+
+// Nuovo: finestre cicliche 2.5 (windows_2_5) con proiezione
+export type CiclicaWindow25ProiezioneRaw = {
+  bars_to_pivot?: number;
+  eta_restante?: number;
+};
+
+export type CiclicaWindow25PerTfRaw = {
+  tf?: string;
+  fase?: string;
+  pivot_dir?: string;
+  pivot_type?: string;
+  pivot_age_bars?: number;
+  a_norm?: number;
+  eta_norm?: number;
+  over_extension?: boolean;
+  flags?: Record<string, boolean>;
+  proiezione?: CiclicaWindow25ProiezioneRaw;
+};
+
+export type CiclicaWindows25Raw = {
+  per_tf?: Record<string, CiclicaWindow25PerTfRaw>;
+  multi_tf?: Record<string, any>;
 };
 
 export type CicliPerTfRaw = {
@@ -136,6 +161,7 @@ export type CiclicaTfBlock = {
   distortionTooltip?: string;
 
   qualityScore: number;     // 0-100
+  projectionLabel?: string;
 };
 
 export type CiclicaWindowVM = {
@@ -251,8 +277,13 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
   const cyclesByTf: Record<string, CiclicaTfBlock> = {};
   const cicliPerTf = raw.cicli_per_tf ?? {};
 
+  // Nuovo: finestre cicliche 2.5 per TF
+  const windows25PerTf: Record<string, CiclicaWindow25PerTfRaw> =
+    raw.windows_2_5?.per_tf ?? {};
+
   for (const [tfKey, bloccoRaw] of Object.entries(cicliPerTf)) {
-    cyclesByTf[tfKey] = mapCiclicaTfBlock(tfKey, bloccoRaw);
+    const win25 = windows25PerTf[tfKey];
+    cyclesByTf[tfKey] = mapCiclicaTfBlock(tfKey, bloccoRaw, win25);
   }
 
   const windows: CiclicaWindowVM[] = mapWindows(raw.finestre_per_tf ?? {});
@@ -281,7 +312,11 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
 // 4) Mapper per blocco ciclo per TF
 // -----------------------------------------------------------------------------
 
-function mapCiclicaTfBlock(tfKey: string, raw: CicliPerTfRaw): CiclicaTfBlock {
+function mapCiclicaTfBlock(
+  tfKey: string,
+  raw: CicliPerTfRaw,
+  window25?: CiclicaWindow25PerTfRaw
+): CiclicaTfBlock {
   const tfLabel = tfKey;
   const tfDescription = describeTf(tfKey);
 
@@ -294,6 +329,20 @@ function mapCiclicaTfBlock(tfKey: string, raw: CicliPerTfRaw): CiclicaTfBlock {
   const distortionLabel = mapDistortionLabel(cicloRilevante?.distorsione_d);
 
   const qualityScore = cicloRilevante?.qualita ?? 0;
+
+  // --- Nuovo: costruzione della label di proiezione ---
+  let projectionLabel: string | undefined;
+  const bars = window25?.proiezione?.bars_to_pivot;
+
+  if (typeof bars === "number" && !Number.isNaN(bars)) {
+    if (bars <= 3) {
+      projectionLabel = `≈ ${bars} barre (svolta molto vicina)`;
+    } else if (bars <= 10) {
+      projectionLabel = `≈ ${bars} barre (fase matura)`;
+    } else {
+      projectionLabel = `≈ ${bars} barre (margine ampio)`;
+    }
+  }
 
   return {
     tfKey,
@@ -308,6 +357,7 @@ function mapCiclicaTfBlock(tfKey: string, raw: CicliPerTfRaw): CiclicaTfBlock {
     convergenceTooltip: undefined,
     distortionTooltip: undefined,
     qualityScore,
+    projectionLabel,   // ← nuovo campo
   };
 }
 

@@ -184,6 +184,12 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   <span className="font-medium">{tfBlock.distortionLabel}</span>
                 </div>
               </div>
+              {tfBlock.projectionLabel && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Proiezione</span>
+                  <span className="font-medium">{tfBlock.projectionLabel}</span>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -431,9 +437,6 @@ function CompatibilitySection({ scenarios, strategia }: CompatibilitySectionProp
 }
 
 // ----------------------------------------------------------------------------- //
-// ----------------------------------------------------------------------------- //
-// test deploy ciclica 2
-
 
 interface NarrativeSectionProps {
   narrative: string;

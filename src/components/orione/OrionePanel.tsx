@@ -107,6 +107,7 @@ interface OrioneConfigPayload {
     minutes?: number;
   };
   scanIntervalMinutes: number;
+  onlyCombo: boolean;
 }
 
 interface OrionePatternHit {
@@ -167,6 +168,7 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
   const [lookbackMode, setLookbackMode] = useState<LookbackMode>("candles");
   const [lookbackCandles, setLookbackCandles] = useState<number>(5);
   const [lookbackMinutes, setLookbackMinutes] = useState<number>(45);
+  const [onlyCombo, setOnlyCombo] = useState(false);
   const [scanIntervalMinutes, setScanIntervalMinutes] = useState<number>(3);
 
   const [autoLoop, setAutoLoop] = useState<boolean>(false);
@@ -270,6 +272,7 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
           ? { mode: "candles", candles: lookbackCandles || 1 }
           : { mode: "minutes", minutes: lookbackMinutes || 1 },
       scanIntervalMinutes: scanIntervalMinutes || 1,
+      onlyCombo,
     };
   };
 
@@ -522,6 +525,20 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
                       </Button>
                     )}
                   </div>
+
+                  <div className="flex items-center gap-2 mt-2">
+                    <input
+                      id="orione-only-combo"
+                      type="checkbox"
+                      checked={onlyCombo}
+                      onChange={(e) => setOnlyCombo(e.target.checked)}
+                      className="h-4 w-4"
+                    />
+                    <label htmlFor="orione-only-combo" className="select-none">
+                      Mostra solo pattern in conﬂuenza (modalità COMBO)
+                    </label>
+                  </div>
+
                 </div>
               ))}
             </div>
