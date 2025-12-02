@@ -184,13 +184,30 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   <span className="font-medium">{tfBlock.distortionLabel}</span>
                 </div>
               </div>
+
+              {/* Durata ciclo + residuo --------------------------------------- */}
               {tfBlock.cycleDurationLabel && (
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between text-xs mt-1 pt-1 border-t border-dashed">
                   <span className="text-muted-foreground">Durata ciclo</span>
                   <span className="font-medium">{tfBlock.cycleDurationLabel}</span>
                 </div>
               )}
 
+              {tfBlock.cycleRemainingLabel && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Durata residua</span>
+                  <span className="font-medium">{tfBlock.cycleRemainingLabel}</span>
+                </div>
+              )}
+
+              {typeof tfBlock.completionPct === "number" && (
+                <div className="flex items-center justify-between text-[0.7rem] text-muted-foreground">
+                  <span>Completamento</span>
+                  <span className="font-medium">
+                    {Math.round(tfBlock.completionPct)}%
+                  </span>
+                </div>
+              )}
               {tfBlock.cycleRemainingLabel && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Durata residua</span>
