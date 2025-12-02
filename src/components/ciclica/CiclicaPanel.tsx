@@ -184,10 +184,17 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   <span className="font-medium">{tfBlock.distortionLabel}</span>
                 </div>
               </div>
-              {tfBlock.projectionLabel && (
+              {tfBlock.cycleDurationLabel && (
                 <div className="flex items-center justify-between">
-                  <span className="text-muted-foreground">Proiezione</span>
-                  <span className="font-medium">{tfBlock.projectionLabel}</span>
+                  <span className="text-muted-foreground">Durata ciclo</span>
+                  <span className="font-medium">{tfBlock.cycleDurationLabel}</span>
+                </div>
+              )}
+
+              {tfBlock.cycleRemainingLabel && (
+                <div className="flex items-center justify-between">
+                  <span className="text-muted-foreground">Durata residua</span>
+                  <span className="font-medium">{tfBlock.cycleRemainingLabel}</span>
                 </div>
               )}
               {tfBlock.completionPct != null && (

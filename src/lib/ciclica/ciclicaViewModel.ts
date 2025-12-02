@@ -65,14 +65,19 @@ export type CicloSingoloRaw = {
   durata_media_candele?: number | null;
   durata_residua_candele?: number | null;
 
-  // (opzionali) valori già pronti dal backend, se li calcoliamo lato Python
+  // Valori opzionali aggiuntivi
   completamento_pct?: number | null;
   fase_residua_candele?: number | null;
 };
 
 export type FinestraCiclicaRaw = {
   id?: string;
-  tipo?: "cuspide_breve" | "valle_medio_orizzonte" | "nodo_transizione" | "sforzo_estremo" | string;
+  tipo?:
+  | "cuspide_breve"
+  | "valle_medio_orizzonte"
+  | "nodo_transizione"
+  | "sforzo_estremo"
+  | string;
   nome?: string;
   tf?: string;
   ciclo_riferimento?: "breve" | "medio" | "lungo" | string;
@@ -152,32 +157,33 @@ export type CiclicaViewModel = {
 };
 
 export type CiclicaTfBlock = {
-  tfKey: string;            // "1h"
-  tfLabel: string;          // "1h"
-  tfDescription: string;    // "Ciclo breve operativo"
+  tfKey: string;
+  tfLabel: string;
+  tfDescription: string;
 
-  phaseLabel: string;           // "Late-up"
-  rangePositionLabel: string;   // "In alto nel range"
-  convergenceLabel: string;     // "Convergenza debole"
-  distortionLabel: string;      // "Distorsione moderata"
+  phaseLabel: string;
+  rangePositionLabel: string;
+  convergenceLabel: string;
+  distortionLabel: string;
 
   phaseTooltip?: string;
   rangeTooltip?: string;
   convergenceTooltip?: string;
   distortionTooltip?: string;
 
-  qualityScore: number;         // 0-100
+  qualityScore: number;
 
-  // Proiezione complessiva (già esistente)
+  // Riquadro temporale
+  cycleDurationLabel?: string;    // "≈ 60 barre"
+  cycleRemainingLabel?: string;   // "≈ 48 barre"
+
+  // Metriche aggiuntive
+  completionPct?: number | null;          // 0-100
+  phaseRemainingLabel?: string | null;    // "≈ 12 barre"
+  nextWindowCountdownLabel?: string | null; // "≈ 48 barre"
+
+  // Per eventuali usi interni
   projectionLabel?: string;
-
-  // 🔹 Nuovi campi per la card TF
-  //   - percentuale di completamento del ciclo breve
-  //   - barre residue della fase corrente
-  //   - barre alla prossima finestra/pivot
-  completionPct?: number | null;
-  phaseRemainingLabel?: string | null;
-  nextWindowCountdownLabel?: string | null;
 };
 
 export type CiclicaWindowVM = {
@@ -186,7 +192,12 @@ export type CiclicaWindowVM = {
   tfKey: string;
   tfLabel: string;
 
-  typeKey: "cuspide_breve" | "valle_medio_orizzonte" | "nodo_transizione" | "sforzo_estremo" | string;
+  typeKey:
+  | "cuspide_breve"
+  | "valle_medio_orizzonte"
+  | "nodo_transizione"
+  | "sforzo_estremo"
+  | string;
   typeLabel: string;
   typeShortLabel: string;
 
@@ -346,67 +357,47 @@ function mapCiclicaTfBlock(
 
   const qualityScore = cicloRilevante?.qualita ?? 0;
 
-  // ---------------------------------------------------------------------------
-  // 1) Completamento ciclo e fase residua (dal ciclo breve, se disponibile)
-  // ---------------------------------------------------------------------------
-  const cicloBreve = raw.ciclo_breve;
-
+  // --------------------------------------------
+  // Durata ciclo / residua / finestra
+  // --------------------------------------------
+  let cycleDurationLabel: string | undefined;
+  let cycleRemainingLabel: string | undefined;
   let completionPct: number | null = null;
-  let phaseRemainingBars: number | null = null;
-
-  if (cicloBreve) {
-    // Se il backend ci dà già il valore, usiamo quello
-    if (typeof cicloBreve.completamento_pct === "number") {
-      completionPct = cicloBreve.completamento_pct;
-    }
-
-    const faseResidua =
-      typeof cicloBreve.fase_residua_candele === "number"
-        ? cicloBreve.fase_residua_candele
-        : cicloBreve.durata_residua_candele ?? null;
-
-    if (typeof faseResidua === "number") {
-      phaseRemainingBars = faseResidua;
-    }
-
-    // Altrimenti lo ricaviamo da durata_media / durata_residua
-    if (
-      completionPct == null &&
-      typeof cicloBreve.durata_media_candele === "number" &&
-      cicloBreve.durata_media_candele > 0 &&
-      typeof cicloBreve.durata_residua_candele === "number" &&
-      cicloBreve.durata_residua_candele >= 0
-    ) {
-      const media = cicloBreve.durata_media_candele;
-      const residua = cicloBreve.durata_residua_candele;
-      const completate = media - residua;
-      const pct = (completate / media) * 100;
-      completionPct = Math.max(0, Math.min(100, pct));
-    }
-  }
-
-  const phaseRemainingLabel =
-    phaseRemainingBars != null ? `≈ ${Math.round(phaseRemainingBars)} barre` : null;
-
-  // ---------------------------------------------------------------------------
-  // 2) Proiezione e countdown prossima finestra (da windows_2_5)
-  // ---------------------------------------------------------------------------
-  let projectionLabel: string | undefined;
+  let phaseRemainingLabel: string | null = null;
   let nextWindowCountdownLabel: string | null = null;
+  let projectionLabel: string | undefined;
 
   const barsToPivot = window25?.proiezione?.bars_to_pivot;
+  const pivotAge = window25?.pivot_age_bars;
 
-  if (typeof barsToPivot === "number" && !Number.isNaN(barsToPivot)) {
-    const barsRounded = Math.round(barsToPivot);
-    nextWindowCountdownLabel = `≈ ${barsRounded} barre`;
+  if (typeof barsToPivot === "number") {
+    const rem = Math.round(barsToPivot);
+    cycleRemainingLabel = `≈ ${rem} barre`;
+    nextWindowCountdownLabel = `≈ ${rem} barre`;
 
-    if (barsRounded <= 3) {
-      projectionLabel = `≈ ${barsRounded} barre (svolta molto vicina)`;
-    } else if (barsRounded <= 10) {
-      projectionLabel = `≈ ${barsRounded} barre (fase matura)`;
-    } else {
-      projectionLabel = `≈ ${barsRounded} barre (margine ampio)`;
-    }
+    if (rem <= 3) projectionLabel = `≈ ${rem} barre (svolta molto vicina)`;
+    else if (rem <= 10) projectionLabel = `≈ ${rem} barre (fase matura)`;
+    else projectionLabel = `≈ ${rem} barre (margine ampio)`;
+  }
+
+  if (typeof pivotAge === "number" && typeof barsToPivot === "number") {
+    const tot = Math.round(pivotAge + barsToPivot);
+    if (tot > 0) cycleDurationLabel = `≈ ${tot} barre`;
+  }
+
+  if (!cycleDurationLabel && cycleRemainingLabel) {
+    cycleDurationLabel = cycleRemainingLabel;
+  }
+
+  // Completamento ciclo
+  const breve = raw.ciclo_breve;
+
+  if (breve?.completamento_pct != null) {
+    completionPct = breve.completamento_pct;
+  }
+
+  if (breve?.fase_residua_candele != null) {
+    phaseRemainingLabel = `≈ ${breve.fase_residua_candele} barre`;
   }
 
   return {
@@ -417,15 +408,13 @@ function mapCiclicaTfBlock(
     rangePositionLabel,
     convergenceLabel,
     distortionLabel,
-    phaseTooltip: undefined,
-    rangeTooltip: undefined,
-    convergenceTooltip: undefined,
-    distortionTooltip: undefined,
     qualityScore,
-    projectionLabel,
+    cycleDurationLabel,
+    cycleRemainingLabel,
     completionPct,
     phaseRemainingLabel,
     nextWindowCountdownLabel,
+    projectionLabel,
   };
 }
 
