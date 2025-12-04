@@ -49,8 +49,16 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     );
   }
 
-  const { activeTimeframes, cyclesByTf, windows, timelineItems, scenariosCompatibility, strategiaAiCompat, narrative } =
-    data;
+  const {
+    activeTimeframes,
+    cyclesByTf,
+    windows,
+    timelineItems,
+    scenariosCompatibility,
+    strategiaAiCompat,
+    narrative,
+    summary,           // 👈 aggiunto
+  } = data as CiclicaViewModel;
 
   const activeWindows = windows.filter((w) => w.stateKey === "attiva" || w.stateKey === "in_arrivo");
   const historicalWindows = windows.filter((w) => w.stateKey === "storica");
@@ -106,6 +114,9 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
           scenarios={scenariosCompatibility}
           strategia={strategiaAiCompat ?? undefined}
         />
+
+        {/* Sintesi ciclica multi-timeframe ------------------------------------- */}
+        <SummarySection summary={summary} />
 
         {/* Narrativa gassosa ---------------------------------------------------- */}
         <NarrativeSection narrative={narrative} />
@@ -208,6 +219,7 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   </span>
                 </div>
               )}
+
               {tfBlock.cycleRemainingLabel && (
                 <div className="flex items-center justify-between">
                   <span className="text-muted-foreground">Durata residua</span>
@@ -271,7 +283,7 @@ function WindowsSection({ activeWindows }: WindowsSectionProps) {
         </CardDescription>
       </CardHeader>
       <CardContent>
-        <ScrollArea className="max-h-[320px] pr-2">
+        <ScrollArea className="max-h-80 pr-2">
           <div className="flex flex-col gap-3">
             {activeWindows.map((win) => (
               <WindowCard key={win.id} window={win} />
@@ -481,6 +493,30 @@ function CompatibilitySection({ scenarios, strategia }: CompatibilitySectionProp
 }
 
 // ----------------------------------------------------------------------------- //
+
+interface SummarySectionProps {
+  summary: string;
+}
+
+function SummarySection({ summary }: SummarySectionProps) {
+  if (!summary) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Sintesi ciclica multi-timeframe</CardTitle>
+        <CardDescription>
+          Proiezione sintetica di durata e fase dei cicli sui timeframe monitorati.
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm leading-relaxed whitespace-pre-line">
+          {summary}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface NarrativeSectionProps {
   narrative: string;

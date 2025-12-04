@@ -70,7 +70,14 @@ const PATTERN_OPTIONS: { value: PatternKey; label: string }[] = [
   { value: "triple_top", label: "Triple Top" },
 ];
 
-// PRESET ---------------------------------------------------------
+// Mappa la direzione del pattern in una freccia visiva
+function getDirectionArrow(direction?: string): string {
+  if (!direction) return "·";
+  const dir = direction.toUpperCase();
+  if (dir === "BULL") return "↑";
+  if (dir === "BEAR") return "↓";
+  return "·"; // per NEUTRAL o altri casi
+}
 
 // PRESET ---------------------------------------------------------
 
@@ -708,29 +715,89 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
                       </span>{" "}
                       setup Orione.
                     </div>
-                    <div className="space-y-1 max-h-64 overflow-auto pr-1">
-                      {results.map((s, idx) => (
-                        <div
-                          key={`${s.coin}-${s.timeframe}-${idx}`}
-                          className="border border-white/10 rounded-md px-2 py-1.5 bg-black/40"
-                        >
-                          <div className="flex items-center justify-between">
-                            <div className="font-semibold text-white/90">
-                              {s.coin} · {s.timeframe.toUpperCase()}
-                            </div>
-                            <div className="text-[10px] text-emerald-300 uppercase tracking-wide">
-                              {s.status}
-                            </div>
+                    <div className="max-h-64 overflow-auto pr-1">
+                      {(() => {
+                        // suddivido i setup in UP / DOWN / NEUTRAL
+                        const up: OrioneSetup[] = [];
+                        const down: OrioneSetup[] = [];
+                        const neutral: OrioneSetup[] = [];
+
+                        results.forEach((s: OrioneSetup) => {
+                          const directions = s.patterns_hit.map((p: OrionePatternHit) =>
+                            ((p.extra?.direction as string | undefined) ?? "").toUpperCase()
+                          );
+
+                          if (directions.includes("BULL")) {
+                            up.push(s);
+                          } else if (directions.includes("BEAR")) {
+                            down.push(s);
+                          } else {
+                            neutral.push(s);
+                          }
+                        });
+
+                        // funzione di rendering tipizzata
+                        const renderBlock = (title: string, arr: OrioneSetup[]) => (
+                          <div className="space-y-1">
+                            <div className="font-semibold text-white/80 mb-1">{title}</div>
+
+                            {arr.length === 0 && (
+                              <div className="text-white/40 text-xs mb-3">Nessun segnale.</div>
+                            )}
+
+                            {arr.map((s: OrioneSetup, idx: number) => (
+                              <div
+                                key={`${s.coin}-${s.timeframe}-${idx}`}
+                                className="border border-white/10 rounded-md px-2 py-1.5 bg-black/40"
+                              >
+                                <div className="flex items-center justify-between">
+                                  <div className="font-semibold text-white/90">
+                                    {s.coin} · {s.timeframe.toUpperCase()}
+                                  </div>
+                                  <div className="text-[10px] text-emerald-300 uppercase tracking-wide">
+                                    {s.status}
+                                  </div>
+                                </div>
+
+                                <div className="text-[11px] text-white/70 mt-0.5">
+                                  {formatTimestamp(s.timestamp)} · Candela #{s.candle_index} · Prezzo{" "}
+                                  {s.price !== null && s.price !== undefined
+                                    ? s.price.toFixed(4)
+                                    : "—"}
+                                </div>
+
+                                <div className="text-[11px] text-white/60 mt-0.5">
+                                  Pattern:&nbsp;
+                                  {s.patterns_hit.map((p: OrionePatternHit, i: number) => {
+                                    const extra = p.extra || {};
+                                    const direction = (extra.direction as string | undefined) ?? "";
+                                    const arrow = getDirectionArrow(direction);
+                                    const name = (extra.name as string | undefined) ?? p.key;
+
+                                    return (
+                                      <span
+                                        key={`${p.key}-${i}`}
+                                        className="inline-flex items-center gap-1 mr-2"
+                                      >
+                                        <span className="font-semibold">{arrow}</span>
+                                        <span>{name}</span>
+                                      </span>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            ))}
                           </div>
-                          <div className="text-[11px] text-white/70 mt-0.5">
-                            {formatTimestamp(s.timestamp)} · Candela #{s.candle_index} · Prezzo{" "}
-                            {s.price !== null && s.price !== undefined ? s.price.toFixed(4) : "—"}
+                        );
+
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {renderBlock("🟢 UP SIGNAL", up)}
+                            {renderBlock("🔴 DOWN SIGNAL", down)}
+                            {renderBlock("⚪ NEUTRAL SIGNAL", neutral)}
                           </div>
-                          <div className="text-[11px] text-white/60 mt-0.5">
-                            Pattern: {s.patterns_hit.map((p) => p.key).join(", ")}
-                          </div>
-                        </div>
-                      ))}
+                        );
+                      })()}
                     </div>
                   </>
                 )}

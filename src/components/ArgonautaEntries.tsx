@@ -43,6 +43,7 @@ export type EntryItem = {
   strengthVal?: number;
   distancePct?: number;
   // extra
+  ai?: boolean; // true se confermato anche da StrategiaAI
   description?: string;
   tfs?: string[];
   confidence?: number;
@@ -116,16 +117,22 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
         alert ? "border-red-500/60 bg-red-500/10" : "border-white/10 bg-white/5"
       ].join(" ")}
     >
-      {/* header: label + score */}
+      {/* header: label + tag AI + score */}
       <div className="flex items-center justify-between mb-0.5">
-        <div className="font-semibold">{item.label}</div>
+        <div className="flex items-center gap-2">
+          <div className="font-semibold">{item.label}</div>
+          {item.ai && (
+            <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+              AI
+            </span>
+          )}
+        </div>
         {typeof item.confidence === 'number' && (
           <span className="text-xs px-2 py-0.5 rounded bg-white/10 border border-white/15">
             {item.confidence}%
           </span>
         )}
       </div>
-
       {/* descrizione sotto (al posto del tipo ripetuto) */}
       {item.description && (
         <div className="text-xs text-white/60 mb-1">{item.description}</div>
@@ -195,6 +202,81 @@ function readPriceHint(results: ResultsByCategory, fallback?: number): number | 
   return fallback;
 }
 
+// helper per scandire in profondità il risultato Cassandra e trovare array di "entries"
+function gp(obj: any, path: string[]) {
+  return path.reduce(
+    (o, k) => (o && typeof o === 'object' ? (o as any)[k] : undefined),
+    obj,
+  );
+}
+
+function quickExtractEntries(result: any): any[] {
+  const basePaths: string[][] = [
+    ['strategia_ai', 'entries'],
+    ['strategia_ai', 'candidati'],
+    ['strategia_ai', 'segnali'],
+    ['strategia_ai', 'levels'],
+    ['strategia_ai', 'liquidity'],
+
+    ['risposte', 'strategia_ai', 'entries'],
+    ['risposte', 'strategia_ai', 'candidati'],
+    ['risposte', 'strategia_ai', 'levels'],
+    ['risposte', 'strategia_ai', 'liquidity'],
+
+    ['risposte', 'entries'],
+    ['entries'],
+    ['segnali'],
+    ['setups'],
+  ];
+
+  // 1) proviamo i path "standard"
+  for (const p of basePaths) {
+    const arr = gp(result, p);
+    if (Array.isArray(arr) && arr.length) return arr;
+  }
+
+  // 2) fallback: scan profonda con euristica
+  const out: any[] = [];
+  const seen = new WeakSet();
+
+  const looksLikeEntryObj = (x: any) => {
+    if (!x || typeof x !== 'object') return false;
+    const keys = Object.keys(x).map((k) => k.toLowerCase());
+    const has = (k: string) => keys.includes(k);
+    const anyOf = (...kk: string[]) => kk.some(has);
+    const hasEntry = anyOf('entry', 'price', 'range', 'range_min', 'range_max', 'zona', 'level', 'livello');
+    const hasStop = anyOf('stop', 'sl', 'invalid', 'invalidation');
+    const hasTp = anyOf('tp', 'tp1', 'target', 'target1');
+    const hasDir = anyOf('dir', 'direction', 'side', 'tipo');
+    return hasEntry && (hasStop || hasTp || hasDir);
+  };
+
+  const walk = (node: any) => {
+    if (!node || typeof node !== 'object' || seen.has(node)) return;
+    seen.add(node);
+    if (Array.isArray(node)) {
+      const looks = node.filter(looksLikeEntryObj);
+      if (looks.length) { looks.forEach((e) => out.push(e)); return; }
+      node.forEach(walk);
+      return;
+    }
+    for (const [k, v] of Object.entries(node)) {
+      if (
+        Array.isArray(v) &&
+        /entr(y|ies)|candidati|strategie|setup|segnali|levels|liquidity/i.test(k) &&
+        (v as any[]).some(looksLikeEntryObj)
+      ) {
+        (v as any[]).filter(looksLikeEntryObj).forEach((e) => out.push(e));
+      } else {
+        walk(v);
+      }
+    }
+  };
+
+  walk(result);
+  return out;
+}
+
 function collectItemsFromResults(symbol: string, results: ResultsByCategory): EntryItem[] {
   const items: EntryItem[] = [];
   const push = (it: Partial<EntryItem> & { label: string }) =>
@@ -209,15 +291,13 @@ function collectItemsFromResults(symbol: string, results: ResultsByCategory): En
       ...it,
     });
 
-  // normalizzazione permissiva: cerca array “ovvi”
+  // normalizzazione permissiva: usa quickExtractEntries che scava in profondità
   for (const cat of ['scalping', 'reattivo', 'swing', 'positional'] as CategoryKey[]) {
     const res = results[cat];
     if (!res) continue;
-    const arr =
-      (Array.isArray((res as any).entries) && (res as any).entries) ||
-      (Array.isArray((res as any).items) && (res as any).items) ||
-      (Array.isArray((res as any).setup) && (res as any).setup) ||
-      [];
+
+    const arr = quickExtractEntries(res);
+
     arr.forEach((raw: any, idx: number) => {
       const entry =
         Array.isArray(raw?.entry) && raw.entry.length >= 2
@@ -264,10 +344,40 @@ export default function ArgonautaEntriesList({
     return collectItemsFromResults(symbol, results);
   }, [symbol, results, argonautaIdea]);
 
+  // 1bis) Entry Cassandra per confronto (serve per tag "AI")
+  const cassandraItems = useMemo(
+    () => collectItemsFromResults(symbol, results),
+    [symbol, results],
+  );
+
+  const withAiFlag: EntryItem[] = useMemo(() => {
+    if (!cassandraItems.length) return itemsBase;
+
+    const isMatch = (a: EntryItem, b: EntryItem): boolean => {
+      // direzione coerente (se entrambe definite)
+      if (a.dir && b.dir && a.dir !== b.dir) return false;
+
+      const ma = mid(a.entry);
+      const mb = mid(b.entry);
+      if (!Number.isFinite(ma as number) || !Number.isFinite(mb as number)) return false;
+
+      // entry abbastanza vicine (±0.1%)
+      const entryClose =
+        Math.abs((ma as number) - (mb as number)) / Math.abs(mb as number) <= 0.001;
+
+      return entryClose;
+    };
+
+    return itemsBase.map((it) => {
+      const matched = cassandraItems.some((base) => isMatch(it, base));
+      return matched ? { ...it, ai: true } : it;
+    });
+  }, [itemsBase, cassandraItems]);
+
   // 2) Distanza dal prezzo come prima
   const price = readPriceHint(results, priceHint);
   const items = useMemo(() => {
-    return itemsBase.map((it) => {
+    return withAiFlag.map((it) => {
       const midEntry = mid(it.entry);
       const distancePct =
         Number.isFinite(price) && Number.isFinite(midEntry)
@@ -275,7 +385,7 @@ export default function ArgonautaEntriesList({
           : undefined;
       return { ...it, distancePct };
     });
-  }, [itemsBase, price]);
+  }, [withAiFlag, price]);
 
   if (!items.length) {
     return (

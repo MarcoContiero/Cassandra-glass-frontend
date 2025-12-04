@@ -9,7 +9,7 @@ import React, {
   useState,
 } from 'react';
 import { Button } from '@/components/ui/button';
-import ArgonautaEntriesList from '@/components/ArgonautaEntries';
+import ArgonautaEntriesList, { ArgonautaLegendButton } from '@/components/ArgonautaEntries';
 import { buildSuggestions, winnerDirection, Suggestion } from '@/ts/argonauta/extract';
 
 
@@ -67,8 +67,16 @@ function quickExtractEntries(result: any): any[] {
     ['strategia_ai', 'entries'],
     ['strategia_ai', 'candidati'],
     ['strategia_ai', 'segnali'],
+    // 👉 nuovi percorsi diretti per setup di tipo levels / liquidity
+    ['strategia_ai', 'levels'],
+    ['strategia_ai', 'liquidity'],
+
     ['risposte', 'strategia_ai', 'entries'],
     ['risposte', 'strategia_ai', 'candidati'],
+    // 👉 anche nel ramo "risposte"
+    ['risposte', 'strategia_ai', 'levels'],
+    ['risposte', 'strategia_ai', 'liquidity'],
+
     ['risposte', 'entries'],
     ['entries'],
     ['segnali'],
@@ -220,6 +228,9 @@ function flattenEntries(results: any): any[] {
     if (Array.isArray(v)) out.push(...v);
     else if (v && Array.isArray(v.items)) out.push(...v.items);
     else if (v && Array.isArray(v.list)) out.push(...v.list);
+    // 👉 nuovi: supporto esplicito per livelli e liquidità
+    else if (v && Array.isArray(v.levels)) out.push(...v.levels);
+    else if (v && Array.isArray(v.liquidity)) out.push(...v.liquidity);
   });
   return out;
 }
@@ -388,8 +399,17 @@ export default function ArgonautaPanel() {
         <h2 className="text-lg font-semibold text-white/90">
           🧭 Argonauta — Entrate vicine valide
         </h2>
+        <ArgonautaLegendButton>
+          <span className="text-xs text-white/80">
+            <span className="inline-flex items-center gap-1">
+              <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+                AI
+              </span>
+              <span>= confermato da Cassandra</span>
+            </span>
+          </span>
+        </ArgonautaLegendButton>
       </div>
-
       {/* Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
         {/* Frequenza */}

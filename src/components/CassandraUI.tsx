@@ -661,7 +661,9 @@ export default function CassandraUI() {
           <div className="ml-auto flex items-center gap-2">
             <span className="text-sm opacity-70">Prezzo</span>
             <span className="px-2 py-1 rounded bg-white/10 border border-white/15 font-mono tabular-nums">
-              {(prezzo as number).toLocaleString("it-IT")}
+              {(prezzo as number).toLocaleString("it-IT", {
+                maximumFractionDigits: 8,
+              })}
             </span>
           </div>
         )}

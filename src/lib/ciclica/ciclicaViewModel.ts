@@ -14,6 +14,7 @@ export type CiclicaRaw = {
   compatibilita_scenari?: Record<string, CompatScenarioRaw>;
   compatibilita_strategia_ai?: CompatStrategiaRaw | null;
   narrativa_gassosa?: string;
+  sintesi_ciclica_multi_tf?: string;   // 👈 aggiunta
   windows_2_5?: CiclicaWindows25Raw;
 };
 
@@ -155,6 +156,7 @@ export type CiclicaViewModel = {
   scenariosCompatibility: CiclicaScenarioCompatVM[];
   strategiaAiCompat?: CiclicaStrategiaCompatVM;
   narrative: string;
+  summary: string; // sintesi multi-TF dal backend
 };
 
 export type CiclicaTfBlock = {
@@ -319,6 +321,7 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     : undefined;
 
   const narrative = raw.narrativa_gassosa ?? "";
+  const summary = raw.sintesi_ciclica_multi_tf ?? "";
 
   return {
     activeTimeframes,
@@ -328,7 +331,9 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     scenariosCompatibility,
     strategiaAiCompat,
     narrative,
+    summary,
   };
+
 }
 
 // -----------------------------------------------------------------------------
