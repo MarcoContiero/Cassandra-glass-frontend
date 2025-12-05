@@ -220,4 +220,80 @@ export const mockCiclica: CiclicaRaw = {
   narrativa_gassosa:
     "Il ciclo breve su 1h si avvicina a una Cuspide, mentre il 4h prepara una Valle di Medio Orizzonte. " +
     "Il daily evidenzia un Nodo di Transizione in arrivo: Cassandra considera questa zona temporale ad alta sensibilità.",
+
+  windows_2_5: {
+    per_tf: {
+      "1h": {
+        tf: "1h",
+        fase: "flat",
+        pivot_dir: "ND",
+        pivot_type: "ND",
+        pivot_age_bars: 0,
+        a_norm: 0.2,
+        eta_norm: 0,
+        over_extension: false,
+        flags: {
+          warning_late: false,
+          warning_overext: false,
+          in_fase_di_inversione: false,
+        },
+        proiezione: {
+          bars_to_pivot: 24,
+          eta_restante: 1,
+        },
+      },
+      "4h": {
+        tf: "4h",
+        fase: "flat",
+        pivot_dir: "ND",
+        pivot_type: "ND",
+        pivot_age_bars: 0,
+        a_norm: 1,
+        eta_norm: 0,
+        over_extension: false,
+        flags: {
+          warning_late: false,
+          warning_overext: false,
+          in_fase_di_inversione: false,
+        },
+        proiezione: {
+          bars_to_pivot: 42,
+          eta_restante: 1,
+        },
+      },
+      "1d": {
+        tf: "1d",
+        fase: "flat",
+        pivot_dir: "ND",
+        pivot_type: "ND",
+        pivot_age_bars: 0,
+        a_norm: 0.63,
+        eta_norm: 0,
+        over_extension: false,
+        flags: {
+          warning_late: false,
+          warning_overext: false,
+          in_fase_di_inversione: false,
+        },
+        proiezione: {
+          bars_to_pivot: 28,
+          eta_restante: 1,
+        },
+      },
+    },
+    multi_tf: {
+      bias: "misto",
+      coerenza: 0,
+      conteggio: {
+        long: 0,
+        short: 0,
+        flat: 0,
+        nd: 3,
+      },
+      flags: {
+        dissonanza_forte: false,
+        inversione_probabile: false,
+      },
+    },
+  },
 };

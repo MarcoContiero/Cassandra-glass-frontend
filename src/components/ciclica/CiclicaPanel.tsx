@@ -246,6 +246,18 @@ function CyclesByTfSection({ cyclesByTf }: CyclesByTfSectionProps) {
                   <span className="font-medium">{tfBlock.nextWindowCountdownLabel}</span>
                 </div>
               )}
+              {tfBlock.pivotCountdownLabel && (
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">Prossimo pivot</span>
+                  <span className="font-medium">{tfBlock.pivotCountdownLabel}</span>
+                </div>
+              )}
+
+              {tfBlock.pivotFlagsLabel && (
+                <div className="mt-1 text-[0.7rem] text-muted-foreground">
+                  {tfBlock.pivotFlagsLabel}
+                </div>
+              )}
             </div>
           ))}
         </div>

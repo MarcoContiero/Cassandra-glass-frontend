@@ -182,6 +182,10 @@ export type CiclicaTfBlock = {
   completionPct: number | null;         // es. 100
   phaseRemainingLabel?: string;         // es. "≈ 0 barre"
   nextWindowCountdownLabel?: string;    // es. "≈ 28 barre"
+
+  // Proiezione pivot 2.5 (windows_2_5)
+  pivotCountdownLabel?: string;         // es. "≈ 42 barre"
+  pivotFlagsLabel?: string;             // es. "over-extension · ciclo in ritardo"
 };
 
 export type CiclicaWindowVM = {
@@ -400,6 +404,39 @@ function mapCiclicaTfBlock(
     )} barre`;
   }
 
+  // ------------------------------------------------------------
+  // Proiezione pivot (windows_2_5)
+  // ------------------------------------------------------------
+  let pivotCountdownLabel: string | undefined;
+  let pivotFlagsLabel: string | undefined;
+
+  if (window25 && typeof window25.proiezione?.bars_to_pivot === "number") {
+    const bars = Math.round(window25.proiezione.bars_to_pivot);
+    pivotCountdownLabel = `≈ ${bars} barre`;
+  }
+
+  if (window25?.flags) {
+    const flagsOn = Object.entries(window25.flags)
+      .filter(([, v]) => Boolean(v))
+      .map(([k]) => {
+        switch (k) {
+          case "in_fase_di_inversione":
+            return "in fase di inversione";
+          case "warning_overext":
+          case "over_extension":
+            return "over-extension";
+          case "warning_late":
+            return "ciclo in ritardo";
+          default:
+            return k.replace(/_/g, " ");
+        }
+      });
+
+    if (flagsOn.length) {
+      pivotFlagsLabel = flagsOn.join(" · ");
+    }
+  }
+
   return {
     tfKey,
     tfLabel,
@@ -417,6 +454,9 @@ function mapCiclicaTfBlock(
     completionPct,
     phaseRemainingLabel,
     nextWindowCountdownLabel,
+
+    pivotCountdownLabel,
+    pivotFlagsLabel,
   };
 }
 
