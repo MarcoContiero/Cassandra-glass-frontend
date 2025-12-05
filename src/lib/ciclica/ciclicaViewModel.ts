@@ -11,11 +11,19 @@ export type CiclicaRaw = {
   cicli_per_tf?: Record<string, CicliPerTfRaw>;
   finestre_per_tf?: Record<string, FinestraCiclicaRaw[]>;
   timeline?: Record<string, TimelineItemRaw[]>;
+
   compatibilita_scenari?: Record<string, CompatScenarioRaw>;
   compatibilita_strategia_ai?: CompatStrategiaRaw | null;
+
   narrativa_gassosa?: string;
-  sintesi_ciclica_multi_tf?: string;   // 👈 aggiunta
+  sintesi_ciclica_multi_tf?: string;   // 👈 sintesi multi-TF dal BE
+
   windows_2_5?: CiclicaWindows25Raw;
+
+  roadmap_temporale?: string;
+
+  // 🔵 Nodo di Transizione ciclico (multi-TF)
+  nodo_transizione?: NodoTransizioneRaw | null;
 };
 
 // Nuovo: finestre cicliche 2.5 (windows_2_5) con proiezione
@@ -40,6 +48,24 @@ export type CiclicaWindow25PerTfRaw = {
 export type CiclicaWindows25Raw = {
   per_tf?: Record<string, CiclicaWindow25PerTfRaw>;
   multi_tf?: Record<string, any>;
+};
+
+// Nodo di Transizione – forma raw dal backend
+export type NodoTransizioneParamsRaw = {
+  tf_daily_completamento?: number | null;
+  tf_daily_stato?: string | null;
+  tf_12h_residuo?: number | null;
+  tf_12h_fase?: string | null;
+  tf_4h_chiarezza?: boolean | null;
+  tf_1h_partito?: boolean | null;
+  range_basso?: number | null;
+  range_alto?: number | null;
+};
+
+export type NodoTransizioneRaw = {
+  attivo?: boolean | null;
+  params?: NodoTransizioneParamsRaw | null;
+  narrativa?: string | null;
 };
 
 export type CicliPerTfRaw = {
@@ -155,8 +181,30 @@ export type CiclicaViewModel = {
   timelineItems: CiclicaTimelineVM[];
   scenariosCompatibility: CiclicaScenarioCompatVM[];
   strategiaAiCompat?: CiclicaStrategiaCompatVM;
+
   narrative: string;
   summary: string; // sintesi multi-TF dal backend
+
+  roadmap: string;
+
+  // 🔵 Nodo di Transizione (già mappato e pronto per il FE)
+  nodoTransizione?: CiclicaNodoTransizioneVM;
+};
+
+export type CiclicaNodoTransizioneVM = {
+  active: boolean;
+
+  dailyCompletionLabel: string;
+  dailyPhaseLabel: string;
+
+  h12ResidualLabel: string;
+  h12PhaseLabel: string;
+
+  h4ClarityLabel: string;
+  h1StartedLabel: string;
+
+  priceRangeLabel: string;
+  narrative: string;
 };
 
 export type CiclicaTfBlock = {
@@ -326,6 +374,11 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
 
   const narrative = raw.narrativa_gassosa ?? "";
   const summary = raw.sintesi_ciclica_multi_tf ?? "";
+  const roadmap = raw.roadmap_temporale ?? "";
+
+  const nodoTransizione = raw.nodo_transizione
+    ? mapNodoTransizione(raw.nodo_transizione)
+    : undefined;
 
   return {
     activeTimeframes,
@@ -336,8 +389,77 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     strategiaAiCompat,
     narrative,
     summary,
+    roadmap,
+    nodoTransizione,
   };
+}
 
+function mapNodoTransizione(raw: NodoTransizioneRaw | null | undefined): CiclicaNodoTransizioneVM | undefined {
+  if (!raw) return undefined;
+  if (raw.attivo === false) return undefined;
+
+  const p = raw.params ?? {};
+
+  const dailyComp = p.tf_daily_completamento ?? null;
+  const dailyPhase = p.tf_daily_stato ?? "";
+
+  const h12Resid = p.tf_12h_residuo ?? null;
+  const h12Phase = p.tf_12h_fase ?? "";
+
+  const h4Clarity = p.tf_4h_chiarezza;
+  const h1Started = p.tf_1h_partito;
+
+  const priceMin = p.range_basso ?? null;
+  const priceMax = p.range_alto ?? null;
+
+  const narrative = raw.narrativa ?? "";
+
+  if (!narrative && !p) return undefined;
+
+  const dailyCompletionLabel =
+    dailyComp != null ? `${Math.round(dailyComp)}%` : "n.d.";
+
+  const dailyPhaseLabel = dailyPhase || "Fase non definita";
+
+  const h12ResidualLabel =
+    h12Resid != null ? `≈ ${Math.round(h12Resid)} barre` : "n.d.";
+
+  const h12PhaseLabel = h12Phase || "Fase non definita";
+
+  const h4ClarityLabel =
+    typeof h4Clarity === "boolean"
+      ? h4Clarity
+        ? "Struttura chiara (pivot di conferma)"
+        : "Fase di ricalibrazione"
+      : "n.d.";
+
+  const h1StartedLabel =
+    typeof h1Started === "boolean"
+      ? h1Started
+        ? "Ciclo breve già ripartito"
+        : "Ciclo breve non ancora avviato"
+      : "n.d.";
+
+  let priceRangeLabel = "";
+  if (priceMin != null && priceMax != null) {
+    priceRangeLabel = `≈ ${Math.round(priceMin)} – ${Math.round(priceMax)} USD`;
+  } else {
+    priceRangeLabel = "Range non definito";
+  }
+
+  const isActive: boolean = raw.attivo == null ? true : !!raw.attivo;
+
+  return {
+    active: isActive,
+    dailyCompletionLabel,
+    dailyPhaseLabel,
+    h12ResidualLabel,
+    h12PhaseLabel,
+    h4ClarityLabel,
+    h1StartedLabel,
+    priceRangeLabel,
+    narrative,
+  };
 }
 
 // -----------------------------------------------------------------------------

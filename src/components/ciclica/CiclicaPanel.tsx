@@ -7,6 +7,7 @@ import type {
   CiclicaTfBlock,
   CiclicaWindowVM,
   CiclicaTimelineVM,
+  CiclicaNodoTransizioneVM,
 } from "@/lib/ciclica/ciclicaViewModel";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -57,7 +58,9 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     scenariosCompatibility,
     strategiaAiCompat,
     narrative,
-    summary,           // 👈 aggiunto
+    summary,
+    roadmap,
+    nodoTransizione,
   } = data as CiclicaViewModel;
 
   const activeWindows = windows.filter((w) => w.stateKey === "attiva" || w.stateKey === "in_arrivo");
@@ -109,6 +112,9 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
         {/* Timeline sintetica --------------------------------------------------- */}
         <TimelineSection items={timelineItems} />
 
+        {/* Nodo di Transizione ciclica ----------------------------------------- */}
+        <NodoTransizioneSection nodo={nodoTransizione} />
+
         {/* Compatibilità scenari / Strategia AI -------------------------------- */}
         <CompatibilitySection
           scenarios={scenariosCompatibility}
@@ -117,6 +123,9 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
 
         {/* Sintesi ciclica multi-timeframe ------------------------------------- */}
         <SummarySection summary={summary} />
+
+        {/* Roadmap temporale del ciclo ----------------------------------------- */}
+        <RoadmapSection roadmap={roadmap} />
 
         {/* Narrativa gassosa ---------------------------------------------------- */}
         <NarrativeSection narrative={narrative} />
@@ -530,6 +539,30 @@ function SummarySection({ summary }: SummarySectionProps) {
   );
 }
 
+interface RoadmapSectionProps {
+  roadmap: string;
+}
+
+function RoadmapSection({ roadmap }: RoadmapSectionProps) {
+  if (!roadmap) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Roadmap temporale del ciclo</CardTitle>
+        <CardDescription>
+          Sequenza sintetica degli eventi ciclici attesi (fase, pivot, nuova struttura).
+        </CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm leading-relaxed whitespace-pre-line">
+          {roadmap}
+        </p>
+      </CardContent>
+    </Card>
+  );
+}
+
 interface NarrativeSectionProps {
   narrative: string;
 }
@@ -555,6 +588,67 @@ function NarrativeSection({ narrative }: NarrativeSectionProps) {
 }
 
 // -----------------------------------------------------------------------------
+
+interface NodoTransizioneSectionProps {
+  nodo?: CiclicaNodoTransizioneVM;
+}
+
+function NodoTransizioneSection({ nodo }: NodoTransizioneSectionProps) {
+  if (!nodo || !nodo.active) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Nodo di Transizione ciclica</CardTitle>
+        <CardDescription>
+          Finestra in cui il ciclo principale si chiude mentre i cicli intermedi e brevi si
+          ricalibrano, generando un possibile cambio di regime.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3">
+        <div className="grid gap-2 md:grid-cols-2 text-xs">
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Completamento ciclo daily</span>
+            <span className="font-medium">{nodo.dailyCompletionLabel}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Fase ciclo daily</span>
+            <span className="font-medium">{nodo.dailyPhaseLabel}</span>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Residuo ciclo 12h</span>
+            <span className="font-medium">{nodo.h12ResidualLabel}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Fase ciclo 12h</span>
+            <span className="font-medium">{nodo.h12PhaseLabel}</span>
+          </div>
+
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Stato 4h</span>
+            <span className="font-medium">{nodo.h4ClarityLabel}</span>
+          </div>
+          <div className="flex flex-col gap-0.5">
+            <span className="text-muted-foreground">Stato 1h</span>
+            <span className="font-medium">{nodo.h1StartedLabel}</span>
+          </div>
+
+          <div className="flex flex-col gap-0.5 md:col-span-2">
+            <span className="text-muted-foreground">Range di prezzo del nodo</span>
+            <span className="font-medium">{nodo.priceRangeLabel}</span>
+          </div>
+        </div>
+
+        {nodo.narrative && (
+          <div className="mt-2 text-sm leading-relaxed text-muted-foreground whitespace-pre-line">
+            {nodo.narrative}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
 
 interface HistoricalWindowsSectionProps {
   historicalWindows: CiclicaWindowVM[];

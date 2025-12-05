@@ -221,6 +221,11 @@ export const mockCiclica: CiclicaRaw = {
     "Il ciclo breve su 1h si avvicina a una Cuspide, mentre il 4h prepara una Valle di Medio Orizzonte. " +
     "Il daily evidenzia un Nodo di Transizione in arrivo: Cassandra considera questa zona temporale ad alta sensibilità.",
 
+  roadmap_temporale:
+    "Fra 1–3 barre su 1h Cassandra segnala la chiusura della fase ciclica attuale. " +
+    "Fra 7–10 barre su 4h è atteso un pivot ciclico strutturale. " +
+    "Fra 35–40 barre su 1d è probabile l’avvio di una nuova struttura ciclica.",
+
   windows_2_5: {
     per_tf: {
       "1h": {
