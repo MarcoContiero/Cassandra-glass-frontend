@@ -22,8 +22,94 @@ export type CiclicaRaw = {
 
   roadmap_temporale?: string;
 
+  // Roadmap ciclica strutturata (builder custom)
+  ciclica_custom?: CiclicaCustomRaw;
+
   // 🔵 Nodo di Transizione ciclico (multi-TF)
   nodo_transizione?: NodoTransizioneRaw | null;
+
+  reentry_path?: CiclicaReentryRaw | null;
+};
+
+export type CiclicaCustomPhaseRaw = {
+  id?: string;
+  ordine?: number;
+  nome?: string;
+  timeframe_riferimento?: string | null;
+  finestra_barre?: { min?: number | null; max?: number | null };
+  descrizione?: string;
+  impatto?: string;
+};
+
+export type CiclicaCustomRaw = {
+  meta?: {
+    version?: string;
+    fonte?: string;
+    note?: string;
+  };
+  roadmap?: {
+    fasi?: CiclicaCustomPhaseRaw[];
+  };
+  sintesi_operativa?: {
+    bias_strutturale?: string;
+    direzione_dominante_cicli_medi_lunghi?: string;
+    stato_cicli?: Record<string, string>;
+    testo_breve?: string;
+    nota_operativa?: string;
+  };
+  scenari?: {
+    id?: string;
+    nome?: string;
+    probabilita?: number | null;
+    descrizione?: string;
+  }[];
+  livelli_operativi?: {
+    take_profit?: Record<
+      string,
+      { valore_min?: number; valore_max?: number; tipo?: string; note?: string }
+    >;
+    stop_loss?: Record<
+      string,
+      {
+        valore_min?: number;
+        valore_max?: number;
+        valore_riferimento?: number;
+        timeframe_riferimento?: string;
+        note?: string;
+      }
+    >;
+  };
+};
+
+export type CiclicaReentryStepRaw = {
+  id?: string;
+  ordine?: number;
+  tipo?: "take_profit" | "attesa" | "reentry_long" | string;
+  label?: string;
+  finestra_barre?: { min?: number | null; max?: number | null };
+  descrizione?: string;
+  zona_reentry?: {
+    valore_min?: number | null;
+    valore_max?: number | null;
+    valore_centrale?: number | null;
+    strength?: number | null;
+  } | null;
+};
+
+export type CiclicaReentryRaw = {
+  archetipo?: string;
+  direzione_reentry?: "LONG" | "SHORT" | string;
+  fase_attuale?: string;
+  sequenza?: CiclicaReentryStepRaw[];
+  zone_operative?: {
+    take_profit_iniziale?: { min?: number | null; max?: number | null } | null;
+    zona_reentry_long?: {
+      valore_min?: number | null;
+      valore_max?: number | null;
+      valore_centrale?: number | null;
+      strength?: number | null;
+    } | null;
+  } | null;
 };
 
 // Nuovo: finestre cicliche 2.5 (windows_2_5) con proiezione
@@ -174,6 +260,46 @@ export type CompatStrategiaRaw = {
 // 2) Tipi VIEW MODEL per il FE
 // -----------------------------------------------------------------------------
 
+export type CiclicaCustomPhaseVM = {
+  id: string;
+  label: string;
+  tfLabel?: string | null;
+  barsRangeLabel?: string | null;
+  description?: string;
+  impact?: string;
+};
+
+export type CiclicaCustomRoadmapVM = {
+  hasData: boolean;
+  biasLabel: string;
+  uiSummary: string;
+  phases: CiclicaCustomPhaseVM[];
+  tpLevels: { key: string; label: string }[];
+  slLevels: { key: string; label: string }[];
+};
+
+export type CiclicaReentryStepVM = {
+  id: string;
+  order: number;
+  label: string;
+  type: "take_profit" | "attesa" | "reentry_long" | string;
+  barsRangeLabel?: string | null;
+  description?: string;
+};
+
+export type CiclicaReentryVM = {
+  hasData: boolean;
+  archetypeLabel: string;
+  directionLabel: string;
+  currentPhase: string;
+  steps: CiclicaReentryStepVM[];
+  tpLabel?: string | null;
+  reentryZoneLabel?: string | null;
+
+  // Nuovo: mini-roadmap temporale del re-entry (in ore sul TF 1h)
+  roadmapLines?: string[];
+};
+
 export type CiclicaViewModel = {
   activeTimeframes: string[];
   cyclesByTf: Record<string, CiclicaTfBlock>;
@@ -189,6 +315,11 @@ export type CiclicaViewModel = {
 
   // 🔵 Nodo di Transizione (già mappato e pronto per il FE)
   nodoTransizione?: CiclicaNodoTransizioneVM;
+
+  // 🌈 Roadmap ciclica strutturata (builder custom)
+  customRoadmap?: CiclicaCustomRoadmapVM;
+
+  reentryPath?: CiclicaReentryVM;
 };
 
 export type CiclicaNodoTransizioneVM = {
@@ -380,6 +511,10 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     ? mapNodoTransizione(raw.nodo_transizione)
     : undefined;
 
+  const customRoadmap = mapCiclicaCustom(raw.ciclica_custom)
+
+  const reentryPath = mapReentryPath(raw.reentry_path ?? null);
+
   return {
     activeTimeframes,
     cyclesByTf,
@@ -391,6 +526,194 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     summary,
     roadmap,
     nodoTransizione,
+    customRoadmap,
+    reentryPath,
+  };
+}
+
+function mapCiclicaCustom(raw: CiclicaCustomRaw | undefined): CiclicaCustomRoadmapVM | undefined {
+  if (!raw) return undefined;
+
+  const fasiRaw = raw.roadmap?.fasi ?? [];
+  const phases: CiclicaCustomPhaseVM[] = [];
+
+  for (const fase of fasiRaw) {
+    if (!fase) continue;
+    const id = fase.id || fase.nome || `fase_${phases.length}`;
+    const fb = fase.finestra_barre;
+    let barsRangeLabel: string | null = null;
+    if (fb && typeof fb.min === "number" && typeof fb.max === "number") {
+      barsRangeLabel = `Fra ${fb.min}-${fb.max} barre`;
+    }
+    const tf = fase.timeframe_riferimento ?? null;
+    const tfLabel = tf ? `TF ${tf}` : null;
+
+    phases.push({
+      id,
+      label: fase.nome || "Fase ciclica",
+      tfLabel,
+      barsRangeLabel,
+      description: fase.descrizione ?? "",
+      impact: fase.impatto ?? "",
+    });
+  }
+
+  const sint = raw.sintesi_operativa ?? {};
+  const bias = sint.bias_strutturale ?? "NEUTRO";
+  const domin = sint.direzione_dominante_cicli_medi_lunghi ?? "";
+  const biasLabel = domin ? `${bias} (${domin})` : bias;
+  const uiSummary = sint.testo_breve || sint.nota_operativa || "";
+
+  const tpLevels: { key: string; label: string }[] = [];
+  const slLevels: { key: string; label: string }[] = [];
+
+  const tpRaw = raw.livelli_operativi?.take_profit ?? {};
+  for (const [key, lvl] of Object.entries(tpRaw)) {
+    const lo = (lvl as any).valore_min;
+    const hi = (lvl as any).valore_max;
+    let label = key;
+    if (typeof lo === "number" && typeof hi === "number") {
+      if (Math.round(lo) === Math.round(hi)) {
+        label = `${key.toUpperCase()}: ≈ ${Math.round(lo)}`;
+      } else {
+        label = `${key.toUpperCase()}: ≈ ${Math.round(lo)}–${Math.round(hi)}`;
+      }
+    }
+    tpLevels.push({ key, label });
+  }
+
+  const slRaw = raw.livelli_operativi?.stop_loss ?? {};
+  for (const [key, lvl] of Object.entries(slRaw)) {
+    const lo = (lvl as any).valore_min;
+    const hi = (lvl as any).valore_max;
+    const ref = (lvl as any).valore_riferimento;
+    let label = key;
+    if (typeof lo === "number" && typeof hi === "number") {
+      if (Math.round(lo) === Math.round(hi)) {
+        label = `${key}: ≈ ${Math.round(lo)}`;
+      } else {
+        label = `${key}: ≈ ${Math.round(lo)}–${Math.round(hi)}`;
+      }
+    } else if (typeof ref === "number") {
+      label = `${key}: ≈ ${Math.round(ref)}`;
+    }
+    slLevels.push({ key, label });
+  }
+
+  const hasData = phases.length > 0 || tpLevels.length > 0 || slLevels.length > 0 || !!uiSummary;
+  if (!hasData) return undefined;
+
+  return {
+    hasData,
+    biasLabel,
+    uiSummary,
+    phases,
+    tpLevels,
+    slLevels,
+  };
+}
+
+function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReentryVM | undefined {
+  if (!raw) return undefined;
+
+  const stepsRaw = raw.sequenza ?? [];
+  const steps: CiclicaReentryStepVM[] = [];
+
+  for (const s of stepsRaw) {
+    if (!s) continue;
+    const id = s.id || s.label || `step_${steps.length}`;
+    const fb = s.finestra_barre;
+    let barsRangeLabel: string | null = null;
+    if (fb && typeof fb.min === "number" && typeof fb.max === "number") {
+      barsRangeLabel = `Fra ${fb.min}-${fb.max} barre`;
+    }
+    steps.push({
+      id,
+      order: s.ordine ?? steps.length + 1,
+      label: s.label || "Fase ciclica",
+      type: (s.tipo as any) || "fase",
+      barsRangeLabel,
+      description: s.descrizione || "",
+    });
+  }
+
+  const zones = raw.zone_operative ?? {};
+  const tp = zones.take_profit_iniziale;
+  const zr = zones.zona_reentry_long;
+
+  let tpLabel: string | null = null;
+  if (tp && typeof tp.min === "number" && typeof tp.max === "number") {
+    if (Math.round(tp.min) === Math.round(tp.max)) {
+      tpLabel = `TP iniziale ≈ ${Math.round(tp.min)}`;
+    } else {
+      tpLabel = `TP iniziale ≈ ${Math.round(tp.min)}–${Math.round(tp.max)}`;
+    }
+  }
+
+  let reentryZoneLabel: string | null = null;
+  if (zr && typeof zr.valore_min === "number" && typeof zr.valore_max === "number") {
+    if (Math.round(zr.valore_min) === Math.round(zr.valore_max)) {
+      reentryZoneLabel = `Zona re-entry ≈ ${Math.round(zr.valore_min)}`;
+    } else {
+      reentryZoneLabel = `Zona re-entry ≈ ${Math.round(zr.valore_min)}–${Math.round(
+        zr.valore_max
+      )}`;
+    }
+  }
+
+  const currentPhase = raw.fase_attuale || "";
+  const archetypeLabel = raw.archetipo || "Percorso di rientro ciclico";
+  const directionLabel = raw.direzione_reentry || "N/D";
+
+  // 🔹 Roadmap temporale sintetica (in ore sul TF 1h)
+  const roadmapLines: string[] = [];
+
+  if (steps.length > 0) {
+    // finestre fisse indicative: 1–3h, 4–7h, 8–10h
+    const ranges = [
+      { from: 1, to: 3 },
+      { from: 4, to: 7 },
+      { from: 8, to: 10 },
+    ];
+
+    const s1 = steps[0];
+    const s2 = steps[1];
+    const s3 = steps[2];
+
+    if (s1) {
+      // es: "1–3h: Fase ciclica attuale (1h)"
+      roadmapLines.push(`${ranges[0].from}-${ranges[0].to}h: ${s1.label}`);
+    }
+
+    if (s2) {
+      // per la seconda fase provo a usare la zona di re-entry se c'è
+      let midLabel = s2.label;
+      if (reentryZoneLabel) {
+        // "Zona re-entry ≈ 3100–3131" -> "area re-entry 3100–3131"
+        midLabel = reentryZoneLabel.replace("Zona re-entry ≈", "area re-entry");
+      }
+      roadmapLines.push(`${ranges[1].from}-${ranges[1].to}h: ${midLabel}`);
+    }
+
+    if (s3) {
+      // terza fase: inizio nuova gamba rialzista / conferma rientro
+      roadmapLines.push(`${ranges[2].from}-${ranges[2].to}h: ${s3.label}`);
+    }
+  }
+
+  const hasData =
+    steps.length > 0 || tpLabel !== null || reentryZoneLabel !== null || !!currentPhase;
+  if (!hasData) return undefined;
+
+  return {
+    hasData,
+    archetypeLabel,
+    directionLabel,
+    currentPhase,
+    steps,
+    tpLabel,
+    reentryZoneLabel,
+    roadmapLines: roadmapLines.length > 0 ? roadmapLines : undefined,
   };
 }
 

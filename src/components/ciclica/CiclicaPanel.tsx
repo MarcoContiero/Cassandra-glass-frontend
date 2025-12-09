@@ -8,6 +8,8 @@ import type {
   CiclicaWindowVM,
   CiclicaTimelineVM,
   CiclicaNodoTransizioneVM,
+  CiclicaCustomRoadmapVM,
+  CiclicaReentryVM,
 } from "@/lib/ciclica/ciclicaViewModel";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -61,6 +63,8 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     summary,
     roadmap,
     nodoTransizione,
+    customRoadmap,
+    reentryPath,
   } = data as CiclicaViewModel;
 
   const activeWindows = windows.filter((w) => w.stateKey === "attiva" || w.stateKey === "in_arrivo");
@@ -123,6 +127,12 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
 
         {/* Sintesi ciclica multi-timeframe ------------------------------------- */}
         <SummarySection summary={summary} />
+
+        {/* Roadmap ciclica strutturata 2.5 (nuovo pannello) -------------------- */}
+        {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
+
+        {/* 🔵 Percorso di rientro ciclico */}
+        {reentryPath?.hasData && <ReentryPathSection data={reentryPath} />}
 
         {/* Roadmap temporale del ciclo ----------------------------------------- */}
         <RoadmapSection roadmap={roadmap} />
@@ -686,6 +696,213 @@ function HistoricalWindowsSection({ historicalWindows }: HistoricalWindowsSectio
             ))}
           </div>
         </ScrollArea>
+      </CardContent>
+    </Card>
+  );
+}
+
+interface CustomRoadmapSectionProps {
+  data: CiclicaCustomRoadmapVM;
+}
+
+function CustomRoadmapSection({ data }: CustomRoadmapSectionProps) {
+  const { phases, uiSummary, biasLabel, tpLevels, slLevels } = data;
+  if (!data.hasData) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Roadmap ciclica strutturata</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Sequenza di fasi attese, derivata dalla lettura ciclica 2.5.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 text-xs">
+        {biasLabel && (
+          <div className="inline-flex items-center gap-2 text-[0.75rem]">
+            <span className="font-semibold">Bias ciclico:</span>
+            <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+              {biasLabel}
+            </Badge>
+          </div>
+        )}
+
+        {uiSummary && (
+          <p className="text-[0.75rem] text-muted-foreground leading-snug">
+            {uiSummary}
+          </p>
+        )}
+
+        {phases.length > 0 && (
+          <div className="flex flex-wrap gap-2">
+            {phases.map((p) => (
+              <div
+                key={p.id}
+                className="border rounded-xl px-3 py-2 flex flex-col gap-1 min-w-40"
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-semibold text-[0.75rem]">{p.label}</span>
+                  {p.barsRangeLabel && (
+                    <span className="text-[0.7rem] text-muted-foreground">
+                      {p.barsRangeLabel}
+                    </span>
+                  )}
+                </div>
+                {p.tfLabel && (
+                  <div className="text-[0.7rem] text-muted-foreground">{p.tfLabel}</div>
+                )}
+                {p.description && (
+                  <div className="text-[0.7rem]">{p.description}</div>
+                )}
+                {p.impact && (
+                  <div className="text-[0.7rem] text-muted-foreground">{p.impact}</div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {(tpLevels.length > 0 || slLevels.length > 0) && (
+          <div className="flex flex-col gap-2">
+            {tpLevels.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="font-semibold text-[0.75rem]">TP ciclici:</span>
+                {tpLevels.map((tp) => (
+                  <Badge
+                    key={tp.key}
+                    variant="outline"
+                    className="text-[0.7rem] px-2 py-0.5 rounded-full"
+                  >
+                    {tp.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+            {slLevels.length > 0 && (
+              <div className="flex flex-wrap gap-2 items-center">
+                <span className="font-semibold text-[0.75rem]">SL / zone chiave:</span>
+                {slLevels.map((sl) => (
+                  <Badge
+                    key={sl.key}
+                    variant="outline"
+                    className="text-[0.7rem] px-2 py-0.5 rounded-full"
+                  >
+                    {sl.label}
+                  </Badge>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+interface ReentryPathSectionProps {
+  data: CiclicaReentryVM;
+}
+
+function ReentryPathSection({ data }: ReentryPathSectionProps) {
+  const {
+    archetypeLabel,
+    directionLabel,
+    currentPhase,
+    steps,
+    tpLabel,
+    reentryZoneLabel,
+    roadmapLines,
+  } = data;
+  if (!data.hasData) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Percorso ciclico &amp; rientro</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Sequenza di fasi tra nodo di ciclo (min/max) e zona di re-entry operativa
+          (scenari principali + minori).
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-4 text-xs">
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+            {archetypeLabel}
+          </Badge>
+          <Badge
+            variant="outline"
+            className="text-[0.7rem] px-2 py-0.5 rounded-full border-emerald-500/60"
+          >
+            Re-entry {directionLabel}
+          </Badge>
+        </div>
+
+        {currentPhase && (
+          <p className="text-[0.75rem] text-muted-foreground leading-snug">
+            {currentPhase}
+          </p>
+        )}
+
+        {steps.length > 0 && (
+          <ol className="flex flex-col gap-2">
+            {steps
+              .slice()
+              .sort((a, b) => a.order - b.order)
+              .map((s) => (
+                <li
+                  key={s.id}
+                  className="border rounded-xl px-3 py-2 flex flex-col gap-1 bg-background/40"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="font-semibold text-[0.75rem]">
+                      {s.order}. {s.label}
+                    </span>
+                    {s.barsRangeLabel && (
+                      <span className="text-[0.7rem] text-muted-foreground">
+                        {s.barsRangeLabel}
+                      </span>
+                    )}
+                  </div>
+                  {s.description && (
+                    <div className="text-[0.7rem] text-muted-foreground">
+                      {s.description}
+                    </div>
+                  )}
+                </li>
+              ))}
+          </ol>
+        )}
+
+        {roadmapLines && roadmapLines.length > 0 && (
+          <div className="mt-1 flex flex-col gap-1 text-[0.7rem] text-muted-foreground">
+            <div className="font-semibold text-[0.7rem]">
+              Roadmap temporale del re-entry (TF 1h)
+            </div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              {roadmapLines.map((line, idx) => (
+                <li key={idx}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {(tpLabel || reentryZoneLabel) && (
+          <div className="flex flex-wrap gap-2 items-center">
+            {tpLabel && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                {tpLabel}
+              </Badge>
+            )}
+            {reentryZoneLabel && (
+              <Badge
+                variant="outline"
+                className="text-[0.7rem] px-2 py-0.5 rounded-full border-amber-500/70"
+              >
+                {reentryZoneLabel}
+              </Badge>
+            )}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

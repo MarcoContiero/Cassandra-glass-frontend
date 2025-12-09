@@ -1,7 +1,6 @@
 // src/lib/ranges/detectors.ts
 import { RangeBox } from "@/types/range";
 import { adaptBackendBoxToRanges } from "./adapter";
-import { API } from "@/lib/api";
 import { flags } from "@/lib/flags";
 import { getCandles } from "@/lib/chart";
 
@@ -13,7 +12,7 @@ export interface DetectorInput {
 /* ========= STANDARD ========= */
 export async function detectStandardRanges(inp: DetectorInput): Promise<RangeBox[]> {
   const p = new URLSearchParams({ symbol: inp.symbol, timeframe: inp.timeframe });
-  const url = `${API}/api/box/boxes.json?${p.toString()}`;
+  const url = `/api/box/boxes.json?${p.toString()}`;
   const res = await fetch(url);
   const json = await res.json();
   return adaptBackendBoxToRanges(json, inp.symbol, inp.timeframe);
