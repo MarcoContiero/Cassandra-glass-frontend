@@ -24,7 +24,7 @@ import BoxOverlay from './overlays/BoxOverlay';
 import ScenariOverlay from './overlays/ScenariOverlay';
 import AlertOverlay from './overlays/AlertOverlay';
 import ScenariPrevistiOverlay from "@/components/overlays/ScenariPrevistiOverlay";
-import { buildCiclicaViewModel } from "@/lib/ciclica/ciclicaViewModel";
+import { buildCiclicaViewModel, buildFollowerWithCrossSync } from "@/lib/ciclica/ciclicaViewModel";
 import { CiclicaOverlay } from "@/components/ciclica/CiclicaOverlay";
 import { mockCiclica } from "@/lib/ciclica/mockCiclica"; // 👈 nuovo
 
@@ -580,8 +580,10 @@ export default function CassandraUI() {
             atrPeriod={14}
           />
         );
-      case 'ciclica':
-        return <CiclicaOverlay data={ciclicaVm} />;
+      case 'ciclica': {
+        const vmFromOverlay = (overlayData as any)?.ciclicaVm as any;
+        return <CiclicaOverlay data={vmFromOverlay ?? ciclicaVm} />;
+      }
       default:
         return null;
     }
@@ -804,6 +806,28 @@ export default function CassandraUI() {
                     >
                       {sym}: {comp?.direction} ({comp?.score} pt.) Δ score {deltaTxt}
                     </button>
+
+                    {/* ⏳ Analisi ciclica comparativa (usa crossSync) */}
+                    <button
+                      className="px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10"
+                      title="Analisi ciclica comparativa"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        const followerRaw = (comp?.analysis as any)?.ciclica ?? null;
+                        const followerBase = buildCiclicaViewModel(followerRaw);
+                        const followerVm = buildFollowerWithCrossSync(
+                          ciclicaVm,
+                          followerBase,
+                          toUSDT(String(symbol || 'BTC')),
+                        );
+                        openOverlay('ciclica', `Analisi ciclica comparativa — ${sym}`, {
+                          ciclicaVm: followerVm,
+                        });
+                      }}
+                    >
+                      ⏳
+                    </button>
+
                     <button
                       className="px-3 py-3 rounded-lg bg-white/5 hover:bg-white/10"
                       title="Apri Cassandra per questa coin"

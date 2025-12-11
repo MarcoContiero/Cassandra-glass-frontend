@@ -65,6 +65,14 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     nodoTransizione,
     customRoadmap,
     reentryPath,
+    // --- CICLICA 2.8: segnali globali ---
+    pivotPred,
+    qualitaMassimo,
+    qualitaMinimo,
+    energia,
+    crossSync,
+    eventRisk,
+    gestioneOperativa,
   } = data as CiclicaViewModel;
 
   const activeWindows = windows.filter((w) => w.stateKey === "attiva" || w.stateKey === "in_arrivo");
@@ -127,6 +135,17 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
 
         {/* Sintesi ciclica multi-timeframe ------------------------------------- */}
         <SummarySection summary={summary} />
+
+        {/* Segnali di fine gamba / pivot (Ciclica 2.8) ------------------------- */}
+        <GlobalSignalsSection
+          pivotPred={pivotPred}
+          qualitaMassimo={qualitaMassimo}
+          qualitaMinimo={qualitaMinimo}
+          energia={energia}
+          crossSync={crossSync}
+          eventRisk={eventRisk}
+          gestioneOperativa={gestioneOperativa}
+        />
 
         {/* Roadmap ciclica strutturata 2.5 (nuovo pannello) -------------------- */}
         {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
@@ -549,6 +568,111 @@ function SummarySection({ summary }: SummarySectionProps) {
   );
 }
 
+interface GlobalSignalsSectionProps {
+  pivotPred: CiclicaViewModel["pivotPred"] | undefined;
+  qualitaMassimo: CiclicaViewModel["qualitaMassimo"] | undefined;
+  qualitaMinimo: CiclicaViewModel["qualitaMinimo"] | undefined;
+  energia: CiclicaViewModel["energia"] | undefined;
+  crossSync: CiclicaViewModel["crossSync"] | undefined;
+  eventRisk: CiclicaViewModel["eventRisk"] | undefined;
+  gestioneOperativa: CiclicaViewModel["gestioneOperativa"] | undefined;
+}
+
+function GlobalSignalsSection({
+  pivotPred,
+  qualitaMassimo,
+  qualitaMinimo,
+  energia,
+  crossSync,
+  eventRisk,
+  gestioneOperativa,
+}: GlobalSignalsSectionProps) {
+  const hasAny =
+    pivotPred ||
+    qualitaMassimo ||
+    qualitaMinimo ||
+    energia ||
+    crossSync ||
+    eventRisk ||
+    gestioneOperativa;
+
+  if (!hasAny) return null;
+
+  const pivotSentence =
+    pivotPred?.probabilita != null && pivotPred?.finestra
+      ? `Pivot molto probabile${pivotPred.timeframe ? ` sul TF ${pivotPred.timeframe}` : ""
+      } fra ${pivotPred.finestra} (probabilità ~${Math.round(
+        pivotPred.probabilita * 100
+      )}%).`
+      : undefined;
+
+  const qualitaSentence = qualitaMassimo?.tipo
+    ? `Massimo ${qualitaMassimo.tipo}${qualitaMassimo.affidabilita != null
+      ? ` (affidabilità ~${Math.round(
+        qualitaMassimo.affidabilita * 100
+      )}%)`
+      : ""
+    }.`
+    : undefined;
+
+  const minimoSentence = qualitaMinimo?.tipo
+    ? `Minimo ${qualitaMinimo.tipo}${qualitaMinimo.affidabilita != null
+      ? ` (affidabilità ~${Math.round(
+        qualitaMinimo.affidabilita * 100
+      )}%)`
+      : ""
+    }.`
+    : undefined;
+
+  const energiaSentence = energia?.tipo
+    ? energia.tipo === "alta"
+      ? "Energia alta → probabile breakout aggressivo della zona primaria."
+      : energia.tipo === "bassa"
+        ? "Energia bassa → massimo marginale, meglio proteggere i take-profit."
+        : "Energia media → movimento regolare, gestione standard dei target."
+    : undefined;
+
+  const crossSentence = crossSync?.leader
+    ? crossSync.implicazione ||
+    `Sincronizzazione con ${crossSync.leader}: ritardo atteso ${crossSync.ritardoAtteso ?? "?"
+    } barre.`
+    : undefined;
+
+  const eventSentence = eventRisk?.tipo
+    ? eventRisk.implicazione ||
+    `${eventRisk.tipo} in arrivo tra ${eventRisk.in ?? "?"} → possibile distorsione del ciclo.`
+    : undefined;
+
+  const gestioneSentence =
+    gestioneOperativa?.tp1 ||
+      gestioneOperativa?.tpFull ||
+      gestioneOperativa?.slMove
+      ? `TP1 su ${gestioneOperativa.tp1 ?? "zona primaria"}, TP full su ${gestioneOperativa.tpFull ?? "zona massima"
+      }, spostamento SL sotto ${gestioneOperativa.slMove ?? "zona primaria low"
+      }.`
+      : undefined;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Segnali di fine gamba &amp; gestione</CardTitle>
+        <CardDescription>
+          Lettura qualitativa del massimo, energia del ciclo e indicazioni operative contestuali.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-2 text-sm">
+        {pivotSentence && <p>{pivotSentence}</p>}
+        {qualitaSentence && <p>{qualitaSentence}</p>}
+        {minimoSentence && <p>{minimoSentence}</p>}
+        {energiaSentence && <p>{energiaSentence}</p>}
+        {crossSentence && <p>{crossSentence}</p>}
+        {eventSentence && <p>{eventSentence}</p>}
+        {gestioneSentence && <p>{gestioneSentence}</p>}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface RoadmapSectionProps {
   roadmap: string;
 }
@@ -812,6 +936,9 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
     tpLabel,
     reentryZoneLabel,
     roadmapLines,
+    pivotWindowLabel,
+    roadmapCategoryLines,
+    roadmapSummary,
   } = data;
   if (!data.hasData) return null;
 
@@ -826,15 +953,17 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-xs">
         <div className="flex flex-wrap items-center gap-2">
-          <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+          <Badge variant="outline" className="text-[0.7rem]">
             {archetypeLabel}
           </Badge>
-          <Badge
-            variant="outline"
-            className="text-[0.7rem] px-2 py-0.5 rounded-full border-emerald-500/60"
-          >
-            Re-entry {directionLabel}
+          <Badge variant="outline" className="text-[0.7rem]">
+            {directionLabel}
           </Badge>
+          {pivotWindowLabel && (
+            <Badge variant="outline" className="text-[0.7rem]">
+              {pivotWindowLabel}
+            </Badge>
+          )}
         </div>
 
         {currentPhase && (
@@ -884,6 +1013,24 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
               ))}
             </ul>
           </div>
+        )}
+        {roadmapCategoryLines && roadmapCategoryLines.length > 0 && (
+          <div className="mt-1 flex flex-col gap-1 text-[0.7rem] text-muted-foreground">
+            <div className="font-semibold text-[0.7rem]">
+              Categorie cicliche chiave
+            </div>
+            <ul className="list-disc pl-4 space-y-0.5">
+              {roadmapCategoryLines.map((line, idx) => (
+                <li key={idx}>{line}</li>
+              ))}
+            </ul>
+          </div>
+        )}
+
+        {roadmapSummary && (
+          <p className="mt-1 text-[0.7rem] text-muted-foreground">
+            {roadmapSummary}
+          </p>
         )}
 
         {(tpLabel || reentryZoneLabel) && (

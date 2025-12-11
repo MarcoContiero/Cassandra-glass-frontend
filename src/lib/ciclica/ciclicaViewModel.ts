@@ -29,6 +29,46 @@ export type CiclicaRaw = {
   nodo_transizione?: NodoTransizioneRaw | null;
 
   reentry_path?: CiclicaReentryRaw | null;
+
+  // --- CICLICA 2.8: segnali globali di fine gamba / pivot ---
+  pivot_pred?: {
+    probabilita?: number | null;
+    finestra?: string | null; // es. "3–6 barre"
+    timeframe?: string | null;
+  } | null;
+
+  qualita_massimo?: {
+    tipo?: string | null; // "sporco" | "pulito" | "multi_tentativo"
+    affidabilita?: number | null; // 0–1
+  } | null;
+
+  qualita_minimo?: {
+    tipo?: string | null; // "sporco" | "pulito" | "multi_tentativo"
+    affidabilita?: number | null; // 0–1
+  } | null;
+
+  energia?: {
+    valore?: number | null; // 0–1
+    tipo?: "bassa" | "media" | "alta" | null;
+  } | null;
+
+  cross_sync?: {
+    leader?: string | null;          // "BTC" | "ETH" | altro
+    ritardo_atteso?: number | null;  // in barre
+    implicazione?: string | null;    // frase breve
+  } | null;
+
+  event_risk?: {
+    tipo?: string | null;         // "FOMC" | "CPI" | ...
+    in?: string | null;           // es. "40h"
+    implicazione?: string | null; // es. "massimo anticipato o spike elevato"
+  } | null;
+
+  gestione_operativa?: {
+    tp1?: string | null;      // "zona_primary"
+    tp_full?: string | null;  // "zona_massima"
+    sl_move?: string | null;  // "sotto zona_primary_low"
+  } | null;
 };
 
 export type CiclicaCustomPhaseRaw = {
@@ -296,8 +336,18 @@ export type CiclicaReentryVM = {
   tpLabel?: string | null;
   reentryZoneLabel?: string | null;
 
-  // Nuovo: mini-roadmap temporale del re-entry (in ore sul TF 1h)
+  // Roadmap temporale dettagliata (lista puntata)
   roadmapLines?: string[];
+
+  // 🔹 NOVITÀ:
+  // Badge sulla finestra pivot 1h
+  pivotWindowLabel?: string | null;
+
+  // Categorie chiave (scarico, re-entry, nuova fase)
+  roadmapCategoryLines?: string[];
+
+  // Frase di sintesi (scarico → re-entry → nuova fase)
+  roadmapSummary?: string | null;
 };
 
 export type CiclicaViewModel = {
@@ -320,6 +370,46 @@ export type CiclicaViewModel = {
   customRoadmap?: CiclicaCustomRoadmapVM;
 
   reentryPath?: CiclicaReentryVM;
+
+  // --- CICLICA 2.8: segnali globali di fine gamba / pivot ---
+  pivotPred?: {
+    probabilita?: number | null;
+    finestra?: string | null; // es. "3–6 barre"
+    timeframe?: string | null;
+  } | null;
+
+  qualitaMassimo?: {
+    tipo?: string | null;         // "sporco" | "pulito" | "multi_tentativo"
+    affidabilita?: number | null; // 0–1
+  } | null;
+
+  qualitaMinimo?: {
+    tipo?: string | null;
+    affidabilita?: number | null;
+  } | null;
+
+  energia?: {
+    valore?: number | null;                  // 0–1
+    tipo?: "bassa" | "media" | "alta" | null;
+  } | null;
+
+  crossSync?: {
+    leader?: string | null;         // "BTC" | "ETH" | altro
+    ritardoAtteso?: number | null;  // in barre
+    implicazione?: string | null;   // frase breve
+  } | null;
+
+  eventRisk?: {
+    tipo?: string | null;           // "FOMC" | "CPI" | ...
+    in?: string | null;             // es. "40h"
+    implicazione?: string | null;   // es. "massimo anticipato o spike elevato"
+  } | null;
+
+  gestioneOperativa?: {
+    tp1?: string | null;      // "zona_primary"
+    tpFull?: string | null;   // "zona_massima"
+    slMove?: string | null;   // "sotto zona_primary_low"
+  } | null;
 };
 
 export type CiclicaNodoTransizioneVM = {
@@ -511,9 +601,63 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     ? mapNodoTransizione(raw.nodo_transizione)
     : undefined;
 
-  const customRoadmap = mapCiclicaCustom(raw.ciclica_custom)
+  const customRoadmap = mapCiclicaCustom(raw.ciclica_custom);
 
   const reentryPath = mapReentryPath(raw.reentry_path ?? null);
+
+  // --- CICLICA 2.8: mapping diretto dai campi raw globali ---
+  const pivotPred = raw.pivot_pred
+    ? {
+      probabilita: raw.pivot_pred.probabilita ?? null,
+      finestra: raw.pivot_pred.finestra ?? null,
+      timeframe: raw.pivot_pred.timeframe ?? null,
+    }
+    : null;
+
+  const qualitaMassimo = raw.qualita_massimo
+    ? {
+      tipo: raw.qualita_massimo.tipo ?? null,
+      affidabilita: raw.qualita_massimo.affidabilita ?? null,
+    }
+    : null;
+
+  const qualitaMinimo = raw.qualita_minimo
+    ? {
+      tipo: raw.qualita_minimo.tipo ?? null,
+      affidabilita: raw.qualita_minimo.affidabilita ?? null,
+    }
+    : null;
+
+  const energia = raw.energia
+    ? {
+      valore: raw.energia.valore ?? null,
+      tipo: (raw.energia.tipo as "bassa" | "media" | "alta" | null) ?? null,
+    }
+    : null;
+
+  const crossSync = raw.cross_sync
+    ? {
+      leader: raw.cross_sync.leader ?? null,
+      ritardoAtteso: raw.cross_sync.ritardo_atteso ?? null,
+      implicazione: raw.cross_sync.implicazione ?? null,
+    }
+    : null;
+
+  const eventRisk = raw.event_risk
+    ? {
+      tipo: raw.event_risk.tipo ?? null,
+      in: raw.event_risk.in ?? null,
+      implicazione: raw.event_risk.implicazione ?? null,
+    }
+    : null;
+
+  const gestioneOperativa = raw.gestione_operativa
+    ? {
+      tp1: raw.gestione_operativa.tp1 ?? null,
+      tpFull: raw.gestione_operativa.tp_full ?? null,
+      slMove: raw.gestione_operativa.sl_move ?? null,
+    }
+    : null;
 
   return {
     activeTimeframes,
@@ -528,7 +672,122 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     nodoTransizione,
     customRoadmap,
     reentryPath,
+    pivotPred,
+    qualitaMassimo,
+    qualitaMinimo,
+    energia,
+    crossSync,
+    eventRisk,
+    gestioneOperativa,
   };
+}
+
+// -----------------------------------------------------------------------------
+// 4) Sincronizzazione cross-asset (solo in ANALISI COMPARATIVA)
+// -----------------------------------------------------------------------------
+
+/**
+ * Costruisce una versione "arricchita" del follower, aggiungendo crossSync
+ * solo quando stai facendo un confronto esplicito (ANALISI COMPARATIVA).
+ *
+ * - leader: coin guida (es. BTC)
+ * - follower: coin da sincronizzare (es. ALT)
+ * - leaderLabel: nome breve usato nel testo ("BTC", "BTCUSDT", ecc.)
+ */
+export function buildFollowerWithCrossSync(
+  leader: CiclicaViewModel | null | undefined,
+  follower: CiclicaViewModel | null | undefined,
+  leaderLabel: string = "BTC",
+): CiclicaViewModel | null {
+  if (!leader || !follower) return follower ?? null;
+
+  const leaderTfs = Object.keys(leader.cyclesByTf ?? {});
+  const followerTfs = Object.keys(follower.cyclesByTf ?? {});
+  const commonTfs = leaderTfs.filter((tf) => followerTfs.includes(tf));
+
+  if (!commonTfs.length) {
+    // Nessun timeframe in comune → nessuna sincronizzazione sensata
+    return follower;
+  }
+
+  const preferredOrder = ["4h", "1h", "12h", "1d"];
+  let tfRef = commonTfs[0];
+
+  for (const tf of preferredOrder) {
+    if (commonTfs.includes(tf)) {
+      tfRef = tf;
+      break;
+    }
+  }
+
+  const leaderBlock = leader.cyclesByTf[tfRef];
+  const followerBlock = follower.cyclesByTf[tfRef];
+
+  if (!leaderBlock || !followerBlock) {
+    return follower;
+  }
+
+  const leaderComp = leaderBlock.completionPct;
+  const followerComp = followerBlock.completionPct;
+
+  if (leaderComp == null || followerComp == null) {
+    return follower;
+  }
+
+  const deltaPct = followerComp - leaderComp;
+
+  // Se il follower è allineato o in anticipo, niente "ritardo" vero e proprio
+  if (deltaPct <= 0) {
+    const crossSync = {
+      leader: leaderLabel,
+      ritardoAtteso: 0,
+      implicazione: `Questa coin è allineata o leggermente in anticipo rispetto a ${leaderLabel} sul ciclo ${tfRef}.`,
+    };
+
+    return {
+      ...follower,
+      crossSync,
+    };
+  }
+
+  const durationBars =
+    parseBarsFromLabel(followerBlock.cycleDurationLabel) ??
+    parseBarsFromLabel(leaderBlock.cycleDurationLabel);
+
+  let ritardoBars: number;
+
+  if (durationBars != null) {
+    // Delta% di completamento * durata totale in barre
+    ritardoBars = Math.max(1, Math.round((deltaPct / 100) * durationBars));
+  } else {
+    // Fallback grezzo: ogni 10% di delta ≈ 1 barra
+    ritardoBars = Math.max(1, Math.round(deltaPct / 10));
+  }
+
+  const low = Math.max(1, ritardoBars - 1);
+  const high = ritardoBars + 1;
+
+  const implicazione = `Pivot della coin secondaria probabile entro ${low}–${high} barre dopo ${leaderLabel} sul TF ${tfRef}.`;
+
+  const crossSync = {
+    leader: leaderLabel,
+    ritardoAtteso: ritardoBars,
+    implicazione,
+  };
+
+  return {
+    ...follower,
+    crossSync,
+  };
+}
+
+function parseBarsFromLabel(label?: string | null): number | null {
+  if (!label) return null;
+  const match = label.match(/(\d+(\.\d+)?)/);
+  if (!match) return null;
+  const value = Number.parseFloat(match[1]);
+  if (!Number.isFinite(value)) return null;
+  return Math.round(value);
 }
 
 function mapCiclicaCustom(raw: CiclicaCustomRaw | undefined): CiclicaCustomRoadmapVM | undefined {
@@ -665,39 +924,160 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
   const archetypeLabel = raw.archetipo || "Percorso di rientro ciclico";
   const directionLabel = raw.direzione_reentry || "N/D";
 
-  // 🔹 Roadmap temporale sintetica (in ore sul TF 1h)
+  // 🔹 Badge pivot (se il backend lo fornisce)
+  const metaTiming: any = (raw as any).meta_timing || {};
+  const pivotBarsRaw: number | undefined =
+    typeof metaTiming.bars_to_pivot_1h === "number"
+      ? metaTiming.bars_to_pivot_1h
+      : typeof metaTiming.base_residuo_1h === "number"
+        ? metaTiming.base_residuo_1h
+        : undefined;
+
+  let pivotWindowLabel: string | null = null;
+  if (typeof pivotBarsRaw === "number" && pivotBarsRaw > 0) {
+    pivotWindowLabel = `Finestra pivot ≈ ${Math.round(pivotBarsRaw)} barre (TF 1h)`;
+  }
+
+  // 🔹 Roadmap temporale (con dati reali se ci sono, altrimenti fallback fisso)
   const roadmapLines: string[] = [];
+  const roadmapCategoryLines: string[] = [];
+  let roadmapSummary: string | null = null;
 
   if (steps.length > 0) {
-    // finestre fisse indicative: 1–3h, 4–7h, 8–10h
-    const ranges = [
-      { from: 1, to: 3 },
-      { from: 4, to: 7 },
-      { from: 8, to: 10 },
-    ];
+    const rangesForSummary: Array<{ from: number; to: number; label: string; type: string }> = [];
 
-    const s1 = steps[0];
-    const s2 = steps[1];
-    const s3 = steps[2];
+    // 1) Proviamo a usare le vere finestre "Fra X-Y barre"
+    const roadmapCalc: Array<{ from: number; to: number; label: string; type: string }> = [];
 
-    if (s1) {
-      // es: "1–3h: Fase ciclica attuale (1h)"
-      roadmapLines.push(`${ranges[0].from}-${ranges[0].to}h: ${s1.label}`);
-    }
+    let accumulatedMin = 0;
+    let accumulatedMax = 0;
 
-    if (s2) {
-      // per la seconda fase provo a usare la zona di re-entry se c'è
-      let midLabel = s2.label;
-      if (reentryZoneLabel) {
-        // "Zona re-entry ≈ 3100–3131" -> "area re-entry 3100–3131"
-        midLabel = reentryZoneLabel.replace("Zona re-entry ≈", "area re-entry");
+    steps.forEach((s) => {
+      const fb = s.barsRangeLabel;
+      let min: number | null = null;
+      let max: number | null = null;
+
+      if (fb) {
+        const match = fb.replace(/\s/g, "").match(/(\d+)-(\d+)/);
+        if (match) {
+          min = parseInt(match[1], 10);
+          max = parseInt(match[2], 10);
+        }
       }
-      roadmapLines.push(`${ranges[1].from}-${ranges[1].to}h: ${midLabel}`);
+
+      if (min !== null && max !== null) {
+        const start = accumulatedMin + min;
+        const end = accumulatedMax + max;
+
+        roadmapCalc.push({
+          from: start,
+          to: end,
+          label: s.label,
+          type: s.type,
+        });
+
+        accumulatedMin += min;
+        accumulatedMax += max;
+      }
+    });
+
+    if (roadmapCalc.length > 0) {
+      rangesForSummary.push(...roadmapCalc);
+    } else {
+      // 2) Fallback: 1–3 / 4–7 / 8–10
+      const ranges = [
+        { from: 1, to: 3 },
+        { from: 4, to: 7 },
+        { from: 8, to: 10 },
+      ];
+
+      const s1 = steps[0];
+      const s2 = steps[1];
+      const s3 = steps[2];
+
+      if (s1) {
+        rangesForSummary.push({
+          from: ranges[0].from,
+          to: ranges[0].to,
+          label: s1.label,
+          type: s1.type,
+        });
+      }
+
+      if (s2) {
+        let midLabel = s2.label;
+        if (reentryZoneLabel) {
+          midLabel = reentryZoneLabel.replace("Zona re-entry ≈", "area re-entry").trim();
+        }
+        rangesForSummary.push({
+          from: ranges[1].from,
+          to: ranges[1].to,
+          label: midLabel,
+          type: s2.type,
+        });
+      }
+
+      if (s3) {
+        rangesForSummary.push({
+          from: ranges[2].from,
+          to: ranges[2].to,
+          label: s3.label,
+          type: s3.type,
+        });
+      }
     }
 
-    if (s3) {
-      // terza fase: inizio nuova gamba rialzista / conferma rientro
-      roadmapLines.push(`${ranges[2].from}-${ranges[2].to}h: ${s3.label}`);
+    // Costruiamo le righe roadmap dal rangesForSummary
+    rangesForSummary.forEach((r) => {
+      roadmapLines.push(`${r.from}-${r.to}h: ${r.label}`);
+    });
+
+    // Categorie + sintesi se abbiamo almeno 3 blocchi
+    if (rangesForSummary.length >= 3) {
+      const a = rangesForSummary[0];
+      const b = rangesForSummary[1];
+      const c = rangesForSummary[2];
+
+      const archetype = (raw.archetipo || "").toLowerCase();
+      const isBottom = archetype.includes("bottom");
+      const isPremax = archetype.startsWith?.("premax");
+
+      if (isBottom) {
+        // Caso: bottom in costruzione
+        roadmapCategoryLines.push(
+          `Scarico e formazione del bottom atteso: ${a.from}-${a.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Pullback di conferma / consolidamento: ${b.from}-${b.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Inizio nuova fase rialzista dopo il bottom: ${c.from}-${c.to}h`
+        );
+      } else if (isPremax) {
+        // Caso: pre-massimo strutturale
+        roadmapCategoryLines.push(
+          `Scarico e completamento del massimo breve: ${a.from}-${a.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Pullback post-massimo e finestra di re-entry: ${b.from}-${b.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Nuova fase dopo il re-entry (possibile swing successivo): ${c.from}-${c.to}h`
+        );
+      } else {
+        // Caso generico: gamba rialzista in corso + re-entry
+        roadmapCategoryLines.push(
+          `Scarico / chiusura fase ciclica attuale: ${a.from}-${a.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Pullback strutturale e finestra di re-entry: ${b.from}-${b.to}h`
+        );
+        roadmapCategoryLines.push(
+          `Inizio nuova fase dopo il re-entry: ${c.from}-${c.to}h`
+        );
+      }
+
+      roadmapSummary = `Scarico atteso tra ~${a.from}-${a.to}h, finestra preferita di re-entry tra ~${b.from}-${b.to}h, nuova fase ciclica attesa tra ~${c.from}-${c.to}h.`;
     }
   }
 
@@ -714,6 +1094,9 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
     tpLabel,
     reentryZoneLabel,
     roadmapLines: roadmapLines.length > 0 ? roadmapLines : undefined,
+    pivotWindowLabel,
+    roadmapCategoryLines: roadmapCategoryLines.length > 0 ? roadmapCategoryLines : undefined,
+    roadmapSummary,
   };
 }
 
