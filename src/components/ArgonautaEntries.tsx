@@ -181,6 +181,7 @@ type ListProps = {
   priceHint?: number;
   argonautaIdea?: any | null;
   alertThresholdPct?: number;
+  onlyAI?: boolean;
 };
 
 function readPriceHint(results: ResultsByCategory, fallback?: number): number | undefined {
@@ -332,7 +333,8 @@ export default function ArgonautaEntriesList({
   results,
   argonautaIdea,
   priceHint,
-  alertThresholdPct
+  alertThresholdPct,
+  onlyAI
 }: ListProps) {
   // 1) Se Argonauta ha già calcolato le 4 proposte, usiamo quelle.
   //    Altrimenti, fallback: collectItemsFromResults.
@@ -407,9 +409,14 @@ export default function ArgonautaEntriesList({
     });
   }, [items]);
 
+  const itemsVisible = useMemo(() => {
+    if (!onlyAI) return itemsSorted;
+    return itemsSorted.filter((it) => it.ai === true);
+  }, [itemsSorted, onlyAI]);
+
   return (
     <div className="space-y-3">
-      {itemsSorted.map((it, idx) => (
+      {itemsVisible.map((it, idx) => (
         <EntryCard key={idx} item={it} alertThresholdPct={alertThresholdPct} />
       ))}
     </div>

@@ -1,75 +1,70 @@
 'use client';
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import CassandraUI from './CassandraUI';
 import ArgonautaPanel from './ArgonautaPanel';
 import OrionePanel from './orione/OrionePanel';
+import AgemaPanel from './agema/AgemaPanel';   // ⬅️ NUOVO IMPORT (adatta il path se serve)
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema';
 
-const APPS: { key: AppKey; label: string; emoji: string; }[] = [
+const APPS: { key: AppKey; label: string; emoji: string }[] = [
   { key: 'argonauta', label: 'Argonauta', emoji: '🧭' },
   { key: 'cassandra', label: 'Cassandra', emoji: '🔮' },
   { key: 'orione', label: 'Orione', emoji: '✨' },
+  { key: 'agema', label: 'Agema', emoji: '🏅' },  // ⬅️ NUOVO
 ];
 
 export default function ProgramsHub() {
-  const [app, setApp] = useState<AppKey>('cassandra');
-
-  // supporto deep-link ?app=...
-  useEffect(() => {
-    const url = new URL(window.location.href);
-    const qp = (url.searchParams.get('app') || '').toLowerCase() as AppKey;
-    if (APPS.some(a => a.key === qp)) setApp(qp);
-  }, []);
-
-  // ricorda l’ultima scelta
-  useEffect(() => {
-    try { localStorage.setItem('last_app', app); } catch { }
-  }, [app]);
-  useEffect(() => {
-    try {
-      const last = localStorage.getItem('last_app') as AppKey | null;
-      if (last && APPS.some(a => a.key === last)) setApp(last);
-    } catch { }
-  }, []);
+  const [activeApp, setActiveApp] = useState<AppKey>('cassandra');
 
   const content = useMemo(() => {
-    if (app === 'argonauta') return <ArgonautaPanel />;
-    if (app === 'orione') return <OrionePanel />;
-    return <CassandraUI />;
-  }, [app]);
+    switch (activeApp) {
+      case 'argonauta':
+        return <ArgonautaPanel />;
+      case 'orione':
+        return <OrionePanel />;
+      case 'agema':
+        return <AgemaPanel />;          // ⬅️ QUI MOSTRIAMO AGEMA
+      case 'cassandra':
+      default:
+        return <CassandraUI />;
+    }
+  }, [activeApp]);
 
   return (
-    <div className="min-h-screen bg-zinc-950">
-      {/* top bar di scelta */}
-      <div className="sticky top-0 z-50 backdrop-blur bg-zinc-900/70 border-b border-white/10">
-        <div className="mx-auto max-w-[1600px] px-6 py-3 flex items-center gap-2">
-          <div className="text-white/90 font-semibold mr-2">Seleziona programma</div>
+    <div className="flex min-h-screen flex-col bg-black text-white">
+      {/* barra superiore programmi */}
+      <div className="border-b border-white/10 bg-black/60 backdrop-blur">
+        <div className="mx-auto flex max-w-[1600px] items-center px-6 py-3">
           <div className="flex gap-2">
-            {APPS.map(({ key, label, emoji }) => {
-              const active = app === key;
+            {APPS.map((app) => {
+              const isActive = activeApp === app.key;
               return (
                 <button
-                  key={key}
-                  onClick={() => setApp(key)}
-                  className={`px-3 py-1.5 rounded-lg text-sm border transition
-                    ${active ? 'bg-white/15 border-white/30 text-white'
-                      : 'bg-white/5 border-white/10 text-white/80 hover:bg-white/10'}`}
-                  aria-pressed={active}
+                  key={app.key}
+                  onClick={() => setActiveApp(app.key)}
+                  className={[
+                    'flex items-center gap-2 rounded-full px-4 py-1.5 text-sm transition',
+                    isActive
+                      ? 'bg-white text-black shadow'
+                      : 'bg-white/5 text-white/70 hover:bg-white/10'
+                  ].join(' ')}
                 >
-                  <span className="mr-1">{emoji}</span>{label}
+                  <span>{app.emoji}</span>
+                  <span>{app.label}</span>
                 </button>
               );
             })}
           </div>
           <div className="ml-auto text-xs text-white/50">
+            {/* spazio per info generiche se ti servono */}
           </div>
         </div>
       </div>
 
       {/* contenuto dell’app scelta */}
-      <div className="mx-auto max-w-[1600px] px-6 py-6">
+      <div className="mx-auto max-w-[1600px] flex-1 px-6 py-6">
         {content}
       </div>
     </div>

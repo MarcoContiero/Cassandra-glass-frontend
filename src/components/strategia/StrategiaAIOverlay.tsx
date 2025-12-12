@@ -38,6 +38,31 @@ type StrategiaAIStrategy = {
 
   tags?: string[];
   note?: string | null;
+
+  ciclica_window?: {
+    tf_ciclo?: string;
+    entry_from_bars?: number | null;
+    entry_to_bars?: number | null;
+    exit_from_bars?: number | null;
+    exit_to_bars?: number | null;
+    countdown_bars?: number | null;
+    timing_grade?: string | null;
+    label?: string | null;
+    direction?: "LONG" | "SHORT" | null;
+  };
+  ciclica_pivot?: {
+    timeframe?: string | null;
+    window?: string | null;
+    probability?: number | null;
+    cluster_macro?: {
+      id?: string | null;
+      timeframe?: string | null;
+      window_min?: number | null;
+      window_max?: number | null;
+      descrizione?: string | null;
+      impatto?: string | null;
+    } | null;
+  };
 };
 
 type Props = {
@@ -334,7 +359,7 @@ export function StrategiaAIOverlay({ data, onClose }: Props) {
                 </button>
               )}
 
-              {/* Dettagli (spiegazione + conferme/invalidazioni + tag/note) */}
+              {/* Dettagli (spiegazione + conferme/invalidazioni + ciclica + tag/note) */}
               {hasDetails && isOpen && (
                 <div className="mt-3 space-y-2 text-[11px] leading-tight">
                   {s.explanation && (
@@ -398,6 +423,103 @@ export function StrategiaAIOverlay({ data, onClose }: Props) {
                       </div>
                     )}
 
+                  {/* Finestra ciclica operativa */}
+                  {s.ciclica_window && (
+                    <div className="mt-2 rounded-lg bg-indigo-950/40 p-2">
+                      <div className="flex items-center justify-between">
+                        <div className="text-[10px] font-semibold uppercase tracking-wide text-indigo-200">
+                          Finestra ciclica
+                        </div>
+
+                        {s.ciclica_window.direction && (
+                          <span
+                            className={[
+                              "rounded-full px-2 py-0.5 text-[9px] font-semibold tracking-wide",
+                              s.ciclica_window.direction === "LONG"
+                                ? "bg-emerald-500/20 text-emerald-200 border border-emerald-400/40"
+                                : "bg-red-500/20 text-red-200 border border-red-400/40",
+                            ].join(" ")}
+                          >
+                            Reentry{" "}
+                            {s.ciclica_window.direction === "LONG" ? "LONG" : "SHORT"}
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="mt-1 text-[10px] text-indigo-100">
+                        {s.ciclica_window.label ? (
+                          <span>{s.ciclica_window.label}</span>
+                        ) : (
+                          <span>
+                            TF ciclo: {s.ciclica_window.tf_ciclo ?? "-"} · ingresso{" "}
+                            {s.ciclica_window.entry_from_bars ?? "-"}–
+                            {s.ciclica_window.entry_to_bars ?? "-"} barre · validità{" "}
+                            {s.ciclica_window.exit_from_bars ?? "-"}–
+                            {s.ciclica_window.exit_to_bars ?? "-"} barre
+                          </span>
+                        )}
+                      </div>
+
+                      {/* Countdown + giudizio timing */}
+                      {(s.ciclica_window.countdown_bars != null ||
+                        s.ciclica_window.timing_grade) && (
+                          <div className="mt-1 text-[10px] text-indigo-200/80">
+                            {s.ciclica_window.countdown_bars != null && (
+                              <span>
+                                ⏳ Tempo residuo finestra ≈{" "}
+                                {s.ciclica_window.countdown_bars} barre
+                              </span>
+                            )}
+                            {s.ciclica_window.timing_grade && (
+                              <span>
+                                {" "}
+                                · Timing:{" "}
+                                {s.ciclica_window.timing_grade === "sweetspot"
+                                  ? "sweetspot"
+                                  : s.ciclica_window.timing_grade === "tardi"
+                                    ? "in ritardo"
+                                    : s.ciclica_window.timing_grade === "molto_lontano"
+                                      ? "molto anticipato"
+                                      : "neutro"}
+                              </span>
+                            )}
+                          </div>
+                        )}
+                    </div>
+                  )}
+                  {/* Pivot ciclico previsto */}
+                  {s.ciclica_pivot && (
+                    <div className="mt-2 rounded-lg bg-fuchsia-950/40 p-2">
+                      <div className="text-[10px] font-semibold uppercase tracking-wide text-fuchsia-200">
+                        Pivot ciclico
+                      </div>
+                      <div className="mt-1 text-[10px] text-fuchsia-100">
+                        {s.ciclica_pivot.timeframe && s.ciclica_pivot.window ? (
+                          <span>
+                            Pivot atteso su {s.ciclica_pivot.timeframe} fra{" "}
+                            {s.ciclica_pivot.window}
+                            {s.ciclica_pivot.probability != null &&
+                              ` (p≈${Math.round(
+                                s.ciclica_pivot.probability * 100
+                              )}%)`}
+                          </span>
+                        ) : (
+                          <span>Pivot ciclico rilevante in avvicinamento.</span>
+                        )}
+                      </div>
+                      {s.ciclica_pivot.cluster_macro && (
+                        <div className="mt-1 text-[10px] text-fuchsia-100/80">
+                          Nodo macro {s.ciclica_pivot.cluster_macro.timeframe}{" "}
+                          ({s.ciclica_pivot.cluster_macro.window_min ?? "-"}–
+                          {s.ciclica_pivot.cluster_macro.window_max ?? "-"} barre):{" "}
+                          {s.ciclica_pivot.cluster_macro.descrizione ??
+                            s.ciclica_pivot.cluster_macro.impatto}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Tag + note */}
                   {(s.tags?.length || s.note) && (
                     <div className="mt-1 text-[10px] text-zinc-300">
                       {s.tags?.length ? (

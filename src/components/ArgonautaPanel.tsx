@@ -256,6 +256,32 @@ export default function ArgonautaPanel() {
     [watchlistRaw],
   );
 
+  const [onlyAI, setOnlyAI] = useState<boolean>(false);
+
+  // Heuristica robusta: adegua qui ai nomi reali del tuo JSON
+  const isAIFlagged = (raw: any): boolean => {
+    if (!raw || typeof raw !== 'object') return false;
+
+    // booleani diretti
+    if (raw.ai === true) return true;
+    if (raw.tag_ai === true) return true;
+    if (raw.is_ai === true) return true;
+    if (raw.ai_confirmed === true) return true;
+
+    // tag/labels
+    const tag = String(raw.tag ?? raw.label ?? raw.badge ?? '').toUpperCase();
+    if (tag === 'AI') return true;
+
+    const tags = raw.tags ?? raw.labels ?? raw.flags;
+    if (Array.isArray(tags) && tags.map(String).some(t => t.toUpperCase() === 'AI')) return true;
+
+    // stringa “AI” dentro ad un badge
+    const badge = String(raw.badge_text ?? raw.badgeLabel ?? '').toUpperCase();
+    if (badge.includes('AI')) return true;
+
+    return false;
+  };
+
   // Scan state
   const [started, setStarted] = useState(false);
   const [stats, setStats] = useState<ScanStats>({ running: false, startedAt: null, lastScanAt: null });
@@ -359,7 +385,10 @@ export default function ArgonautaPanel() {
       });
       if (!allRaw.length) return null;
 
-      const items = allRaw
+      const filteredRaw = onlyAI ? allRaw.filter(isAIFlagged) : allRaw;
+      if (!filteredRaw.length) return null;
+
+      const items = filteredRaw
         .map((raw) => {
           const dirRaw = raw?.dir ?? raw?.direction ?? raw?.side ?? raw?.tipo;
           const dir = typeof dirRaw === 'string'
@@ -388,7 +417,7 @@ export default function ArgonautaPanel() {
         entry: nearest.entry as number,
       };
     }).filter(Boolean) as Array<{ symbol: string; dir: string; pct: string; current: number; entry: number }>;
-  }, [symbols, bySymbol]);
+  }, [symbols, bySymbol, onlyAI]);
 
   /* --------------------------------- UI ---------------------------------- */
 
@@ -411,7 +440,7 @@ export default function ArgonautaPanel() {
         </ArgonautaLegendButton>
       </div>
       {/* Controls */}
-      <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
         {/* Frequenza */}
         <div>
           <label className="mb-1 block text-xs text-white/60">Frequenza (min)</label>
@@ -476,6 +505,21 @@ export default function ArgonautaPanel() {
             className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40"
             placeholder="0.20"
           />
+        </div>
+
+        {/* Solo AI */}
+        <div>
+          <label className="mb-1 block text-xs text-white/60">Filtro</label>
+          <button
+            onClick={() => setOnlyAI(v => !v)}
+            className={`w-full rounded-md border px-3 py-2 text-sm transition ${onlyAI
+                ? "bg-emerald-400/10 border-emerald-400/40 text-emerald-200"
+                : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
+              }`}
+            aria-pressed={onlyAI}
+          >
+            {onlyAI ? "✅ Solo risultati AI" : "Tutti i risultati"}
+          </button>
         </div>
       </div>
 
@@ -577,6 +621,7 @@ export default function ArgonautaPanel() {
                   priceHint={data?.priceHint}
                   argonautaIdea={data?.argIdea}
                   alertThresholdPct={alertPct}
+                  onlyAI={onlyAI}
                 />
               ) : (
                 <div className="rounded-xl border border-white/10 p-4 text-sm text-white/50">
