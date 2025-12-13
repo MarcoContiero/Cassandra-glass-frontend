@@ -1,210 +1,307 @@
 'use client';
 
-import React, { useEffect, useState } from 'react';
+import * as React from 'react';
+import { useMemo, useState } from 'react';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
 
-type Direzione = 'LONG' | 'SHORT';
+type CiclicaWindow = {
+  direction?: 'LONG' | 'SHORT' | string;
+  tf_ciclo?: string;            // es. "1h"
+  entry_from_bars?: number;     // es. 7
+  entry_to_bars?: number;       // es. 17
+  countdown_bars?: number;      // es. 16
+  timing_grade?: string;        // es. "neutro"
+  label?: string;               // testo pronto
+};
 
-export interface AgemaRow {
-  symbol: string;              // es. LINKUSDT
-  coin: string;                // es. LINK
-  prezzo: number;
-  punteggio: number;           // score totale Agema
-  faseCiclica: string;         // es. "mid_down", "zona re-entry"
-  zonaReentry: string;         // es. "13–14"
-  tpSintetico?: string;        // es. "TP ~14.2" o "TP1 13.9 / TP2 14.24"
-  tempoCiclico?: string;       // es. "re-entry 22–51h"
-  direzione: Direzione;        // LONG o SHORT prevalente
-  bestEntryDistance?: string;  // es. "0.02 dal best setup"
-  bestEntryPrice?: number;     // entry Strategia AI più vicina
-  bestEntryTf?: string;        // es. "1h breve"
-  bestEntryScore?: number;     // es. 9
+type StrategiaAIItem = {
+  tf: string;                   // "1h", "4h", "1d"...
+  mode?: string;                // breve/medio/lungo...
+  direction?: 'LONG' | 'SHORT' | string;
+  entry: number;
+  sl_price?: number | null;
+  tp1_price?: number | null;
+  tp2_price?: number | null;
+  rr1?: number | null;
+  rr2?: number | null;
+  score?: number | null;
+  dist_bps?: number | null;
+  explanation?: string;
+  tags?: string[];
+  ciclica_window?: CiclicaWindow; // 👈 nuovo: arriva già dentro strategia_ai
+};
+
+type AgemaRow = {
+  coin: string;                 // "LINKUSDT"
+  price?: number | null;
+  score?: number | null;        // punteggio “classifica”
+  direction?: 'LONG' | 'SHORT' | string;
+  ciclica_label?: string | null;      // facoltativo (se lo metti nel BE)
+  reentry_label?: string | null;      // facoltativo
+  eta_reentry_hours?: number | null;  // facoltativo (se lo metti nel BE)
+  best?: StrategiaAIItem[];           // top 3 entrate (o più)
+};
+
+type AgemaResponse = {
+  updated_at?: string;
+  rows: AgemaRow[];
+};
+
+function tfToMinutes(tf?: string): number | null {
+  const s = String(tf || '').trim();
+  if (!s) return null;
+  if (s.endsWith('m')) return Number(s.replace('m', '')) || null;
+  if (s.endsWith('h')) return (Number(s.replace('h', '')) || 0) * 60 || null;
+  if (s === '1d') return 24 * 60;
+  if (s === '1w') return 7 * 24 * 60;
+  return null;
 }
 
-interface AgemaResponse {
-  updated_at: string;
-  threshold: number;
-  rows: AgemaRow[];
+function barsToHours(bars: number | null | undefined, tf_ciclo?: string): number | null {
+  if (!Number.isFinite(bars as number)) return null;
+  const mins = tfToMinutes(tf_ciclo);
+  if (!mins) return null;
+  return (Number(bars) * mins) / 60;
+}
+
+function fmt(n?: number | null, digits = 2) {
+  if (!Number.isFinite(n as number)) return '—';
+  return Number(n).toLocaleString('it-IT', { maximumFractionDigits: digits });
 }
 
 export default function AgemaPanel() {
   const [data, setData] = useState<AgemaResponse | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
+
+  // filtri
+  const [minScore, setMinScore] = useState<number>(60);
+  const [maxHours, setMaxHours] = useState<number>(48); // “valide entro tot ore”
+  const [dir, setDir] = useState<'ALL' | 'LONG' | 'SHORT'>('ALL');
 
   async function fetchAgema() {
     try {
       setLoading(true);
       setError(null);
-      const res = await fetch('/api/agema', { cache: 'no-store' });
-      if (!res.ok) {
-        const txt = await res.text().catch(() => '');
-        throw new Error(`HTTP ${res.status} – ${txt || 'errore sconosciuto'}`);
-      }
-      const json = (await res.json()) as AgemaResponse;
-      setData(json);
+
+      const q = new URLSearchParams();
+      q.set('min_score', String(minScore));
+      q.set('max_hours', String(maxHours));
+      if (dir !== 'ALL') q.set('direction', dir);
+
+      const url = `/api/agema?${q.toString()}`;
+      const r = await fetch(url, { cache: 'no-store' });
+      if (!r.ok) throw new Error(`HTTP ${r.status}`);
+      const js = (await r.json()) as AgemaResponse;
+
+      setData(js);
     } catch (e: any) {
-      setError(String(e?.message || e));
+      setError(e?.message || 'Errore');
+      setData(null);
     } finally {
       setLoading(false);
     }
   }
 
-  useEffect(() => {
-    fetchAgema();
-  }, []);
+  const rows = useMemo(() => {
+    const base = data?.rows ?? [];
+
+    // filtro temporale “vero” anche se il BE non lo fa ancora:
+    // usa ciclica_window.countdown_bars + tf_ciclo dentro ogni strategia_ai.
+    const filtered = base.filter((row) => {
+      const sc = Number(row.score ?? -1);
+      if (Number.isFinite(minScore) && sc < minScore) return false;
+
+      if (dir !== 'ALL') {
+        const hasDir = (row.best ?? []).some((s) => (s.direction || '') === dir);
+        if (!hasDir) return false;
+      }
+
+      // maxHours: la riga passa se almeno UNA delle top entry ha countdown <= maxHours
+      if (Number.isFinite(maxHours) && maxHours > 0) {
+        const okTime = (row.best ?? []).some((s) => {
+          const cw = s.ciclica_window;
+          if (!cw) return false;
+          const h = barsToHours(cw.countdown_bars, cw.tf_ciclo);
+          return h !== null && h <= maxHours;
+        });
+        // Se non hai ciclica_window nel BE per quella coin, la scartiamo (se maxHours attivo)
+        if (!okTime) return false;
+      }
+
+      return true;
+    });
+
+    // ordinamento: score desc, poi distanza entry (se presente) asc
+    return filtered.sort((a, b) => {
+      const sa = Number(a.score ?? -1);
+      const sb = Number(b.score ?? -1);
+      if (sb !== sa) return sb - sa;
+
+      const da = Math.min(...(a.best ?? []).map(x => Number(x.dist_bps ?? 9e9)));
+      const db = Math.min(...(b.best ?? []).map(x => Number(x.dist_bps ?? 9e9)));
+      return da - db;
+    });
+  }, [data, minScore, maxHours, dir]);
 
   return (
-    <div className="flex flex-col h-full">
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between gap-4">
-        <div>
-          <h2 className="text-xl font-semibold tracking-tight">Agema</h2>
-          <p className="text-sm text-zinc-400">
-            Classifica delle coin attualmente più interessanti secondo Cassandra
-            (ciclica + Strategia AI).
-          </p>
-          {data?.updated_at && (
-            <p className="mt-1 text-xs text-zinc-500">
-              Ultimo aggiornamento: {data.updated_at}
-            </p>
-          )}
-        </div>
+    <Card className="bg-black/30 border-white/10">
+      <CardHeader>
+        <CardTitle className="text-sm">Agema — Classifica operativa</CardTitle>
+        <CardDescription className="text-xs text-muted-foreground">
+          Seleziona solo le coin con setup utili (ciclica + strategia AI) entro una finestra temporale.
+        </CardDescription>
 
-        <div className="flex items-center gap-2">
-          <button
-            onClick={fetchAgema}
-            className="px-3 py-1 rounded-lg border border-white/10 text-xs bg-white/5 hover:bg-white/10"
-          >
-            Aggiorna
-          </button>
-          {data && (
-            <span className="text-[11px] px-2 py-1 rounded-full bg-white/5 border border-white/10">
-              Mostra solo punteggio &gt;= {data.threshold}
+        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-2">
+            <span className="opacity-70">Min score</span>
+            <input
+              className="w-20 px-2 py-1 bg-black/40 rounded border border-white/10"
+              type="number"
+              value={minScore}
+              onChange={(e) => setMinScore(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="opacity-70">Entro (ore)</span>
+            <input
+              className="w-20 px-2 py-1 bg-black/40 rounded border border-white/10"
+              type="number"
+              value={maxHours}
+              onChange={(e) => setMaxHours(Number(e.target.value))}
+            />
+          </div>
+
+          <div className="flex items-center gap-2">
+            <span className="opacity-70">Direzione</span>
+            <select
+              className="px-2 py-1 bg-black/40 rounded border border-white/10"
+              value={dir}
+              onChange={(e) => setDir(e.target.value as any)}
+            >
+              <option value="ALL">ALL</option>
+              <option value="LONG">LONG</option>
+              <option value="SHORT">SHORT</option>
+            </select>
+          </div>
+
+          <Button variant="secondary" onClick={fetchAgema} disabled={loading}>
+            {loading ? 'Carico…' : 'Aggiorna'}
+          </Button>
+
+          {data?.updated_at && (
+            <span className="ml-auto opacity-60">
+              aggiornato: {data.updated_at}
             </span>
           )}
-        </div>
-      </div>
 
-      {loading && (
-        <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
-          Caricamento classifica…
+          {error && <div className="text-red-400">Errore: {error}</div>}
         </div>
-      )}
+      </CardHeader>
 
-      {error && (
-        <div className="mb-3 rounded-lg border border-red-500/40 bg-red-500/5 px-3 py-2 text-xs text-red-300">
-          Errore nel caricamento di Agema: {error}
-        </div>
-      )}
+      <CardContent className="text-xs">
+        {!data && !error && (
+          <div className="opacity-70">
+            Premi <b>Aggiorna</b> per caricare la classifica.
+          </div>
+        )}
 
-      {/* Tabella */}
-      {data && data.rows.length > 0 && (
-        <div className="flex-1 overflow-auto rounded-xl border border-white/10 bg-black/40">
-          <table className="w-full text-xs md:text-sm border-collapse">
-            <thead className="sticky top-0 z-10 bg-black/70 backdrop-blur">
-              <tr className="text-zinc-300">
-                <th className="px-3 py-2 text-left font-medium">#</th>
-                <th className="px-3 py-2 text-left font-medium">Coin</th>
-                <th className="px-3 py-2 text-right font-medium">Prezzo</th>
-                <th className="px-3 py-2 text-center font-medium">Score</th>
-                <th className="px-3 py-2 text-left font-medium">Fase ciclica</th>
-                <th className="px-3 py-2 text-left font-medium">Zona re-entry</th>
-                <th className="px-3 py-2 text-left font-medium hidden md:table-cell">
-                  TP / Roadmap
-                </th>
-                <th className="px-3 py-2 text-left font-medium">
-                  Strategia AI (best)
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.rows.map((row, idx) => {
-                const isLong = row.direzione === 'LONG';
-                const dirLabel = isLong ? 'LONG' : 'SHORT';
-                const dirColor = isLong ? 'text-emerald-300' : 'text-red-300';
-                const dirBg = isLong ? 'bg-emerald-500/10' : 'bg-red-500/10';
-                return (
-                  <tr
-                    key={row.symbol}
-                    className="border-t border-white/5 hover:bg-white/5 transition-colors"
-                  >
-                    <td className="px-3 py-2 text-zinc-500 align-top">
-                      {idx + 1}
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <div className="flex flex-col">
-                        <span className="font-semibold tracking-tight">
-                          {row.coin}
-                        </span>
-                        <span className="text-[11px] text-zinc-500">
-                          {row.symbol}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 text-right align-top font-mono tabular-nums">
-                      {row.prezzo.toLocaleString('it-IT', {
-                        maximumFractionDigits: 6,
-                      })}
-                    </td>
-                    <td className="px-3 py-2 text-center align-top">
-                      <span
-                        className={`inline-flex items-center justify-center px-2 py-1 rounded-full text-[11px] font-semibold ${dirBg} ${dirColor}`}
-                      >
-                        {dirLabel} · {row.punteggio}
-                      </span>
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <div className="flex flex-col gap-0.5">
-                        <span className="text-xs">{row.faseCiclica}</span>
-                        {row.tempoCiclico && (
-                          <span className="text-[11px] text-zinc-500">
-                            {row.tempoCiclico}
-                          </span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      <span className="text-xs">{row.zonaReentry}</span>
-                    </td>
-                    <td className="px-3 py-2 align-top hidden md:table-cell">
-                      <div className="flex flex-col gap-0.5">
-                        {row.tpSintetico && (
-                          <span className="text-xs">{row.tpSintetico}</span>
-                        )}
-                      </div>
-                    </td>
-                    <td className="px-3 py-2 align-top">
-                      {row.bestEntryPrice ? (
-                        <div className="flex flex-col gap-0.5">
-                          <span className="text-xs">
-                            Entry {row.bestEntryPrice.toLocaleString('it-IT', {
-                              maximumFractionDigits: 6,
-                            })}{' '}
-                            ({row.bestEntryDistance})
-                          </span>
-                          <span className="text-[11px] text-zinc-500">
-                            {row.bestEntryTf} · score {row.bestEntryScore}
-                          </span>
+        {rows.length > 0 && (
+          <div className="flex flex-col gap-2">
+            {rows.map((row) => {
+              const best = (row.best ?? []).slice(0, 3);
+              return (
+                <div
+                  key={row.coin}
+                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <div className="font-semibold">{row.coin}</div>
+
+                    <Badge variant="outline" className="text-[0.7rem]">
+                      prezzo {fmt(row.price, 6)}
+                    </Badge>
+
+                    <Badge variant="outline" className="text-[0.7rem]">
+                      score {fmt(row.score, 0)}
+                    </Badge>
+
+                    {row.direction && (
+                      <Badge variant="outline" className="text-[0.7rem]">
+                        {row.direction}
+                      </Badge>
+                    )}
+
+                    {/* opzionali se li metti nel BE */}
+                    {row.reentry_label && (
+                      <Badge variant="outline" className="text-[0.7rem]">
+                        {row.reentry_label}
+                      </Badge>
+                    )}
+                    {Number.isFinite(row.eta_reentry_hours as number) && (
+                      <Badge variant="outline" className="text-[0.7rem]">
+                        ETA {fmt(row.eta_reentry_hours, 0)}h
+                      </Badge>
+                    )}
+                  </div>
+
+                  <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                    {best.map((s, i) => {
+                      const cw = s.ciclica_window;
+                      const etaH = cw ? barsToHours(cw.countdown_bars, cw.tf_ciclo) : null;
+
+                      return (
+                        <div key={i} className="rounded-md border border-white/10 bg-black/30 px-2 py-2">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="text-[0.7rem]">
+                              TF {s.tf}
+                            </Badge>
+                            <Badge variant="outline" className="text-[0.7rem]">
+                              {s.direction} score {fmt(s.score, 0)}
+                            </Badge>
+                            {etaH !== null && (
+                              <Badge variant="outline" className="text-[0.7rem]">
+                                entro {fmt(etaH, 0)}h
+                              </Badge>
+                            )}
+                          </div>
+
+                          <div className="mt-1 font-mono tabular-nums">
+                            entry {fmt(s.entry, 6)}
+                            {Number.isFinite(s.tp1_price as number) && (
+                              <> · tp1 {fmt(s.tp1_price, 6)}</>
+                            )}
+                            {Number.isFinite(s.tp2_price as number) && (
+                              <> · tp2 {fmt(s.tp2_price, 6)}</>
+                            )}
+                          </div>
+
+                          {cw?.label && (
+                            <div className="mt-1 opacity-70">{cw.label}</div>
+                          )}
+
+                          {s.explanation && (
+                            <div className="mt-1 opacity-60 line-clamp-2">
+                              {s.explanation}
+                            </div>
+                          )}
                         </div>
-                      ) : (
-                        <span className="text-[11px] text-zinc-500">
-                          Nessuna entry forte vicino al prezzo.
-                        </span>
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-      )}
+                      );
+                    })}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        )}
 
-      {!loading && !error && data && data.rows.length === 0 && (
-        <div className="flex-1 flex items-center justify-center text-zinc-400 text-sm">
-          Nessuna coin supera la soglia attuale di Agema.
-        </div>
-      )}
-    </div>
+        {data && rows.length === 0 && !error && (
+          <div className="opacity-70">Nessun risultato con i filtri attuali.</div>
+        )}
+      </CardContent>
+    </Card>
   );
 }

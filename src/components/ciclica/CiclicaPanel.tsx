@@ -151,7 +151,7 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
         {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
 
         {/* 🔵 Percorso di rientro ciclico */}
-        {reentryPath?.hasData && <ReentryPathSection data={reentryPath} />}
+        {reentryPath && <ReentryPathSection data={reentryPath} />}
 
         {/* Roadmap temporale del ciclo ----------------------------------------- */}
         <RoadmapSection roadmap={roadmap} />
@@ -831,7 +831,6 @@ interface CustomRoadmapSectionProps {
 
 function CustomRoadmapSection({ data }: CustomRoadmapSectionProps) {
   const { phases, uiSummary, biasLabel, tpLevels, slLevels } = data;
-  if (!data.hasData) return null;
 
   return (
     <Card>
@@ -972,7 +971,11 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
           </p>
         )}
 
-        {steps.length > 0 && (
+        {steps.length === 0 ? (
+          <div className="text-[0.75rem] text-muted-foreground leading-snug">
+            Percorso non calcolato per questo ciclo (sequenza non disponibile).
+          </div>
+        ) : (
           <ol className="flex flex-col gap-2">
             {steps
               .slice()

@@ -451,7 +451,7 @@ export default function CassandraUI() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
                 onClick={() => openOverlay('longshort', `Long o Short? — ${compSymbol}`, compResult)}>
-                🧭 Long o Short?
+                🧭 Quadro Long o Short?
               </button>
               <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
                 onClick={() => openOverlay('entrate', `Entrate — ${compSymbol}`, compResult)}>
@@ -677,7 +677,7 @@ export default function CassandraUI() {
               className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
               onClick={() => openOverlay('longshort', 'Long o Short?', result)}
             >
-              🧭 Long o Short?
+              🧭 Quadro Long o Short?
             </button>
 
             <button

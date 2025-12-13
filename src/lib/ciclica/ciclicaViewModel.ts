@@ -133,6 +133,7 @@ export type CiclicaReentryStepRaw = {
     valore_max?: number | null;
     valore_centrale?: number | null;
     strength?: number | null;
+    orario_previsto?: string | null;
   } | null;
 };
 
@@ -325,6 +326,7 @@ export type CiclicaReentryStepVM = {
   type: "take_profit" | "attesa" | "reentry_long" | string;
   barsRangeLabel?: string | null;
   description?: string;
+  orario_previsto?: string | null;   // ✅ AGGIUNGI QUESTO
 };
 
 export type CiclicaReentryVM = {
@@ -893,6 +895,7 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
       type: (s.tipo as any) || "fase",
       barsRangeLabel,
       description: s.descrizione || "",
+      orario_previsto: (s as any).orario_previsto ?? null,
     });
   }
 
@@ -944,11 +947,10 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
   let roadmapSummary: string | null = null;
 
   if (steps.length > 0) {
-    const rangesForSummary: Array<{ from: number; to: number; label: string; type: string }> = [];
+    const rangesForSummary: Array<{ from: number; to: number; label: string; type: string; orario?: string | null }> = [];
 
     // 1) Proviamo a usare le vere finestre "Fra X-Y barre"
-    const roadmapCalc: Array<{ from: number; to: number; label: string; type: string }> = [];
-
+    const roadmapCalc: Array<{ from: number; to: number; label: string; type: string; orario?: string | null }> = [];
     let accumulatedMin = 0;
     let accumulatedMax = 0;
 
@@ -974,6 +976,7 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
           to: end,
           label: s.label,
           type: s.type,
+          orario: s.orario_previsto ?? null,
         });
 
         accumulatedMin += min;
@@ -1001,6 +1004,7 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
           to: ranges[0].to,
           label: s1.label,
           type: s1.type,
+          orario: s1.orario_previsto ?? null,
         });
       }
 
@@ -1014,6 +1018,7 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
           to: ranges[1].to,
           label: midLabel,
           type: s2.type,
+          orario: s2.orario_previsto ?? null,
         });
       }
 
@@ -1023,13 +1028,15 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
           to: ranges[2].to,
           label: s3.label,
           type: s3.type,
+          orario: s3.orario_previsto ?? null,
         });
       }
     }
 
     // Costruiamo le righe roadmap dal rangesForSummary
     rangesForSummary.forEach((r) => {
-      roadmapLines.push(`${r.from}-${r.to}h: ${r.label}`);
+      const extra = r.to <= 24 && r.orario ? ` · ${r.orario}` : "";
+      roadmapLines.push(`${r.from}-${r.to}h: ${r.label}${extra}`);
     });
 
     // Categorie + sintesi se abbiamo almeno 3 blocchi
@@ -1082,20 +1089,23 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
   }
 
   const hasData =
-    steps.length > 0 || tpLabel !== null || reentryZoneLabel !== null || !!currentPhase;
-  if (!hasData) return undefined;
+    steps.length > 0 ||
+    tpLabel !== null ||
+    reentryZoneLabel !== null ||
+    !!currentPhase ||
+    !!archetypeLabel ||
+    !!directionLabel;
 
   return {
     hasData,
     archetypeLabel,
     directionLabel,
     currentPhase,
-    steps,
     tpLabel,
     reentryZoneLabel,
-    roadmapLines: roadmapLines.length > 0 ? roadmapLines : undefined,
-    pivotWindowLabel,
-    roadmapCategoryLines: roadmapCategoryLines.length > 0 ? roadmapCategoryLines : undefined,
+    steps,
+    roadmapLines,
+    roadmapCategoryLines,
     roadmapSummary,
   };
 }
