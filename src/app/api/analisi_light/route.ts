@@ -2,6 +2,9 @@
 import { NextRequest } from "next/server";
 import { callBackend } from "@/lib/proxy"; // ↩️ aggiorna il path se diverso
 
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
+
 export async function GET(req: NextRequest): Promise<Response> {
   const url = req.nextUrl;
   const search = url.searchParams.toString();

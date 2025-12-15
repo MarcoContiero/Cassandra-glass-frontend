@@ -13,6 +13,7 @@ interface LongShortOverlayProps {
   trendPerTf: Record<string, TrendTfEntry>;
   longshort?: LongShortGlobal | null;
   timeframes: Timeframe[];
+  spiegazione?: any; // nuovo: blocco BE (data.spiegazione)
   onClose?: () => void;
 }
 
@@ -139,6 +140,7 @@ export default function LongShortOverlay({
   trendPerTf,
   longshort,
   timeframes,
+  spiegazione,
   onClose,
 }: LongShortOverlayProps) {
   /* righe per TF (dati locali) */
@@ -280,6 +282,52 @@ export default function LongShortOverlay({
             </button>
           )}
         </div>
+
+        {/* CONTESTO (dal BE: spiegazione) */}
+        {spiegazione?.testo && (
+          <div className="rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-lg shadow-black/40">
+            <div className="text-[11px] font-semibold uppercase tracking-wide text-zinc-400">
+              Contesto di mercato
+            </div>
+
+            <div className="mt-2 text-sm leading-relaxed whitespace-pre-line">
+              {String(spiegazione.testo)}
+            </div>
+
+            <div className="mt-3 flex flex-wrap gap-2 text-[11px]">
+              {spiegazione.scenario_state && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  {spiegazione.scenario_state}
+                </span>
+              )}
+              {spiegazione.pressure && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  {spiegazione.pressure}
+                </span>
+              )}
+              {spiegazione.position && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  {spiegazione.position}
+                </span>
+              )}
+              {typeof spiegazione.confidence === "number" && (
+                <span className="rounded-full border border-white/10 bg-white/5 px-2 py-0.5">
+                  Confidenza {Math.round(spiegazione.confidence * 100)}%
+                </span>
+              )}
+              {typeof spiegazione.trigger_down === "number" && (
+                <span className="rounded-full border border-red-400/20 bg-red-500/10 px-2 py-0.5 text-red-200">
+                  ↓ {Math.round(spiegazione.trigger_down)}
+                </span>
+              )}
+              {typeof spiegazione.trigger_up === "number" && (
+                <span className="rounded-full border border-emerald-400/20 bg-emerald-500/10 px-2 py-0.5 text-emerald-200">
+                  ↑ {Math.round(spiegazione.trigger_up)}
+                </span>
+              )}
+            </div>
+          </div>
+        )}
 
         {/* RIGHE PER TF */}
         <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">

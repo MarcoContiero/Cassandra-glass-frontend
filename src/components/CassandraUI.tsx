@@ -255,8 +255,8 @@ function buildMiddles(result: any) {
 }
 
 export default function CassandraUI() {
-  const [symbol, setSymbol] = useState<string>('ETH');
-  const [timeframes, setTimeframes] = useState<string[]>(['1h']);
+  const [symbol, setSymbol] = useState<string>('BTC');
+  const [timeframes, setTimeframes] = useState<string[]>(['15m', '1h', '4h', '12h', '1d']);
   const [result, setResult] = useState<AnalisiLightResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [openPrevisti, setOpenPrevisti] = useState(false);
@@ -353,6 +353,12 @@ export default function CassandraUI() {
   }, [bootstrapped]);
 
   const prezzo = useMemo(() => extractPrice(result ?? {}), [result]);
+
+  const spiegazione = useMemo(
+    () => (result as any)?.spiegazione ?? null,
+    [result]
+  );
+
   const sr = useMemo(() => normalizeSR(result ?? {}), [result]);
 
   const normalizedOverlayData = useMemo(() => {
@@ -539,6 +545,7 @@ export default function CassandraUI() {
               (normalizedOverlayData?.timeframes as string[]) ??
               Object.keys(normalizedOverlayData?.trend_tf_score ?? {})
             }
+            spiegazione={(normalizedOverlayData as any)?.spiegazione}
             onClose={() => closeOverlay()}
           />
         );
@@ -669,7 +676,6 @@ export default function CassandraUI() {
             </span>
           </div>
         )}
-
         {/* Cards */}
         <div className="mt-4 flex-1 overflow-y-auto">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 pb-4">
