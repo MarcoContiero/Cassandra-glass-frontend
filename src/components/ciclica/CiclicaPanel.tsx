@@ -65,6 +65,7 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     nodoTransizione,
     customRoadmap,
     reentryPath,
+    guidaUmano,
     // --- CICLICA 2.8: segnali globali ---
     pivotPred,
     qualitaMassimo,
@@ -115,54 +116,70 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
           </CardHeader>
         </Card>
 
-        {/* Blocchi per TF -------------------------------------------------------- */}
+        {/* Semaforo + guida umana ---------------------------------------------- */}
+        {guidaUmano && <TrafficLightSection data={guidaUmano} />}
+        {guidaUmano && <GuidaUmanaSection data={guidaUmano} />}
+
+        {/* Stato dei cicli ------------------------------------------------------ */}
         <CyclesByTfSection cyclesByTf={cyclesByTf} />
 
-        {/* Finestre attive / in arrivo ----------------------------------------- */}
-        <WindowsSection activeWindows={activeWindows} />
-
-        {/* Timeline sintetica --------------------------------------------------- */}
-        <TimelineSection items={timelineItems} />
-
-        {/* Nodo di Transizione ciclica ----------------------------------------- */}
-        <NodoTransizioneSection nodo={nodoTransizione} />
-
-        {/* Compatibilità scenari / Strategia AI -------------------------------- */}
-        <CompatibilitySection
-          scenarios={scenariosCompatibility}
-          strategia={strategiaAiCompat ?? undefined}
-        />
-
-        {/* Sintesi ciclica multi-timeframe ------------------------------------- */}
-        <SummarySection summary={summary} />
-
-        {/* Segnali di fine gamba / pivot (Ciclica 2.8) ------------------------- */}
-        <GlobalSignalsSection
-          pivotPred={pivotPred}
-          qualitaMassimo={qualitaMassimo}
-          qualitaMinimo={qualitaMinimo}
-          energia={energia}
-          crossSync={crossSync}
-          eventRisk={eventRisk}
-          gestioneOperativa={gestioneOperativa}
-        />
-
-        {/* Roadmap ciclica strutturata 2.5 (nuovo pannello) -------------------- */}
-        {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
-
-        {/* 🔵 Percorso di rientro ciclico */}
+        {/* Re-entry consigliata ------------------------------------------------- */}
         {reentryPath && <ReentryPathSection data={reentryPath} />}
 
-        {/* Roadmap temporale del ciclo ----------------------------------------- */}
-        <RoadmapSection roadmap={roadmap} />
+        {/* Dettagli avanzati ---------------------------------------------------- */}
+        <details className="rounded-xl border bg-background/40 p-3">
+          <summary className="cursor-pointer text-sm font-semibold">
+            Dettagli avanzati
+            <span className="ml-2 text-xs text-muted-foreground">
+              finestre · timeline · compatibilità · narrativa · roadmap
+            </span>
+          </summary>
 
-        {/* Narrativa gassosa ---------------------------------------------------- */}
-        <NarrativeSection narrative={narrative} />
+          <div className="mt-3 flex flex-col gap-4">
+            {/* Finestre attive / in arrivo ------------------------------------- */}
+            <WindowsSection activeWindows={activeWindows} />
 
-        {/* Storico (facoltativo / collapsible in futuro) ------------------------ */}
-        {historicalWindows.length > 0 && (
-          <HistoricalWindowsSection historicalWindows={historicalWindows} />
-        )}
+            {/* Timeline sintetica ----------------------------------------------- */}
+            <TimelineSection items={timelineItems} />
+
+            {/* Nodo di Transizione ---------------------------------------------- */}
+            <NodoTransizioneSection nodo={nodoTransizione} />
+
+            {/* Compatibilità scenari / Strategia AI ---------------------------- */}
+            <CompatibilitySection
+              scenarios={scenariosCompatibility}
+              strategia={strategiaAiCompat ?? undefined}
+            />
+
+            {/* Sintesi ciclica multi-timeframe -------------------------------- */}
+            <SummarySection summary={summary} />
+
+            {/* Segnali di fine gamba / pivot (Ciclica 2.8) --------------------- */}
+            <GlobalSignalsSection
+              pivotPred={pivotPred}
+              qualitaMassimo={qualitaMassimo}
+              qualitaMinimo={qualitaMinimo}
+              energia={energia}
+              crossSync={crossSync}
+              eventRisk={eventRisk}
+              gestioneOperativa={gestioneOperativa}
+            />
+
+            {/* Roadmap ciclica strutturata 2.5 -------------------------------- */}
+            {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
+
+            {/* Roadmap temporale del ciclo ------------------------------------- */}
+            <RoadmapSection roadmap={roadmap} />
+
+            {/* Narrativa gassosa ------------------------------------------------ */}
+            <NarrativeSection narrative={narrative} />
+
+            {/* Storico ---------------------------------------------------------- */}
+            {historicalWindows.length > 0 && (
+              <HistoricalWindowsSection historicalWindows={historicalWindows} />
+            )}
+          </div>
+        </details>
       </div>
     </div>
   );
@@ -171,6 +188,127 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
 // -----------------------------------------------------------------------------
 // Sezioni
 // -----------------------------------------------------------------------------
+
+// -----------------------------------------------------------------------------
+// Semaforo + guida umana (nuovo)
+// -----------------------------------------------------------------------------
+
+function _guardrailClasses(color: string) {
+  const c = (color || "").toUpperCase();
+  if (c === "GREEN") return { dot: "bg-emerald-500", chip: "border-emerald-500/40 text-emerald-700 dark:text-emerald-300" };
+  if (c === "YELLOW") return { dot: "bg-amber-500", chip: "border-amber-500/40 text-amber-700 dark:text-amber-300" };
+  if (c === "RED") return { dot: "bg-red-500", chip: "border-red-500/40 text-red-700 dark:text-red-300" };
+  return { dot: "bg-zinc-400", chip: "border-zinc-500/30 text-muted-foreground" };
+}
+
+function _pct01(x: number | null | undefined) {
+  if (x == null || Number.isNaN(x)) return "n/d";
+  return `${Math.round(x * 100)}%`;
+}
+
+function _fmtInt(x: number | null | undefined) {
+  if (x == null || Number.isNaN(x)) return "n/d";
+  return `${Math.round(x)}`;
+}
+
+// render minimale del **bold** dentro il testo (senza dipendenze)
+function _renderBold(text: string) {
+  const parts = (text || "").split("**");
+  return parts.map((p, i) =>
+    i % 2 === 1 ? (
+      <strong key={i} className="font-semibold">
+        {p}
+      </strong>
+    ) : (
+      <React.Fragment key={i}>{p}</React.Fragment>
+    )
+  );
+}
+
+function TrafficLightSection({ data }: { data: CiclicaViewModel["guidaUmano"] }) {
+  if (!data) return null;
+
+  const b = data.badges;
+  const cls = _guardrailClasses(b.guardrailColor);
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">Semaforo operativo</CardTitle>
+        <CardDescription>
+          Sintesi rapida (guardrail + conflitto + shock + re-entry) per capire quando è meglio non operare.
+        </CardDescription>
+      </CardHeader>
+
+      <CardContent className="flex flex-col gap-3">
+        <div className="flex items-center justify-between gap-3 flex-wrap">
+          <div className="flex items-center gap-3">
+            <div className={`h-3 w-3 rounded-full ${cls.dot}`} />
+            <Badge variant="outline" className={`text-[0.7rem] px-2 py-0.5 rounded-full ${cls.chip}`}>
+              {b.guardrailColor}
+              {b.guardrailScore != null ? ` · ${_fmtInt(b.guardrailScore)}` : ""}
+            </Badge>
+
+            {b.prezzoNow != null && (
+              <span className="text-xs text-muted-foreground">
+                prezzo: <span className="font-medium text-foreground">{b.prezzoNow}</span>
+              </span>
+            )}
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {b.oracleBest && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                oracle: {b.oracleBest}
+                {b.oracleBestP != null ? ` · ${_pct01(b.oracleBestP)}` : ""}
+              </Badge>
+            )}
+
+            {(b.reentryState || b.reentryDirection) && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                re-entry: {b.reentryDirection ?? "n/d"} · {b.reentryState ?? "n/d"}
+              </Badge>
+            )}
+
+            {b.conflictScore != null && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                conflict: {_fmtInt(b.conflictScore)} {b.conflictMode ? `· ${b.conflictMode}` : ""}
+              </Badge>
+            )}
+
+            {b.shockScore != null && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                shock: {_fmtInt(b.shockScore)} {b.shockLevel ? `· ${b.shockLevel}` : ""}
+              </Badge>
+            )}
+
+            {(b.confidence != null || b.fragility != null) && (
+              <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
+                conf: {_pct01(b.confidence)} · frag: {_pct01(b.fragility)}
+              </Badge>
+            )}
+          </div>
+        </div>
+      </CardContent>
+    </Card>
+  );
+}
+
+function GuidaUmanaSection({ data }: { data: CiclicaViewModel["guidaUmano"] }) {
+  if (!data?.text) return null;
+
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-sm">{data.title || "Lettura ciclica attuale"}</CardTitle>
+        <CardDescription>Spiegazione “umana” del perché del semaforo e della finestra operativa.</CardDescription>
+      </CardHeader>
+      <CardContent>
+        <p className="text-sm leading-relaxed whitespace-pre-line">{_renderBold(data.text)}</p>
+      </CardContent>
+    </Card>
+  );
+}
 
 interface CyclesByTfSectionProps {
   cyclesByTf: Record<string, CiclicaTfBlock>;

@@ -30,6 +30,9 @@ export type CiclicaRaw = {
 
   reentry_path?: CiclicaReentryRaw | null;
 
+  // 🧠 Testo guida umano (guardrail + oracle + re-entry)
+  guida_umano?: CiclicaGuidaUmanoRaw | null;
+
   // --- CICLICA 2.8: segnali globali di fine gamba / pivot ---
   pivot_pred?: {
     probabilita?: number | null;
@@ -69,6 +72,35 @@ export type CiclicaRaw = {
     tp_full?: string | null;  // "zona_massima"
     sl_move?: string | null;  // "sotto zona_primary_low"
   } | null;
+};
+
+export type CiclicaGuidaUmanoBadgesRaw = {
+  oracle_best?: string | null;
+  oracle_best_p?: number | null;
+
+  guardrail_color?: "GREEN" | "YELLOW" | "RED" | "ND" | string | null;
+  guardrail_score?: number | null;
+
+  reentry_state?: string | null;       // "in_window" | "out_window" | "nd"
+  reentry_direction?: string | null;   // "LONG" | "SHORT" | "nd"
+
+  conflict_score?: number | null;
+  conflict_mode?: string | null;
+
+  shock_score?: number | null;
+  shock_level?: string | null;
+
+  confidence?: number | null;
+  fragility?: number | null;
+
+  prezzo_now?: number | null;
+};
+
+export type CiclicaGuidaUmanoRaw = {
+  title?: string | null;
+  text?: string | null;
+  badges?: CiclicaGuidaUmanoBadgesRaw | null;
+  meta?: Record<string, any> | null;
 };
 
 export type CiclicaCustomPhaseRaw = {
@@ -412,6 +444,8 @@ export type CiclicaViewModel = {
     tpFull?: string | null;   // "zona_massima"
     slMove?: string | null;   // "sotto zona_primary_low"
   } | null;
+
+  guidaUmano?: CiclicaGuidaUmanoVM;
 };
 
 export type CiclicaNodoTransizioneVM = {
@@ -565,6 +599,34 @@ export type CiclicaStrategiaCompatVM = {
   uiSummary: string;
 };
 
+export type CiclicaGuidaUmanoBadgesVM = {
+  oracleBest: string | null;
+  oracleBestP: number | null;
+
+  guardrailColor: "GREEN" | "YELLOW" | "RED" | "ND";
+  guardrailScore: number | null;
+
+  reentryState: string | null;
+  reentryDirection: string | null;
+
+  conflictScore: number | null;
+  conflictMode: string | null;
+
+  shockScore: number | null;
+  shockLevel: string | null;
+
+  confidence: number | null;
+  fragility: number | null;
+
+  prezzoNow: number | null;
+};
+
+export type CiclicaGuidaUmanoVM = {
+  title: string;
+  text: string;
+  badges: CiclicaGuidaUmanoBadgesVM;
+};
+
 // -----------------------------------------------------------------------------
 // 3) Funzione principale di mapping: raw -> CiclicaViewModel
 // -----------------------------------------------------------------------------
@@ -661,6 +723,37 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     }
     : null;
 
+  const g = raw.guida_umano ?? null;
+  const b = g?.badges ?? null;
+
+  const guidaUmano: CiclicaGuidaUmanoVM | undefined = g
+    ? {
+      title: g.title ?? "Lettura ciclica attuale",
+      text: g.text ?? "",
+      badges: {
+        oracleBest: b?.oracle_best ?? null,
+        oracleBestP: b?.oracle_best_p ?? null,
+
+        guardrailColor: (b?.guardrail_color as any) ?? "ND",
+        guardrailScore: b?.guardrail_score ?? null,
+
+        reentryState: b?.reentry_state ?? null,
+        reentryDirection: b?.reentry_direction ?? null,
+
+        conflictScore: b?.conflict_score ?? null,
+        conflictMode: b?.conflict_mode ?? null,
+
+        shockScore: b?.shock_score ?? null,
+        shockLevel: b?.shock_level ?? null,
+
+        confidence: b?.confidence ?? null,
+        fragility: b?.fragility ?? null,
+
+        prezzoNow: b?.prezzo_now ?? null,
+      },
+    }
+    : undefined;
+
   return {
     activeTimeframes,
     cyclesByTf,
@@ -674,6 +767,7 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     nodoTransizione,
     customRoadmap,
     reentryPath,
+    guidaUmano,
     pivotPred,
     qualitaMassimo,
     qualitaMinimo,
@@ -1107,6 +1201,42 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
     roadmapLines,
     roadmapCategoryLines,
     roadmapSummary,
+  };
+}
+
+function mapGuidaUmano(raw: CiclicaGuidaUmanoRaw | null | undefined): CiclicaGuidaUmanoVM | undefined {
+  if (!raw) return undefined;
+
+  const b = raw.badges ?? null;
+
+  const colorRaw = (b?.guardrail_color ?? "ND").toString().toUpperCase();
+  const guardrailColor: "GREEN" | "YELLOW" | "RED" | "ND" =
+    colorRaw === "GREEN" || colorRaw === "YELLOW" || colorRaw === "RED" ? (colorRaw as any) : "ND";
+
+  return {
+    title: raw.title ?? "Lettura ciclica attuale",
+    text: raw.text ?? "",
+    badges: {
+      oracleBest: b?.oracle_best ?? null,
+      oracleBestP: b?.oracle_best_p ?? null,
+
+      guardrailColor,
+      guardrailScore: b?.guardrail_score ?? null,
+
+      reentryState: b?.reentry_state ?? null,
+      reentryDirection: b?.reentry_direction ?? null,
+
+      conflictScore: b?.conflict_score ?? null,
+      conflictMode: b?.conflict_mode ?? null,
+
+      shockScore: b?.shock_score ?? null,
+      shockLevel: b?.shock_level ?? null,
+
+      confidence: b?.confidence ?? null,
+      fragility: b?.fragility ?? null,
+
+      prezzoNow: b?.prezzo_now ?? null,
+    },
   };
 }
 

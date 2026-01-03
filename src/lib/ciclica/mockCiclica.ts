@@ -2,7 +2,31 @@
 import type { CiclicaRaw } from "./ciclicaViewModel";
 
 export const mockCiclica: CiclicaRaw = {
-  timeframes_attivi: ["1h", "4h", "1d"],
+  timeframes_attivi: ["1h", "4h", "12h", "1d"],
+
+  guida_umano: {
+    title: "Lettura ciclica attuale",
+    text:
+      "Scenario più probabile: **CONTINUATION** (64%).\n\n" +
+      "Affidabilità stimata: confidenza 62/100, fragility 38/100.\n\n" +
+      "Il prezzo è fuori dalla finestra di re-entry: forzare ora tende a peggiorare l’efficienza dell’ingresso.\n\n" +
+      "🟨 Contesto selettivo: se operi, fallo solo su setup molto puliti e con gestione prudente.",
+    badges: {
+      oracle_best: "CONTINUATION",
+      oracle_best_p: 0.64,
+      guardrail_color: "YELLOW",
+      guardrail_score: 63,
+      reentry_state: "out_window",
+      reentry_direction: "LONG",
+      conflict_score: 42,
+      conflict_mode: "mixed",
+      shock_score: 18,
+      shock_level: "low",
+      confidence: 0.62,
+      fragility: 0.38,
+      prezzo_now: 88330.5,
+    },
+  },
 
   cicli_per_tf: {
     "1h": {
@@ -38,6 +62,24 @@ export const mockCiclica: CiclicaRaw = {
         convergenza_z: "media",
         distorsione_d: "bassa",
         qualita: 75,
+      },
+      ciclo_lungo: null,
+    },
+    "12h": {
+      tf: "12h",
+      ciclo_breve: {
+        fase_x: "mid_up",
+        posizione_y: "media",
+        convergenza_z: "media",
+        distorsione_d: "bassa",
+        qualita: 72,
+      },
+      ciclo_medio: {
+        fase_x: "late_up",
+        posizione_y: "alta",
+        convergenza_z: "media",
+        distorsione_d: "moderata",
+        qualita: 68,
       },
       ciclo_lungo: null,
     },
@@ -116,6 +158,32 @@ export const mockCiclica: CiclicaRaw = {
         },
       },
     ],
+    "12h": [
+      {
+        id: "CUSPIDE_MEDIO_12H_DEMO",
+        tipo: "cuspide_medio",
+        nome: "Cuspide di Medio Respiro",
+        tf: "12h",
+        ciclo_riferimento: "medio",
+        stato: "in_arrivo",
+        t_inizio_iso: "2025-11-30T08:00:00Z",
+        t_fine_iso: "2025-12-01T08:00:00Z",
+        price_min: 2680,
+        price_max: 2760,
+        confidence: 74,
+        direzione_attesa: "max",
+        descrizione_breve:
+          "Finestra 12h di decisione: possibile prosecuzione con rischio di pullback se il contesto si sporca.",
+        meta_gassosa:
+          "La Cuspide 12h coordina il respiro medio: se i TF brevi sono coerenti, aumenta la qualità della continuazione.",
+        confluenze: {
+          ema_cluster: true,
+          sr_resistenza: true,
+          liquidita_sopra: true,
+          scenari_supportati: ["RC1", "RR1"],
+        },
+      },
+    ],
     "1d": [
       {
         id: "NODO_1D_DEMO",
@@ -159,6 +227,15 @@ export const mockCiclica: CiclicaRaw = {
         t_inizio_iso: "2025-11-29T16:00:00Z",
         t_fine_iso: "2025-11-30T04:00:00Z",
         confidence: 76,
+        stato: "in_arrivo",
+      },
+    ],
+    "12h": [
+      {
+        tipo: "cuspide_medio",
+        t_inizio_iso: "2025-11-30T08:00:00Z",
+        t_fine_iso: "2025-12-01T08:00:00Z",
+        confidence: 74,
         stato: "in_arrivo",
       },
     ],
@@ -266,6 +343,25 @@ export const mockCiclica: CiclicaRaw = {
           eta_restante: 1,
         },
       },
+      "12h": {
+        tf: "12h",
+        fase: "flat",
+        pivot_dir: "ND",
+        pivot_type: "ND",
+        pivot_age_bars: 0,
+        a_norm: 0.78,
+        eta_norm: 0,
+        over_extension: false,
+        flags: {
+          warning_late: false,
+          warning_overext: false,
+          in_fase_di_inversione: false,
+        },
+        proiezione: {
+          bars_to_pivot: 18,
+          eta_restante: 1,
+        },
+      },
       "1d": {
         tf: "1d",
         fase: "flat",
@@ -293,7 +389,7 @@ export const mockCiclica: CiclicaRaw = {
         long: 0,
         short: 0,
         flat: 0,
-        nd: 3,
+        nd: 4,
       },
       flags: {
         dissonanza_forte: false,
