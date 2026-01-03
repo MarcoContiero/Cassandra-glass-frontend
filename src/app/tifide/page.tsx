@@ -1,8 +1,15 @@
 "use client";
-export const dynamic = "force-dynamic";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Card, CardHeader, CardTitle, CardDescription, CardContent, } from "@/components/ui/card"
+import {
+  Card,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+  CardContent,
+} from "@/components/ui/card";
+
+export const dynamic = "force-dynamic";
 
 type ApiResp<T> = { ok: boolean; data: T };
 
@@ -17,7 +24,11 @@ type TifideStatus = {
   watchlist_count: number;
   signals_offset: number;
   last_sig_ts: number | null;
-  feed: { connected: boolean; last_update_ts: number | null; last_error?: string | null };
+  feed: {
+    connected: boolean;
+    last_update_ts: number | null;
+    last_error?: string | null;
+  };
   portfolio: { equity_usd: number | null; fees_usd: number };
   position: any | null;
 };
@@ -61,15 +72,11 @@ type HbCounters = {
   close_sl?: number;
 };
 
-const [hbLine, setHbLine] = useState("");
-const [hbCounters, setHbCounters] = useState<HbCounters>({});
-const [hbAt, setHbAt] = useState<number | null>(null);
-
 function fmtTs(ts?: number | null) {
   if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleString();
+  return new Date(ts).toLocaleString();
 }
+
 function fmtNum(x?: number | null, dp = 2) {
   if (x === null || x === undefined || Number.isNaN(x)) return "—";
   return Number(x).toFixed(dp);
@@ -80,14 +87,19 @@ export default function TifidePage() {
   const [signals, setSignals] = useState<SignalItem[]>([]);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [events, setEvents] = useState<any[]>([]);
+
   const [hbLine, setHbLine] = useState<string>("");
+  const [hbCounters, setHbCounters] = useState<HbCounters>({});
+  const [hbAt, setHbAt] = useState<number | null>(null);
+
   const esRef = useRef<EventSource | null>(null);
   const hbCountRef = useRef(0);
 
   async function refreshAll() {
-    const st = await fetch("/api/tifide/status").then(r => r.json()) as ApiResp<TifideStatus>;
-    const sg = await fetch("/api/tifide/signals?limit=200").then(r => r.json()) as ApiResp<SignalItem[]>;
-    const tr = await fetch("/api/tifide/trades?limit=200").then(r => r.json()) as ApiResp<TradeItem[]>;
+    const st = (await fetch("/api/tifide/status").then((r) => r.json())) as ApiResp<TifideStatus>;
+    const sg = (await fetch("/api/tifide/signals?limit=200").then((r) => r.json())) as ApiResp<SignalItem[]>;
+    const tr = (await fetch("/api/tifide/trades?limit=200").then((r) => r.json())) as ApiResp<TradeItem[]>;
+
     setStatus(st.data);
     setSignals(sg.data);
     setTrades(tr.data);
@@ -101,7 +113,6 @@ export default function TifidePage() {
   useEffect(() => {
     refreshAll();
 
-    // SSE
     const es = new EventSource("/api/tifide/events");
     esRef.current = es;
 
@@ -134,8 +145,8 @@ export default function TifidePage() {
         if (evt?.type === "hb" || evt?.type === "error" || evt?.type === "status") {
           hbCountRef.current += 1;
 
-          const shouldFetch =
-            evt.type !== "hb" || (hbCountRef.current % 5 === 0);
+          // su error/status sempre; su hb ogni 5
+          const shouldFetch = evt.type !== "hb" || (hbCountRef.current % 5 === 0);
 
           if (shouldFetch) {
             fetch("/api/tifide/status")
@@ -151,7 +162,9 @@ export default function TifidePage() {
         if (evt?.type === "trade") {
           setTrades((prev) => [evt.data as TradeItem, ...prev].slice(0, 200));
         }
-      } catch { }
+      } catch {
+        // ignore parse errors
+      }
     };
 
     es.onerror = () => {
@@ -167,28 +180,32 @@ export default function TifidePage() {
   const badge = useMemo(() => {
     const s = status?.status ?? "stopped";
     const cls =
-      s === "running" ? "bg-emerald-600/20 text-emerald-200 ring-1 ring-emerald-500/30" :
-        s === "paused" ? "bg-amber-600/20 text-amber-200 ring-1 ring-amber-500/30" :
-          "bg-zinc-600/20 text-zinc-200 ring-1 ring-zinc-500/30";
+      s === "running"
+        ? "bg-emerald-600/20 text-emerald-200 ring-1 ring-emerald-500/30"
+        : s === "paused"
+          ? "bg-amber-600/20 text-amber-200 ring-1 ring-amber-500/30"
+          : "bg-zinc-600/20 text-zinc-200 ring-1 ring-zinc-500/30";
     return { s, cls };
   }, [status]);
 
-  const hbHealth = useMemo(() => {
-    const c = hbCounters || {};
-    const noMid = Number(c.no_mid ?? 0);
-    const sig = Number(c.signals_read ?? 0);
+  const hbC = useMemo(() => {
+    return {
+      scan_coin: hbCounters.scan_coin ?? 0,
+      signals_read: hbCounters.signals_read ?? 0,
+      with_mid: hbCounters.with_mid ?? 0,
+      no_mid: hbCounters.no_mid ?? 0,
+      open: hbCounters.open ?? 0,
+      close_preempt: hbCounters.close_preempt ?? 0,
+      close_trail: hbCounters.close_trail ?? 0,
+      close_sl: hbCounters.close_sl ?? 0,
+    };
+  }, [hbCounters]);
 
-    // logica semplice:
-    // - ERR: tanti no_mid (feed/coin mismatch) o zero HB da troppo (gestito sotto)
-    // - WARN: no_mid > 0 oppure segnali 0 (idle)
-    // - OK: segnali >0 e no_mid=0
+  const hbHealth = useMemo(() => {
+    const noMid = Number(hbC.no_mid ?? 0);
+
     let level: "OK" | "WARN" | "ERR" = "WARN";
 
-    if (sig > 0 && noMid === 0) level = "OK";
-    if (noMid >= 5) level = "ERR";
-
-    // se non arriva hb da > 2 minuti -> ERR
-    if (hbAt && Date.now() - hbAt > 120_000) level = "ERR";
     if (!hbAt) level = "WARN";
     else if (Date.now() - hbAt > 120_000) level = "ERR";
     else if (noMid > 0) level = "WARN";
@@ -202,34 +219,27 @@ export default function TifidePage() {
           : "bg-rose-600/20 text-rose-200 ring-1 ring-rose-500/30";
 
     return { level, cls };
-  }, [hbCounters, hbAt]);
+  }, [hbAt, hbC.no_mid]);
 
-  const hbC = {
-    scan_coin: hbCounters.scan_coin ?? 0,
-    signals_read: hbCounters.signals_read ?? 0,
-    with_mid: hbCounters.with_mid ?? 0,
-    no_mid: hbCounters.no_mid ?? 0,
-    open: hbCounters.open ?? 0,
-    close_preempt: hbCounters.close_preempt ?? 0,
-    close_trail: hbCounters.close_trail ?? 0,
-    close_sl: hbCounters.close_sl ?? 0,
-  };
+  const closesTotal = hbC.close_preempt + hbC.close_trail + hbC.close_sl;
 
   return (
     <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-        <div>
+      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+        <div className="min-w-[260px]">
           <div className="text-2xl font-semibold tracking-tight">TIFIDE</div>
-          <div className="text-sm text-zinc-400">
+          <div className="text-sm text-zinc-400 mt-1">
             Stato: <span className={`px-2 py-1 rounded-lg ${badge.cls}`}>{badge.s}</span>{" "}
-            • Uptime: {status?.uptime_sec ?? "—"}s
-            • Feed: {status?.feed?.connected ? "connected" : "disconnected"} (last: {fmtTs(status?.feed?.last_update_ts)})
+            • Uptime: {status?.uptime_sec ?? "—"}s • Feed:{" "}
+            {status?.feed?.connected ? "connected" : "disconnected"} (last:{" "}
+            {fmtTs(status?.feed?.last_update_ts)})
           </div>
           {status?.last_error && (
             <div className="text-sm text-red-300 mt-2">Errore: {status.last_error}</div>
           )}
         </div>
-        <Card>
+
+        <Card className="w-full md:w-[520px]">
           <CardHeader>
             <div className="flex items-center justify-between gap-2">
               <div>
@@ -249,20 +259,20 @@ export default function TifidePage() {
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
               <div className="rounded-md border p-2">
                 <div className="text-muted-foreground">signals_read</div>
-                <div className="font-mono">{hbC.signals_read ?? 0}</div>
+                <div className="font-mono">{hbC.signals_read}</div>
               </div>
               <div className="rounded-md border p-2">
                 <div className="text-muted-foreground">with_mid</div>
-                <div className="font-mono">{hbC.with_mid ?? 0}</div>
+                <div className="font-mono">{hbC.with_mid}</div>
               </div>
               <div className="rounded-md border p-2">
                 <div className="text-muted-foreground">no_mid</div>
-                <div className="font-mono">{hbC.no_mid ?? 0}</div>
+                <div className="font-mono">{hbC.no_mid}</div>
               </div>
               <div className="rounded-md border p-2">
                 <div className="text-muted-foreground">open/close</div>
                 <div className="font-mono">
-                  {(hbC.open ?? 0)}/{(hbC.close_preempt ?? 0) + (hbC.close_trail ?? 0) + (hbC.close_sl ?? 0)}
+                  {hbC.open}/{closesTotal}
                 </div>
               </div>
             </div>
@@ -276,7 +286,8 @@ export default function TifidePage() {
             </div>
           </CardContent>
         </Card>
-        <div className="flex gap-2">
+
+        <div className="flex flex-wrap gap-2 md:justify-end">
           <button
             onClick={() => post("/api/tifide/start")}
             className="px-3 py-2 rounded-xl bg-emerald-600/20 ring-1 ring-emerald-500/30 text-emerald-100"
@@ -343,6 +354,7 @@ export default function TifidePage() {
           </div>
         </div>
       </div>
+
       {/* Tables */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
