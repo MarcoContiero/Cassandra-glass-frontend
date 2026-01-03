@@ -291,7 +291,7 @@ export default function TifidePage() {
             <div key={i} className="border-b border-white/5 pb-1">
               <span className="text-zinc-400">{e.type}</span>{" "}
               <span className="text-zinc-500">{e.ts ? fmtTs(e.ts) : ""}</span>{" "}
-              <span>{JSON.stringify(e.data)}</span>
+              <span>{typeof e?.data?.line === "string" ? e.data.line : JSON.stringify(e.data)}</span>
             </div>
           ))}
           {!events.length && <div className="text-zinc-400">Nessun evento ancora</div>}
