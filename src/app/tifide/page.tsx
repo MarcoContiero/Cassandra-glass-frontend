@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { Card, CardHeader, CardTitle, CardDescription, CardContent, } from "@/components/ui/card"
 
 type ApiResp<T> = { ok: boolean; data: T };
 
@@ -64,6 +65,7 @@ export default function TifidePage() {
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [events, setEvents] = useState<any[]>([]);
   const esRef = useRef<EventSource | null>(null);
+  const [hbLine, setHbLine] = useState<string>("");
 
   async function refreshAll() {
     const st = await fetch("/api/tifide/status").then(r => r.json()) as ApiResp<TifideStatus>;
@@ -90,6 +92,10 @@ export default function TifidePage() {
       try {
         const evt = JSON.parse(msg.data);
         setEvents(prev => [evt, ...prev].slice(0, 400));
+
+        if (msg?.type === "hb" && typeof msg?.data?.line === "string") {
+          setHbLine(msg.data.line);
+        }
 
         if (evt.type === "snapshot") {
           setStatus(evt.data);
@@ -144,7 +150,19 @@ export default function TifidePage() {
             <div className="text-sm text-red-300 mt-2">Errore: {status.last_error}</div>
           )}
         </div>
-
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-sm">Monitor (HB)</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              Ultima riga di stato (come nei log Render).
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="rounded-md border bg-muted/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
+              {hbLine || "Nessun heartbeat ricevuto ancora."}
+            </div>
+          </CardContent>
+        </Card>
         <div className="flex gap-2">
           <button
             onClick={() => post("/api/tifide/start")}
@@ -212,7 +230,6 @@ export default function TifidePage() {
           </div>
         </div>
       </div>
-
       {/* Tables */}
       <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
         <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
