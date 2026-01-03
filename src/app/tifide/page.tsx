@@ -64,8 +64,8 @@ export default function TifidePage() {
   const [signals, setSignals] = useState<SignalItem[]>([]);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [events, setEvents] = useState<any[]>([]);
-  const esRef = useRef<EventSource | null>(null);
   const [hbLine, setHbLine] = useState<string>("");
+  const esRef = useRef<EventSource | null>(null);
 
   async function refreshAll() {
     const st = await fetch("/api/tifide/status").then(r => r.json()) as ApiResp<TifideStatus>;

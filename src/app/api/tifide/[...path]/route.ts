@@ -1,32 +1,72 @@
-import { NextRequest } from "next/server";
-import { callBackend, authHeaders } from "@/lib/proxy";
+// src/app/api/tifide/[...path]/route.ts
+export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
-async function forward(req: NextRequest, method: string, pathParts: string[]) {
-  const qs = req.nextUrl.searchParams.toString();
-  const path = `/api/tifide/${pathParts.join("/")}` + (qs ? `?${qs}` : "");
+function backendBase() {
+  return (
+    process.env.BACKEND_BASE ||
+    process.env.CASSANDRA_API_BASE ||
+    "http://localhost:8000"
+  ).replace(/\/+$/, "");
+}
 
-  const headers = {
-    ...authHeaders(),
-    "Content-Type": req.headers.get("content-type") ?? "application/json",
-  };
+function authHeaders() {
+  const key =
+    process.env.CASSANDRA_API_KEY ??
+    process.env.BACKEND_KEY ??
+    process.env.API_KEY;
 
-  const body = method === "GET" ? undefined : await req.text().catch(() => undefined);
+  const h: Record<string, string> = {};
+  if (key) {
+    h["Authorization"] = `Bearer ${key}`;
+    h["X-API-Key"] = key;
+  }
+  return h;
+}
 
-  const res = await callBackend(path, { method, headers, body });
+async function handler(req: Request, ctx: { params: Promise<{ path?: string[] }> }) {
+  const { path = [] } = await ctx.params;
+  const upstreamUrl = `${backendBase()}/api/tifide/${path.join("/")}${new URL(req.url).search}`;
 
-  // SSE passthrough (events)
-  const ct = res.headers.get("content-type") || "";
-  if (ct.includes("text/event-stream")) {
-    return new Response(res.body, { status: res.status, headers: res.headers });
+  const headers = new Headers(req.headers);
+  // Non forwardare host/encoding che a volte rompe lo streaming
+  headers.delete("host");
+  headers.delete("content-length");
+
+  // Auth server-side
+  const ah = authHeaders();
+  for (const [k, v] of Object.entries(ah)) headers.set(k, v);
+
+  // Per SSE: chiediamo esplicitamente stream
+  headers.set("accept", "text/event-stream");
+  headers.set("cache-control", "no-cache");
+
+  const upstream = await fetch(upstreamUrl, {
+    method: req.method,
+    headers,
+    body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
+    // IMPORTANTISSIMO: no cache
+    cache: "no-store",
+  });
+
+  // Pass-through streaming body (fondamentale per SSE)
+  const respHeaders = new Headers(upstream.headers);
+  respHeaders.set("cache-control", "no-cache, no-transform");
+  respHeaders.set("x-accel-buffering", "no"); // utile su alcuni proxy
+  // se è SSE, forza content-type giusto
+  if (path[0] === "events") {
+    respHeaders.set("content-type", "text/event-stream; charset=utf-8");
+    respHeaders.set("connection", "keep-alive");
   }
 
-  const text = await res.text();
-  return new Response(text, { status: res.status, headers: res.headers });
+  return new Response(upstream.body, {
+    status: upstream.status,
+    headers: respHeaders,
+  });
 }
 
-export async function GET(req: NextRequest, ctx: { params: { path: string[] } }) {
-  return forward(req, "GET", ctx.params.path);
-}
-export async function POST(req: NextRequest, ctx: { params: { path: string[] } }) {
-  return forward(req, "POST", ctx.params.path);
-}
+export const GET = handler;
+export const POST = handler;
+export const PUT = handler;
+export const DELETE = handler;
+export const PATCH = handler;
