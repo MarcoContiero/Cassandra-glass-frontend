@@ -21,3 +21,6 @@ yarn-error.log*
 .vscode/
 .idea/
 .vercel
+
+__pycache__/
+*.pyc
