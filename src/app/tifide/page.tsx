@@ -49,6 +49,21 @@ type TradeItem = {
   fee_usd: number;
 };
 
+type HbCounters = {
+  scan_coin?: number;
+  signals_read?: number;
+  with_mid?: number;
+  no_mid?: number;
+  open?: number;
+  close_preempt?: number;
+  close_trail?: number;
+  close_sl?: number;
+};
+
+const [hbLine, setHbLine] = useState("");
+const [hbCounters, setHbCounters] = useState<HbCounters>({});
+const [hbAt, setHbAt] = useState<number | null>(null);
+
 function fmtTs(ts?: number | null) {
   if (!ts) return "—";
   const d = new Date(ts);
@@ -66,6 +81,7 @@ export default function TifidePage() {
   const [events, setEvents] = useState<any[]>([]);
   const [hbLine, setHbLine] = useState<string>("");
   const esRef = useRef<EventSource | null>(null);
+  const hbCountRef = useRef(0);
 
   async function refreshAll() {
     const st = await fetch("/api/tifide/status").then(r => r.json()) as ApiResp<TifideStatus>;
@@ -91,28 +107,48 @@ export default function TifidePage() {
     es.onmessage = (msg) => {
       try {
         const evt = JSON.parse(msg.data);
-        setEvents(prev => [evt, ...prev].slice(0, 400));
 
-        if (msg?.type === "hb" && typeof msg?.data?.line === "string") {
-          setHbLine(msg.data.line);
+        // storico eventi (debug UI)
+        setEvents((prev) => [evt, ...prev].slice(0, 400));
+
+        // Monitor (HB): riga identica ai log Render
+        if (evt?.type === "hb" && typeof evt?.data?.line === "string") {
+          setHbLine(evt.data.line);
         }
 
-        if (evt.type === "snapshot") {
+        if (evt?.type === "hb") {
+          setHbAt(Date.now());
+          if (evt?.data?.counters && typeof evt.data.counters === "object") {
+            setHbCounters(evt.data.counters as HbCounters);
+          }
+        }
+
+        // snapshot: aggiorna stato completo e stop
+        if (evt?.type === "snapshot") {
           setStatus(evt.data);
           return;
         }
 
-        // aggiorna status “live” su hb/error/status
-        if (evt.type === "hb" || evt.type === "error" || evt.type === "status") {
-          // ricarichiamo solo lo snapshot (leggero)
-          fetch("/api/tifide/status").then(r => r.json()).then((r: ApiResp<TifideStatus>) => setStatus(r.data));
+        // aggiorna status “live” su hb/error/status (throttled)
+        if (evt?.type === "hb" || evt?.type === "error" || evt?.type === "status") {
+          hbCountRef.current += 1;
+
+          const shouldFetch =
+            evt.type !== "hb" || (hbCountRef.current % 5 === 0);
+
+          if (shouldFetch) {
+            fetch("/api/tifide/status")
+              .then((r) => r.json())
+              .then((r: ApiResp<TifideStatus>) => setStatus(r.data));
+          }
         }
 
-        if (evt.type === "signal") {
-          setSignals(prev => [evt.data as SignalItem, ...prev].slice(0, 200));
+        // stream signals/trades
+        if (evt?.type === "signal") {
+          setSignals((prev) => [evt.data as SignalItem, ...prev].slice(0, 200));
         }
-        if (evt.type === "trade") {
-          setTrades(prev => [evt.data as TradeItem, ...prev].slice(0, 200));
+        if (evt?.type === "trade") {
+          setTrades((prev) => [evt.data as TradeItem, ...prev].slice(0, 200));
         }
       } catch { }
     };
@@ -136,6 +172,48 @@ export default function TifidePage() {
     return { s, cls };
   }, [status]);
 
+  const hbHealth = useMemo(() => {
+    const c = hbCounters || {};
+    const noMid = Number(c.no_mid ?? 0);
+    const sig = Number(c.signals_read ?? 0);
+
+    // logica semplice:
+    // - ERR: tanti no_mid (feed/coin mismatch) o zero HB da troppo (gestito sotto)
+    // - WARN: no_mid > 0 oppure segnali 0 (idle)
+    // - OK: segnali >0 e no_mid=0
+    let level: "OK" | "WARN" | "ERR" = "WARN";
+
+    if (sig > 0 && noMid === 0) level = "OK";
+    if (noMid >= 5) level = "ERR";
+
+    // se non arriva hb da > 2 minuti -> ERR
+    if (hbAt && Date.now() - hbAt > 120_000) level = "ERR";
+    if (!hbAt) level = "WARN";
+    else if (Date.now() - hbAt > 120_000) level = "ERR";
+    else if (noMid > 0) level = "WARN";
+    else level = "OK";
+
+    const cls =
+      level === "OK"
+        ? "bg-emerald-600/20 text-emerald-200 ring-1 ring-emerald-500/30"
+        : level === "WARN"
+          ? "bg-amber-600/20 text-amber-200 ring-1 ring-amber-500/30"
+          : "bg-rose-600/20 text-rose-200 ring-1 ring-rose-500/30";
+
+    return { level, cls };
+  }, [hbCounters, hbAt]);
+
+  const hbC = {
+    scan_coin: hbCounters.scan_coin ?? 0,
+    signals_read: hbCounters.signals_read ?? 0,
+    with_mid: hbCounters.with_mid ?? 0,
+    no_mid: hbCounters.no_mid ?? 0,
+    open: hbCounters.open ?? 0,
+    close_preempt: hbCounters.close_preempt ?? 0,
+    close_trail: hbCounters.close_trail ?? 0,
+    close_sl: hbCounters.close_sl ?? 0,
+  };
+
   return (
     <div className="p-6 space-y-6">
       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -152,14 +230,48 @@ export default function TifidePage() {
         </div>
         <Card>
           <CardHeader>
-            <CardTitle className="text-sm">Monitor (HB)</CardTitle>
-            <CardDescription className="text-xs text-muted-foreground">
-              Ultima riga di stato (come nei log Render).
-            </CardDescription>
+            <div className="flex items-center justify-between gap-2">
+              <div>
+                <CardTitle className="text-sm">Monitor (HB)</CardTitle>
+                <CardDescription className="text-xs text-muted-foreground">
+                  Stato live + KPI estratti dall’heartbeat.
+                </CardDescription>
+              </div>
+
+              <span className={`px-2 py-1 text-[11px] rounded-md ${hbHealth.cls}`}>
+                {hbHealth.level}
+              </span>
+            </div>
           </CardHeader>
-          <CardContent>
+
+          <CardContent className="flex flex-col gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">signals_read</div>
+                <div className="font-mono">{hbC.signals_read ?? 0}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">with_mid</div>
+                <div className="font-mono">{hbC.with_mid ?? 0}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">no_mid</div>
+                <div className="font-mono">{hbC.no_mid ?? 0}</div>
+              </div>
+              <div className="rounded-md border p-2">
+                <div className="text-muted-foreground">open/close</div>
+                <div className="font-mono">
+                  {(hbC.open ?? 0)}/{(hbC.close_preempt ?? 0) + (hbC.close_trail ?? 0) + (hbC.close_sl ?? 0)}
+                </div>
+              </div>
+            </div>
+
             <div className="rounded-md border bg-muted/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
               {hbLine || "Nessun heartbeat ricevuto ancora."}
+            </div>
+
+            <div className="text-[11px] text-muted-foreground">
+              Last HB: {hbAt ? new Date(hbAt).toLocaleString() : "—"}
             </div>
           </CardContent>
         </Card>
