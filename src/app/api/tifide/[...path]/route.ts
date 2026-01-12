@@ -24,34 +24,42 @@ function authHeaders() {
   return h;
 }
 
-async function handler(
-  req: Request,
-  ctx: { params: Promise<{ path?: string[] }> },
-) {
-  const { path = [] } = await ctx.params;
+// Hop-by-hop headers (da non inoltrare)
+function stripHopByHop(headers: Headers) {
+  headers.delete("host");
+  headers.delete("connection");
+  headers.delete("keep-alive");
+  headers.delete("proxy-authenticate");
+  headers.delete("proxy-authorization");
+  headers.delete("te");
+  headers.delete("trailer");
+  headers.delete("transfer-encoding");
+  headers.delete("upgrade");
+  headers.delete("content-length");
+  headers.delete("accept-encoding"); // evita gzip su stream
+}
+
+type Ctx = { params: Promise<{ path?: string[] }> };
+
+async function handler(req: Request, ctx: Ctx) {
+  const { path = [] } = await ctx.params;   // ✅ Next 15: params va awaited
   const isSSE = path[0] === "events";
 
   const url = new URL(req.url);
   const upstreamUrl = `${backendBase()}/api/tifide/${path.join("/")}${url.search}`;
 
   const headers = new Headers(req.headers);
+  stripHopByHop(headers);
 
-  // Evita header che spesso rompono streaming/proxy
-  headers.delete("host");
-  headers.delete("content-length");
-  headers.delete("accept-encoding"); // utile per evitare gzip su stream
-
-  // Auth server-side
+  // Auth server-side verso BE
   const ah = authHeaders();
   for (const [k, v] of Object.entries(ah)) headers.set(k, v);
 
-  // SSE: SOLO qui
   if (isSSE) {
     headers.set("accept", "text/event-stream");
     headers.set("cache-control", "no-cache");
     headers.set("connection", "keep-alive");
   } else {
-    // Per JSON normali: lascia accept originale (o fallback)
     if (!headers.get("accept")) headers.set("accept", "application/json");
   }
 
@@ -66,13 +74,14 @@ async function handler(
   });
 
   const respHeaders = new Headers(upstream.headers);
+
+  // no-cache forte (utile su Render / proxy vari)
   respHeaders.set("cache-control", "no-store, no-cache, no-transform");
   respHeaders.set("x-accel-buffering", "no");
 
   if (isSSE) {
     respHeaders.set("content-type", "text/event-stream; charset=utf-8");
     respHeaders.set("connection", "keep-alive");
-    // Non mettere content-length su SSE
     respHeaders.delete("content-length");
   }
 
@@ -87,4 +96,3 @@ export const POST = handler;
 export const PUT = handler;
 export const DELETE = handler;
 export const PATCH = handler;
-

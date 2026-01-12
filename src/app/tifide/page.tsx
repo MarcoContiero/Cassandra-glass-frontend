@@ -1,490 +1,589 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import {
-  Card,
-  CardHeader,
-  CardTitle,
-  CardDescription,
-  CardContent,
-} from "@/components/ui/card";
 
-type ApiResp<T> = { ok: boolean; data: T };
+type Counters = {
+  cycles?: number;
+  setups?: number;
+  signals?: number;
+  opens?: number;
+  closes?: number;
+  errors?: number;
 
-type TifideStatus = {
-  name: string;
-  mode: string;
-  status: "running" | "paused" | "stopped";
-  started_at_ms: number | null;
-  updated_at_ms: number | null;
-  uptime_sec: number | null;
-  last_error: string | null;
-  watchlist_count: number;
-  signals_offset: number;
-  last_sig_ts: number | null;
-  feed: {
-    connected: boolean;
-    last_update_ts: number | null;
-    last_error?: string | null;
-  };
-  portfolio: { equity_usd: number | null; fees_usd: number };
-  position: any | null;
-  config?: any;
+  ignored_live?: number;
+  ignored_recent?: number;
+  ignored_postclose?: number;
+  ignored_dedup?: number;
+};
+
+type Monitor = {
+  poll_sec?: number;
+  paused?: boolean;
+  running?: boolean;
+  uptime_ms?: number;
+  subscribers_count?: number;
+  orione_ready?: boolean;
+  catalog_size?: number;
+
+  post_close_delay_ms?: number;
+  recent_window_ms?: number;
+
+  slow_tf?: string;
+  slow_tf_ms?: number;
 };
 
 type SignalItem = {
-  id: string;
   coin: string;
-  direction: string;
+  timeframe?: string;
+  side: "LONG" | "SHORT" | string;
   scenario: string;
   classe: string;
-  trigger_ts: number;
-  status: string;
-  reason?: string;
-  mid_at_trigger?: number;
-  entry_px?: number;
+  timestamp_ms: number;
+  trigger_price?: number;
+  patterns_hit?: string[];
 };
 
-type TradeItem = {
-  coin: string;
-  direction: string;
-  scenario: string;
-  classe: string;
-  leverage: number;
-  entry_ts: number;
-  exit_ts: number;
-  entry_px: number;
-  exit_px: number;
-  close_reason: string;
-  pnl_usd: number;
-  fee_usd: number;
+type TradeItem = any;
+
+type CoinsStatus = Record<
+  string,
+  {
+    last_scan_ms?: number | null;
+    scan_hits?: number | null;
+
+    last_setup_ts?: number | null;
+    last_setup_state?: string | null;
+    last_setup_state_at_ms?: number | null;
+
+    last_signal_ts?: number | null;
+  }
+>;
+
+type TifideStatus = {
+  status: "running" | "paused" | "stopped";
+  started_at_ms: number | null;
+  updated_at_ms: number | null;
+
+  watchlist_count: number;
+
+  coins?: string[];
+  timeframes?: string[];
+  catalog_size?: number;
+  orione_ready?: boolean;
+
+  last_sig_ts?: number | null;
+  hb_last_line?: string | null;
+  last_signal?: SignalItem | null;
+
+  counters?: Counters;
+
+  feed?: any;
+  portfolio?: any;
+  position?: any;
+
+  recent_signals?: SignalItem[];
+  recent_trades?: TradeItem[];
+
+  monitor?: Monitor;
+
+  // debug timing
+  slow_tf?: string;
+  slow_tf_ms?: number;
+  now_ms?: number;
+  live_from_ms?: number | null;
+
+  // ✅ per-coin panel
+  coins_status?: CoinsStatus;
 };
 
-type HbCounters = {
-  scan_coin?: number;
-  signals_read?: number;
-  with_mid?: number;
-  no_mid?: number;
-  open?: number;
-  close_preempt?: number;
-  close_trail?: number;
-  close_sl?: number;
-};
+type SseEnvelope =
+  | { type: "status"; data: TifideStatus }
+  | { type: "monitor"; data: Monitor }
+  | { type: "recent"; data: { recent_signals: SignalItem[]; recent_trades: TradeItem[] } }
+  | { type: "hb"; data: { line: string; counters?: Counters } }
+  | { type: "signal"; data: SignalItem }
+  | { type: "trade"; data: TradeItem }
+  | { type: "error"; data: { where?: string; error: string; ts_ms?: number } }
+  | { type: "coins"; data: { coins_status: CoinsStatus } }
+  | { type: string; data: any };
 
-function fmtTs(ts?: number | null) {
-  if (!ts) return "—";
-  const d = new Date(ts);
-  return d.toLocaleString();
+function fmtTs(ms?: number | null) {
+  if (!ms) return "—";
+  try {
+    return new Date(ms).toLocaleString();
+  } catch {
+    return String(ms);
+  }
 }
-function fmtNum(x?: number | null, dp = 2) {
-  if (x === null || x === undefined || Number.isNaN(x)) return "—";
-  return Number(x).toFixed(dp);
+
+function fmtMs(ms?: number | null) {
+  if (!ms && ms !== 0) return "—";
+  if (ms < 1000) return `${ms}ms`;
+  const s = Math.floor(ms / 1000);
+  const m = Math.floor(s / 60);
+  const h = Math.floor(m / 60);
+  if (h > 0) return `${h}h ${m % 60}m ${s % 60}s`;
+  if (m > 0) return `${m}m ${s % 60}s`;
+  return `${s}s`;
 }
 
 export default function TifidePage() {
   const [status, setStatus] = useState<TifideStatus | null>(null);
+  const [hbLine, setHbLine] = useState<string | null>(null);
   const [signals, setSignals] = useState<SignalItem[]>([]);
   const [trades, setTrades] = useState<TradeItem[]>([]);
-  const [events, setEvents] = useState<any[]>([]);
-
-  // HB monitor
-  const [hbLine, setHbLine] = useState<string>("");
-  const [hbCounters, setHbCounters] = useState<HbCounters>({});
-  const [hbAt, setHbAt] = useState<number | null>(null);
+  const [lastError, setLastError] = useState<string | null>(null);
 
   const esRef = useRef<EventSource | null>(null);
-  const hbCountRef = useRef(0);
 
-  async function refreshAll() {
-    const st = (await fetch("/api/tifide/status", { cache: "no-store" }).then((r) =>
-      r.json(),
-    )) as ApiResp<TifideStatus>;
+  const running = status?.status === "running";
+  const paused = status?.status === "paused";
 
-    const sg = (await fetch("/api/tifide/signals?limit=200", { cache: "no-store" }).then(
-      (r) => r.json(),
-    )) as ApiResp<SignalItem[]>;
+  const counters = status?.counters ?? {};
+  const monitor = status?.monitor ?? {};
+  const portfolio = status?.portfolio ?? {};
+  const position = status?.position ?? {};
+  const coinsStatus = status?.coins_status ?? null;
 
-    const tr = (await fetch("/api/tifide/trades?limit=200", { cache: "no-store" }).then(
-      (r) => r.json(),
-    )) as ApiResp<TradeItem[]>;
+  async function refreshStatus() {
+    const st = await fetch("/api/tifide/status", { cache: "no-store" }).then((r) => r.json());
+    setStatus(st);
+    setHbLine(st?.hb_last_line ?? null);
 
-    setStatus(st.data);
-    setSignals(sg.data);
-    setTrades(tr.data);
+    if (Array.isArray(st?.recent_signals)) setSignals(st.recent_signals);
+    if (Array.isArray(st?.recent_trades)) setTrades(st.recent_trades);
+
+    // reset dell’errore “SSE connection error” quando lo status torna OK
+    setLastError((prev) => (prev === "SSE connection error (retrying…)" ? null : prev));
   }
 
   async function post(path: string) {
-    await fetch(path, { method: "POST" });
-    await refreshAll();
+    setLastError(null);
+    const r = await fetch(path, { method: "POST", cache: "no-store" });
+    if (!r.ok) {
+      const t = await r.text().catch(() => "");
+      setLastError(`POST ${path} -> ${r.status} ${t}`);
+      return;
+    }
+    await refreshStatus();
   }
 
+  // SSE connect (con fallback + retry naturale di EventSource)
   useEffect(() => {
-    refreshAll();
+    let stopped = false;
 
-    // SSE
-    const es = new EventSource("/api/tifide/events");
-    esRef.current = es;
+    const handleEnvelope = (msg: SseEnvelope) => {
+      if (!msg || typeof msg !== "object") return;
 
-    es.onmessage = (msg) => {
-      try {
-        const evt = JSON.parse(msg.data);
+      if (msg.type === "status") {
+        setStatus(msg.data);
+        setHbLine(msg.data?.hb_last_line ?? null);
+        return;
+      }
 
-        // storico eventi (debug UI)
-        setEvents((prev) => [evt, ...prev].slice(0, 400));
+      if (msg.type === "monitor") {
+        setStatus((prev) => (prev ? { ...prev, monitor: msg.data } : prev));
+        return;
+      }
 
-        // HB line + counters
-        if (evt?.type === "hb") {
-          if (typeof evt?.data?.line === "string") setHbLine(evt.data.line);
-          if (evt?.data?.counters && typeof evt.data.counters === "object") {
-            setHbCounters(evt.data.counters as HbCounters);
-          }
-          setHbAt(Date.now());
+      if (msg.type === "recent") {
+        setSignals(Array.isArray(msg.data?.recent_signals) ? msg.data.recent_signals : []);
+        setTrades(Array.isArray(msg.data?.recent_trades) ? msg.data.recent_trades : []);
+        return;
+      }
+
+      if (msg.type === "coins") {
+        setStatus((prev) =>
+          prev ? { ...prev, coins_status: msg.data?.coins_status ?? prev.coins_status } : prev,
+        );
+        return;
+      }
+
+      if (msg.type === "hb") {
+        setHbLine(msg.data?.line ?? null);
+        if (msg.data?.counters) {
+          setStatus((prev) =>
+            prev ? { ...prev, counters: { ...(prev.counters ?? {}), ...msg.data.counters } } : prev,
+          );
         }
+        return;
+      }
 
-        // snapshot: aggiorna stato completo e stop
-        if (evt?.type === "snapshot") {
-          setStatus(evt.data);
-          return;
-        }
+      if (msg.type === "signal") {
+        const s = msg.data;
 
-        // aggiorna status “live” su hb/error/status (throttle)
-        if (evt?.type === "hb" || evt?.type === "error" || evt?.type === "status") {
-          hbCountRef.current += 1;
+        setStatus((prev) =>
+          prev
+            ? {
+              ...prev,
+              last_sig_ts: s?.timestamp_ms ?? prev.last_sig_ts,
+              last_signal: s,
+            }
+            : prev,
+        );
 
-          // su hb ricarica 1 volta ogni 5; su error/status ricarica sempre
-          const shouldFetch = evt.type !== "hb" || hbCountRef.current % 5 === 0;
+        setSignals((prev) => [s, ...prev].slice(0, 50));
+        return;
+      }
 
-          if (shouldFetch) {
-            fetch("/api/tifide/status", { cache: "no-store" })
-              .then((r) => r.json())
-              .then((r: ApiResp<TifideStatus>) => setStatus(r.data))
-              .catch(() => { });
-          }
-        }
+      if (msg.type === "trade") {
+        setTrades((prev) => [msg.data, ...prev].slice(0, 50));
+        refreshStatus().catch(() => { });
+        return;
+      }
 
-        // stream signals/trades
-        if (evt?.type === "signal") {
-          setSignals((prev) => [evt.data as SignalItem, ...prev].slice(0, 200));
-        }
-        if (evt?.type === "trade") {
-          setTrades((prev) => [evt.data as TradeItem, ...prev].slice(0, 200));
-        }
-      } catch {
-        // ignore
+      if (msg.type === "error") {
+        const e = msg.data?.error ?? "unknown error";
+        setLastError(`[${msg.data?.where ?? "?"}] ${e}`);
+        return;
       }
     };
 
-    es.onerror = () => {
-      // lascia che il browser tenti il reconnect
+    const connect = () => {
+      if (stopped) return;
+
+      try {
+        const es = new EventSource("/api/tifide/events");
+        esRef.current = es;
+
+        const onTyped = (ev: MessageEvent) => {
+          try {
+            const msg = JSON.parse(ev.data) as SseEnvelope;
+            handleEnvelope(msg);
+          } catch {
+            // ignore
+          }
+        };
+
+        es.addEventListener("status", onTyped);
+        es.addEventListener("monitor", onTyped);
+        es.addEventListener("recent", onTyped);
+        es.addEventListener("hb", onTyped);
+        es.addEventListener("signal", onTyped);
+        es.addEventListener("trade", onTyped);
+        es.addEventListener("error", onTyped);
+        es.addEventListener("coins", onTyped);
+
+        es.onerror = () => {
+          setLastError((prev) => prev ?? "SSE connection error (retrying…)");
+        };
+      } catch (e: any) {
+        setLastError(`SSE init error: ${String(e?.message ?? e)}`);
+      }
     };
+
+    refreshStatus().catch(() => { });
+    connect();
 
     return () => {
-      es.close();
-      esRef.current = null;
+      stopped = true;
+      if (esRef.current) {
+        esRef.current.close();
+        esRef.current = null;
+      }
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const badge = useMemo(() => {
-    const s = status?.status ?? "stopped";
-    const cls =
-      s === "running"
-        ? "bg-emerald-600/20 text-emerald-200 ring-1 ring-emerald-500/30"
-        : s === "paused"
-          ? "bg-amber-600/20 text-amber-200 ring-1 ring-amber-500/30"
-          : "bg-zinc-600/20 text-zinc-200 ring-1 ring-zinc-500/30";
-    return { s, cls };
-  }, [status]);
-
-  const hbHealth = useMemo(() => {
-    const c = hbCounters || {};
-    const noMid = Number(c.no_mid ?? 0);
-    const sig = Number(c.signals_read ?? 0);
-
-    let level: "OK" | "WARN" | "ERR" = "WARN";
-
-    // se non arriva hb da > 2 minuti -> ERR
-    if (!hbAt) level = "WARN";
-    else if (Date.now() - hbAt > 120_000) level = "ERR";
-    else if (noMid >= 5) level = "ERR";
-    else if (noMid > 0 || sig === 0) level = "WARN";
-    else level = "OK";
-
-    const cls =
-      level === "OK"
-        ? "bg-emerald-600/20 text-emerald-200 ring-1 ring-emerald-500/30"
-        : level === "WARN"
-          ? "bg-amber-600/20 text-amber-200 ring-1 ring-amber-500/30"
-          : "bg-rose-600/20 text-rose-200 ring-1 ring-rose-500/30";
-
-    return { level, cls };
-  }, [hbCounters, hbAt]);
-
-  const hbC = {
-    scan_coin: hbCounters.scan_coin ?? 0,
-    signals_read: hbCounters.signals_read ?? 0,
-    with_mid: hbCounters.with_mid ?? 0,
-    no_mid: hbCounters.no_mid ?? 0,
-    open: hbCounters.open ?? 0,
-    close_preempt: hbCounters.close_preempt ?? 0,
-    close_trail: hbCounters.close_trail ?? 0,
-    close_sl: hbCounters.close_sl ?? 0,
-  };
+  const summary = useMemo(() => {
+    const st = status?.status ?? "—";
+    const wl = status?.watchlist_count ?? 0;
+    const cyc = counters?.cycles ?? 0;
+    const sig = counters?.signals ?? 0;
+    const err = counters?.errors ?? 0;
+    const opens = counters?.opens ?? 0;
+    const closes = counters?.closes ?? 0;
+    return { st, wl, cyc, sig, err, opens, closes };
+  }, [status, counters]);
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+    <div className="p-4 md:p-6 space-y-4">
+      <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <div className="text-2xl font-semibold tracking-tight">TIFIDE</div>
-          <div className="text-sm text-zinc-400 mt-1">
-            Stato: <span className={`px-2 py-1 rounded-lg ${badge.cls}`}>{badge.s}</span>{" "}
-            • Uptime: {status?.uptime_sec ?? "—"}s • Feed:{" "}
-            {status?.feed?.connected ? "connected" : "disconnected"} (last:{" "}
-            {fmtTs(status?.feed?.last_update_ts)})
+          <h1 className="text-xl md:text-2xl font-semibold">TIFIDE</h1>
+          <div className="text-sm opacity-80">
+            Status: <span className="font-mono">{summary.st}</span> · watchlist:{" "}
+            <span className="font-mono">{summary.wl}</span>
+            {status?.catalog_size != null ? (
+              <>
+                {" "}
+                · catalog: <span className="font-mono">{status.catalog_size}</span>
+              </>
+            ) : null}
+            {status?.orione_ready != null ? (
+              <>
+                {" "}
+                · orione_ready: <span className="font-mono">{String(status.orione_ready)}</span>
+              </>
+            ) : null}
           </div>
-
-          {status?.last_error && (
-            <div className="text-sm text-red-300 mt-2">Errore: {status.last_error}</div>
-          )}
         </div>
 
-        <div className="flex flex-col md:flex-row gap-3 items-stretch md:items-start">
-          <Card className="min-w-[340px]">
-            <CardHeader>
-              <div className="flex items-center justify-between gap-2">
-                <div>
-                  <CardTitle className="text-sm">Monitor (HB)</CardTitle>
-                  <CardDescription className="text-xs text-muted-foreground">
-                    Stato live + KPI dall’heartbeat.
-                  </CardDescription>
-                </div>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button className="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5" onClick={() => refreshStatus()}>
+            Refresh
+          </button>
 
-                <span className={`px-2 py-1 text-[11px] rounded-md ${hbHealth.cls}`}>
-                  {hbHealth.level}
-                </span>
+          <button
+            className="px-3 py-2 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white disabled:opacity-50"
+            disabled={running || paused}
+            onClick={() => post("/api/tifide/start")}
+          >
+            Start
+          </button>
+
+          <button
+            className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white disabled:opacity-50"
+            disabled={!running}
+            onClick={() => post("/api/tifide/pause")}
+          >
+            Pause
+          </button>
+
+          <button
+            className="px-3 py-2 rounded-lg bg-sky-600/80 hover:bg-sky-600 text-white disabled:opacity-50"
+            disabled={!paused}
+            onClick={() => post("/api/tifide/resume")}
+          >
+            Resume
+          </button>
+
+          <button
+            className="px-3 py-2 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white disabled:opacity-50"
+            disabled={!running && !paused}
+            onClick={() => post("/api/tifide/stop")}
+          >
+            Stop
+          </button>
+        </div>
+      </div>
+
+      {lastError ? (
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm">
+          <div className="font-semibold">Error</div>
+          <div className="font-mono whitespace-pre-wrap">{lastError}</div>
+        </div>
+      ) : null}
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
+          <div className="text-sm font-semibold">Monitor</div>
+          <div className="text-sm opacity-90">
+            poll_sec: <span className="font-mono">{monitor?.poll_sec ?? "—"}</span>
+            <br />
+            subscribers: <span className="font-mono">{monitor?.subscribers_count ?? "—"}</span>
+            <br />
+            uptime: <span className="font-mono">{fmtMs(monitor?.uptime_ms ?? null)}</span>
+            <br />
+            orione_ready:{" "}
+            <span className="font-mono">{String(status?.orione_ready ?? monitor?.orione_ready ?? "—")}</span>
+            <br />
+            catalog_size: <span className="font-mono">{status?.catalog_size ?? monitor?.catalog_size ?? "—"}</span>
+            <br />
+            post_close_delay_ms: <span className="font-mono">{monitor?.post_close_delay_ms ?? "—"}</span>
+            <br />
+            recent_window_ms: <span className="font-mono">{monitor?.recent_window_ms ?? "—"}</span>
+            <br />
+            slow_tf: <span className="font-mono">{monitor?.slow_tf ?? status?.slow_tf ?? "—"}</span>
+            <br />
+            slow_tf_ms: <span className="font-mono">{monitor?.slow_tf_ms ?? status?.slow_tf_ms ?? "—"}</span>
+          </div>
+
+          {Array.isArray(status?.coins) && status!.coins!.length ? (
+            <div className="pt-2 text-xs opacity-80">
+              coins: <span className="font-mono">{status!.coins!.length}</span>
+            </div>
+          ) : null}
+
+          {Array.isArray(status?.timeframes) && status!.timeframes!.length ? (
+            <div className="text-xs opacity-80">
+              tfs: <span className="font-mono">{status!.timeframes!.join(", ")}</span>
+            </div>
+          ) : null}
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
+          <div className="text-sm font-semibold">Counters</div>
+          <div className="text-sm opacity-90">
+            cycles: <span className="font-mono">{summary.cyc}</span>
+            <br />
+            setups: <span className="font-mono">{counters?.setups ?? 0}</span>
+            <br />
+            signals: <span className="font-mono">{summary.sig}</span>
+            <br />
+            opens: <span className="font-mono">{summary.opens}</span>
+            <br />
+            closes: <span className="font-mono">{summary.closes}</span>
+            <br />
+            errors: <span className="font-mono">{summary.err}</span>
+            <br />
+            <br />
+            ignored_live: <span className="font-mono">{counters?.ignored_live ?? 0}</span>
+            <br />
+            ignored_recent: <span className="font-mono">{counters?.ignored_recent ?? 0}</span>
+            <br />
+            ignored_postclose: <span className="font-mono">{counters?.ignored_postclose ?? 0}</span>
+            <br />
+            ignored_dedup: <span className="font-mono">{counters?.ignored_dedup ?? 0}</span>
+            <br />
+            <br />
+            equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
+            <br />
+            fees: <span className="font-mono">{portfolio?.fees_paid ?? "—"}</span>
+            <br />
+            position:{" "}
+            <span className="font-mono">
+              {position?.coin ? `${position.coin} ${position.direction} ${position.classe}` : "—"}
+            </span>
+          </div>
+
+          {position?.coin ? (
+            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2 mt-3">
+              <div className="text-sm font-semibold">Position</div>
+              <div className="text-sm opacity-90">
+                coin: <span className="font-mono">{position.coin}</span>
+                <br />
+                dir: <span className="font-mono">{position.direction}</span>
+                <br />
+                class: <span className="font-mono">{position.classe}</span>
+                <br />
+                entry: <span className="font-mono">{position.entry_px}</span>
+                <br />
+                stop: <span className="font-mono">{position.stop_px}</span>
+                <br />
+                lock: <span className="font-mono">{position.lock_pct}</span>
+                <br />
+                maxFav: <span className="font-mono">{position.max_fav_pct}</span>
               </div>
-            </CardHeader>
+            </div>
+          ) : null}
+        </div>
 
-            <CardContent className="flex flex-col gap-3">
-              <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
-                <div className="rounded-md border p-2">
-                  <div className="text-muted-foreground">signals_read</div>
-                  <div className="font-mono">{hbC.signals_read}</div>
-                </div>
-                <div className="rounded-md border p-2">
-                  <div className="text-muted-foreground">with_mid</div>
-                  <div className="font-mono">{hbC.with_mid}</div>
-                </div>
-                <div className="rounded-md border p-2">
-                  <div className="text-muted-foreground">no_mid</div>
-                  <div className="font-mono">{hbC.no_mid}</div>
-                </div>
-                <div className="rounded-md border p-2">
-                  <div className="text-muted-foreground">open/close</div>
-                  <div className="font-mono">
-                    {hbC.open}/
-                    {hbC.close_preempt + hbC.close_trail + hbC.close_sl}
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
+          <div className="text-sm font-semibold">Heartbeat</div>
+          <div className="text-xs font-mono whitespace-pre-wrap opacity-90">{hbLine ?? "—"}</div>
+
+          <div className="text-xs opacity-70">
+            started: <span className="font-mono">{fmtTs(status?.started_at_ms)}</span>
+            <br />
+            updated: <span className="font-mono">{fmtTs(status?.updated_at_ms)}</span>
+            <br />
+            last_sig: <span className="font-mono">{fmtTs(status?.last_sig_ts ?? null)}</span>
+            <br />
+            now: <span className="font-mono">{fmtTs(status?.now_ms ?? null)}</span>
+            <br />
+            live_from: <span className="font-mono">{fmtTs(status?.live_from_ms ?? null)}</span>
+          </div>
+        </div>
+      </div>
+
+      {/* ✅ Riquadro Coins (per-coin status) */}
+      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <div className="flex items-center justify-between mb-2">
+          <div className="text-sm font-semibold">Coins</div>
+          <div className="text-xs opacity-70 font-mono">{coinsStatus ? Object.keys(coinsStatus).length : 0}</div>
+        </div>
+
+        {!coinsStatus || Object.keys(coinsStatus).length === 0 ? (
+          <div className="text-sm opacity-70">—</div>
+        ) : (
+          <div className="max-h-[360px] overflow-auto pr-2">
+            <table className="w-full text-xs">
+              <thead className="sticky top-0 bg-black/60 backdrop-blur border-b border-white/10">
+                <tr className="text-left">
+                  <th className="py-2 pr-2">Coin</th>
+                  <th className="py-2 pr-2">Ultimo scan</th>
+                  <th className="py-2 pr-2">Ultimo setup (candela)</th>
+                  <th className="py-2 pr-2">Stato</th>
+                  <th className="py-2 pr-2">Ultimo segnale</th>
+                  <th className="py-2 pr-2">Hits</th>
+                </tr>
+              </thead>
+              <tbody>
+                {Object.entries(coinsStatus)
+                  .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+                  .map(([coin, info]) => (
+                    <tr key={coin} className="border-b border-white/5">
+                      <td className="py-2 pr-2 font-mono">{coin}</td>
+                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_scan_ms ?? null)}</td>
+                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_setup_ts ?? null)}</td>
+                      <td className="py-2 pr-2 font-mono">{info.last_setup_state ?? "—"}</td>
+                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_signal_ts ?? null)}</td>
+                      <td className="py-2 pr-2 font-mono">{info.scan_hits ?? 0}</td>
+                    </tr>
+                  ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Recent Signals</div>
+            <div className="text-xs opacity-70">{signals.length}</div>
+          </div>
+
+          <div className="space-y-2 max-h-[520px] overflow-auto pr-2">
+            {signals.length === 0 ? (
+              <div className="text-sm opacity-70">—</div>
+            ) : (
+              signals.map((s, idx) => (
+                <div key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`} className="rounded-xl border border-white/10 p-3">
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-mono text-sm">
+                      {s.coin} · {s.side}
+                    </div>
+                    <div className="text-xs opacity-70 font-mono">{fmtTs(s.timestamp_ms)}</div>
                   </div>
+                  <div className="text-xs opacity-80 mt-1">
+                    <span className="font-mono">{s.scenario}</span> · <span className="font-mono">{s.classe}</span>{" "}
+                    {s.timeframe ? (
+                      <>
+                        · <span className="font-mono">{s.timeframe}</span>
+                      </>
+                    ) : null}
+                    {typeof s.trigger_price === "number" ? (
+                      <>
+                        {" "}
+                        · px: <span className="font-mono">{s.trigger_price}</span>
+                      </>
+                    ) : null}
+                  </div>
+                  {Array.isArray(s.patterns_hit) && s.patterns_hit.length ? (
+                    <div className="text-[11px] opacity-70 mt-1 font-mono">{s.patterns_hit.join(" + ")}</div>
+                  ) : null}
                 </div>
-              </div>
+              ))
+            )}
+          </div>
+        </div>
 
-              <div className="rounded-md border bg-muted/40 p-2 font-mono text-[11px] leading-5 whitespace-pre-wrap">
-                {hbLine || "Nessun heartbeat ricevuto ancora."}
-              </div>
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Recent Trades</div>
+            <div className="text-xs opacity-70">{trades.length}</div>
+          </div>
 
-              <div className="text-[11px] text-muted-foreground">
-                Last HB: {hbAt ? new Date(hbAt).toLocaleString() : "—"}
-              </div>
-            </CardContent>
-          </Card>
-
-          <div className="flex gap-2 flex-wrap">
-            <button
-              onClick={() => post("/api/tifide/start")}
-              className="px-3 py-2 rounded-xl bg-emerald-600/20 ring-1 ring-emerald-500/30 text-emerald-100"
-            >
-              Start
-            </button>
-            <button
-              onClick={() => post("/api/tifide/pause")}
-              className="px-3 py-2 rounded-xl bg-amber-600/20 ring-1 ring-amber-500/30 text-amber-100"
-            >
-              Pause
-            </button>
-            <button
-              onClick={() => post("/api/tifide/resume")}
-              className="px-3 py-2 rounded-xl bg-sky-600/20 ring-1 ring-sky-500/30 text-sky-100"
-            >
-              Resume
-            </button>
-            <button
-              onClick={() => post("/api/tifide/stop")}
-              className="px-3 py-2 rounded-xl bg-red-600/20 ring-1 ring-red-500/30 text-red-100"
-            >
-              Stop
-            </button>
-            <button
-              onClick={() => refreshAll()}
-              className="px-3 py-2 rounded-xl bg-zinc-700/40 ring-1 ring-white/10 text-zinc-100"
-            >
-              Refresh
-            </button>
+          <div className="space-y-2 max-h-[520px] overflow-auto pr-2">
+            {trades.length === 0 ? (
+              <div className="text-sm opacity-70">—</div>
+            ) : (
+              trades.map((t, idx) => (
+                <div key={`trade-${idx}`} className="rounded-xl border border-white/10 p-3">
+                  <pre className="text-[11px] font-mono whitespace-pre-wrap opacity-90">{JSON.stringify(t, null, 2)}</pre>
+                </div>
+              ))
+            )}
           </div>
         </div>
       </div>
 
-      {/* Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-          <div className="text-sm text-zinc-400">Portfolio</div>
-          <div className="text-2xl font-semibold mt-1">
-            ${fmtNum(status?.portfolio?.equity_usd, 2)}
-          </div>
-          <div className="text-xs text-zinc-400 mt-2">
-            Fees: ${fmtNum(status?.portfolio?.fees_usd, 2)}
-          </div>
-          <div className="text-xs text-zinc-400">Watchlist: {status?.watchlist_count ?? "—"}</div>
-        </div>
-
-        <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-          <div className="text-sm text-zinc-400">Posizione</div>
-          {status?.position ? (
-            <div className="mt-2 text-sm">
-              <div>
-                <span className="text-zinc-400">Coin:</span> {status.position.coin}
-              </div>
-              <div>
-                <span className="text-zinc-400">Dir:</span> {status.position.direction}
-              </div>
-              <div>
-                <span className="text-zinc-400">Lev:</span> {status.position.leverage}
-              </div>
-              <div>
-                <span className="text-zinc-400">Entry:</span>{" "}
-                {fmtNum(status.position.entry_px, 4)}
-              </div>
-              <div>
-                <span className="text-zinc-400">Stop:</span>{" "}
-                {fmtNum(status.position.stop_px, 4)}
-              </div>
-            </div>
-          ) : (
-            <div className="mt-2 text-sm text-zinc-400">Nessuna posizione attiva</div>
-          )}
-        </div>
-
-        <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-          <div className="text-sm text-zinc-400">Ingestion</div>
-          <div className="text-sm mt-2">
-            <div>
-              <span className="text-zinc-400">Offset:</span> {status?.signals_offset ?? "—"}
-            </div>
-            <div>
-              <span className="text-zinc-400">Last signal:</span> {fmtTs(status?.last_sig_ts)}
-            </div>
-            <div>
-              <span className="text-zinc-400">Updated:</span> {fmtTs(status?.updated_at_ms)}
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Tables */}
-      <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-        <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-          <div className="font-semibold">Signals</div>
-          <div className="text-xs text-zinc-400 mb-3">Ultimi 200 (live stream)</div>
-
-          <div className="overflow-auto">
-            <table className="w-full text-xs">
-              <thead className="text-zinc-400">
-                <tr className="text-left">
-                  <th className="py-2">Time</th>
-                  <th>Coin</th>
-                  <th>Dir</th>
-                  <th>Classe</th>
-                  <th>Status</th>
-                </tr>
-              </thead>
-              <tbody>
-                {signals.map((s) => (
-                  <tr key={s.id} className="border-t border-white/5">
-                    <td className="py-2">{fmtTs(s.trigger_ts)}</td>
-                    <td>{s.coin}</td>
-                    <td>{s.direction}</td>
-                    <td>{s.classe}</td>
-                    <td className="text-zinc-300">{s.status}</td>
-                  </tr>
-                ))}
-                {!signals.length && (
-                  <tr>
-                    <td className="py-3 text-zinc-400" colSpan={5}>
-                      Nessun segnale
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-          <div className="font-semibold">Trades</div>
-          <div className="text-xs text-zinc-400 mb-3">Ultimi 200 (live stream)</div>
-
-          <div className="overflow-auto">
-            <table className="w-full text-xs">
-              <thead className="text-zinc-400">
-                <tr className="text-left">
-                  <th className="py-2">Coin</th>
-                  <th>Dir</th>
-                  <th>Entry</th>
-                  <th>Exit</th>
-                  <th>Reason</th>
-                  <th>Fee</th>
-                </tr>
-              </thead>
-              <tbody>
-                {trades.map((t, idx) => (
-                  <tr key={idx} className="border-t border-white/5">
-                    <td className="py-2">{t.coin}</td>
-                    <td>{t.direction}</td>
-                    <td>{fmtNum(t.entry_px, 4)}</td>
-                    <td>{fmtNum(t.exit_px, 4)}</td>
-                    <td className="text-zinc-300">{t.close_reason}</td>
-                    <td>${fmtNum(t.fee_usd, 2)}</td>
-                  </tr>
-                ))}
-                {!trades.length && (
-                  <tr>
-                    <td className="py-3 text-zinc-400" colSpan={6}>
-                      Nessun trade
-                    </td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {/* Events */}
-      <div className="rounded-2xl bg-zinc-900/60 ring-1 ring-white/10 p-4">
-        <div className="font-semibold">Events</div>
-        <div className="text-xs text-zinc-400 mb-3">Ultimi 400 eventi SSE</div>
-
-        <div className="h-64 overflow-auto text-xs font-mono text-zinc-200 space-y-1">
-          {events.map((e, i) => (
-            <div key={i} className="border-b border-white/5 pb-1">
-              <span className="text-zinc-400">{e.type}</span>{" "}
-              <span className="text-zinc-500">{e.ts ? fmtTs(e.ts) : ""}</span>{" "}
-              <span>
-                {typeof e?.data?.line === "string" ? e.data.line : JSON.stringify(e.data)}
-              </span>
-            </div>
-          ))}
-          {!events.length && <div className="text-zinc-400">Nessun evento ancora</div>}
-        </div>
-      </div>
+      <details className="rounded-2xl border border-white/10 bg-black/20 p-4">
+        <summary className="cursor-pointer text-sm font-semibold">Raw status (debug)</summary>
+        <pre className="mt-3 text-[11px] font-mono whitespace-pre-wrap opacity-90">{JSON.stringify(status, null, 2)}</pre>
+      </details>
     </div>
   );
 }
