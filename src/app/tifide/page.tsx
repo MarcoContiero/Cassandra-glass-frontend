@@ -127,6 +127,25 @@ function fmtMs(ms?: number | null) {
   return `${s}s`;
 }
 
+function toNum(v: any): number | null {
+  const n = typeof v === "number" ? v : Number(v);
+  return Number.isFinite(n) ? n : null;
+}
+
+function fmtNum(v: any, digits = 6) {
+  const n = toNum(v);
+  if (n == null) return "—";
+  // niente super-format: tienilo leggibile e stabile
+  return n.toFixed(digits).replace(/\.?0+$/, "");
+}
+
+function calcInitialSl(entry: number, direction: string, slPct = 1.0) {
+  const d = String(direction || "").toUpperCase();
+  if (d === "LONG") return entry * (1 - slPct / 100);
+  if (d === "SHORT") return entry * (1 + slPct / 100);
+  return entry * (1 - slPct / 100);
+}
+
 export default function TifidePage() {
   const [status, setStatus] = useState<TifideStatus | null>(null);
   const [hbLine, setHbLine] = useState<string | null>(null);
@@ -440,21 +459,49 @@ export default function TifidePage() {
           {position?.coin ? (
             <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2 mt-3">
               <div className="text-sm font-semibold">Position</div>
-              <div className="text-sm opacity-90">
-                coin: <span className="font-mono">{position.coin}</span>
-                <br />
-                dir: <span className="font-mono">{position.direction}</span>
-                <br />
-                class: <span className="font-mono">{position.classe}</span>
-                <br />
-                entry: <span className="font-mono">{position.entry_px}</span>
-                <br />
-                stop: <span className="font-mono">{position.stop_px}</span>
-                <br />
-                lock: <span className="font-mono">{position.lock_pct}</span>
-                <br />
-                maxFav: <span className="font-mono">{position.max_fav_pct}</span>
-              </div>
+
+              {(() => {
+                const entry = toNum(position.entry_px);
+                const stop = toNum(position.stop_px);
+                const lock = toNum(position.lock_pct);
+
+                // Se backend li manda, usali
+                const slFromApi = toNum((position as any).sl_px);
+                const trailFromApi = toNum((position as any).trail_px);
+
+                // Fallback: SL iniziale coerente con SL_INIT_PCT = -1.00 (=> 1%)
+                const slFallback = entry != null ? calcInitialSl(entry, String(position.direction), 1.0) : null;
+
+                // Fallback: se trailing attivo (lock>=0) allora trail = stop_px
+                const trailFallback = lock != null && lock >= 0 && stop != null ? stop : null;
+
+                const slPx = slFromApi ?? slFallback;
+                const trailPx = trailFromApi ?? trailFallback;
+
+                const activeLabel = lock != null && lock >= 0 ? "TRAIL" : "SL";
+
+                return (
+                  <div className="text-sm opacity-90">
+                    coin: <span className="font-mono">{position.coin}</span>
+                    <br />
+                    dir: <span className="font-mono">{position.direction}</span>
+                    <br />
+                    class: <span className="font-mono">{position.classe}</span>
+                    <br />
+                    entry: <span className="font-mono">{fmtNum(entry, 6)}</span>
+                    <br />
+                    SL: <span className="font-mono">{fmtNum(slPx, 6)}</span>
+                    <br />
+                    TRAIL: <span className="font-mono">{fmtNum(trailPx, 6)}</span>
+                    <br />
+                    stop_active ({activeLabel}): <span className="font-mono">{fmtNum(stop, 6)}</span>
+                    <br />
+                    lock: <span className="font-mono">{fmtNum(lock, 4)}</span>
+                    <br />
+                    maxFav: <span className="font-mono">{fmtNum(position.max_fav_pct, 4)}</span>
+                  </div>
+                );
+              })()}
             </div>
           ) : null}
         </div>
