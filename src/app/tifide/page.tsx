@@ -265,9 +265,17 @@ export default function TifidePage() {
         const es = new EventSource("/api/tifide/events");
         esRef.current = es;
 
+        es.onopen = () => {
+          setLastError(null); // ✅ appena la SSE torna su, togli il banner rosso
+        };
+
         const onTyped = (ev: MessageEvent) => {
           try {
             const msg = JSON.parse(ev.data) as SseEnvelope;
+
+            // ✅ se sto ricevendo eventi, la SSE è viva
+            setLastError(null);
+
             handleEnvelope(msg);
           } catch {
             // ignore
