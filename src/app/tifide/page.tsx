@@ -107,6 +107,9 @@ type SseEnvelope =
   | { type: "coins"; data: { coins_status: CoinsStatus } }
   | { type: string; data: any };
 
+const API_BASE = (process.env.NEXT_PUBLIC_API_BASE_URL || "").replace(/\/+$/, "");
+const apiUrl = (path: string) => (API_BASE ? `${API_BASE}${path}` : path);
+
 function fmtTs(ms?: number | null) {
   if (!ms) return "—";
   try {
@@ -165,7 +168,7 @@ export default function TifidePage() {
   const coinsStatus = status?.coins_status ?? null;
 
   async function refreshStatus() {
-    const st = await fetch("/api/tifide/status", { cache: "no-store" }).then((r) => r.json());
+    const st = await fetch(apiUrl("/api/tifide/status"), { cache: "no-store" }).then((r) => r.json());
     setStatus(st);
     setHbLine(st?.hb_last_line ?? null);
 
@@ -178,7 +181,7 @@ export default function TifidePage() {
 
   async function post(path: string) {
     setLastError(null);
-    const r = await fetch(path, { method: "POST", cache: "no-store" });
+    const r = await fetch(apiUrl(path), { method: "POST", cache: "no-store" });
     if (!r.ok) {
       const t = await r.text().catch(() => "");
       setLastError(`POST ${path} -> ${r.status} ${t}`);
@@ -262,7 +265,7 @@ export default function TifidePage() {
       if (stopped) return;
 
       try {
-        const es = new EventSource("/api/tifide/events");
+        const es = new EventSource(apiUrl("/api/tifide/events"));
         esRef.current = es;
 
         es.onopen = () => {
