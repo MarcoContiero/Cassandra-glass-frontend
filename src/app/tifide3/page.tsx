@@ -41,6 +41,14 @@ type SignalItem = {
   timestamp_ms: number;
   trigger_price?: number;
   patterns_hit?: string[];
+
+  // ✅ NEW
+  third?: {
+    token?: string;
+    ts_ms?: number;
+    trigger_price?: number;
+    strength?: number;
+  } | null;
 };
 
 type TradeItem = any;
@@ -173,7 +181,7 @@ export default function TifidePage() {
   const tradesView = (trades.length ? trades : (status?.recent_trades ?? []));
 
   async function refreshStatus() {
-    const j = await fetch(apiUrl("/api/tifide/status"), { cache: "no-store" }).then(r => r.json());
+    const j = await fetch(apiUrl("/api/tifide3/status"), { cache: "no-store" }).then(r => r.json());
     const st = (j && typeof j === "object" && j.status && typeof j.status === "object") ? j.status : j;
     setStatus(st);
     setHbLine(st?.hb_last_line ?? null);
@@ -277,7 +285,7 @@ export default function TifidePage() {
       if (stopped) return;
 
       try {
-        const es = new EventSource(apiUrl("/api/tifide/events"));
+        const es = new EventSource(apiUrl("/api/tifide3/events"));
         esRef.current = es;
 
         es.onopen = () => {
@@ -340,7 +348,7 @@ export default function TifidePage() {
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold">TIFIDE</h1>
+          <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.0</h1>
           <div className="text-sm opacity-80">
             Status: <span className="font-mono">{summary.st}</span> · watchlist:{" "}
             <span className="font-mono">{summary.wl}</span>
@@ -367,7 +375,7 @@ export default function TifidePage() {
           <button
             className="px-3 py-2 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white disabled:opacity-50"
             disabled={running || paused}
-            onClick={() => post("/api/tifide/start")}
+            onClick={() => post("/api/tifide3/start")}
           >
             Start
           </button>
@@ -375,7 +383,7 @@ export default function TifidePage() {
           <button
             className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white disabled:opacity-50"
             disabled={!running}
-            onClick={() => post("/api/tifide/pause")}
+            onClick={() => post("/api/tifide3/pause")}
           >
             Pause
           </button>
@@ -383,7 +391,7 @@ export default function TifidePage() {
           <button
             className="px-3 py-2 rounded-lg bg-sky-600/80 hover:bg-sky-600 text-white disabled:opacity-50"
             disabled={!paused}
-            onClick={() => post("/api/tifide/resume")}
+            onClick={() => post("/api/tifide3/resume")}
           >
             Resume
           </button>
@@ -391,7 +399,7 @@ export default function TifidePage() {
           <button
             className="px-3 py-2 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white disabled:opacity-50"
             disabled={!running && !paused}
-            onClick={() => post("/api/tifide/stop")}
+            onClick={() => post("/api/tifide3/stop")}
           >
             Stop
           </button>
@@ -607,17 +615,22 @@ export default function TifidePage() {
               <div className="text-sm opacity-70">—</div>
             ) : (
               signalsView.map((s, idx) => (
-                <div key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`} className="rounded-xl border border-white/10 p-3">
+                <div
+                  key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
+                  className="rounded-xl border border-white/10 p-3"
+                >
                   <div className="flex items-center justify-between gap-2">
                     <div className="font-mono text-sm">
                       {s.coin} · {s.side}
                     </div>
                     <div className="text-xs opacity-70 font-mono">{fmtTs(s.timestamp_ms)}</div>
                   </div>
+
                   <div className="text-xs opacity-80 mt-1">
-                    <span className="font-mono">{s.scenario}</span> · <span className="font-mono">{s.classe}</span>{" "}
+                    <span className="font-mono">{s.scenario}</span> · <span className="font-mono">{s.classe}</span>
                     {s.timeframe ? (
                       <>
+                        {" "}
                         · <span className="font-mono">{s.timeframe}</span>
                       </>
                     ) : null}
@@ -628,8 +641,18 @@ export default function TifidePage() {
                       </>
                     ) : null}
                   </div>
+
                   {Array.isArray(s.patterns_hit) && s.patterns_hit.length ? (
                     <div className="text-[11px] opacity-70 mt-1 font-mono">{s.patterns_hit.join(" + ")}</div>
+                  ) : null}
+
+                  {s.third?.token ? (
+                    <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-[11px] font-mono text-emerald-300">
+                      THIRD: {s.third.token}
+                      {typeof s.third.strength === "number" ? (
+                        <span className="opacity-70">({s.third.strength.toFixed(2)})</span>
+                      ) : null}
+                    </div>
                   ) : null}
                 </div>
               ))
@@ -664,3 +687,8 @@ export default function TifidePage() {
     </div>
   );
 }
+
+
+
+
+

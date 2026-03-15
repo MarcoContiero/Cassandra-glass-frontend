@@ -1,5 +1,9 @@
 export function buildTargetUrl(path: string): string {
-  const base = process.env.BACKEND_BASE ?? "http://localhost:8000";
+  const base =
+    process.env.BACKEND_BASE ||
+    process.env.CASSANDRA_API_BASE ||
+    "http://localhost:8000";
+
   return `${base.replace(/\/+$/, "")}${path}`;
 }
 

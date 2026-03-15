@@ -1,13 +1,15 @@
 // src/api.ts
 
-// Base URL API – usa NEXT_PUBLIC_API_URL se c’è, altrimenti localhost
-const RAW_API = process.env.NEXT_PUBLIC_API_URL ?? "http://127.0.0.1:8000";
+// ✅ Preferiamo il proxy interno di Next: /api/...
+// Se vuoi bypassare il proxy (raro), imposta NEXT_PUBLIC_API_URL esplicitamente.
+const RAW_API = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/+$/, "");
 
 function sanitize(base: string) {
-  return base
+  const b = (base ?? "").trim();
+  return b
     .replace(/^https?:\/\/www\.(127\.0\.0\.1)(?=[:/]|$)/i, (_m, host) => `http://${host}`)
     .replace(/^https?:\/\/www\.(localhost)(?=[:/]|$)/i, (_m, host) => `http://${host}`)
-    .replace(/\/+$/, ""); // rimuove trailing slash
+    .replace(/\/+$/, "");
 }
 
 export const API = sanitize(RAW_API);
