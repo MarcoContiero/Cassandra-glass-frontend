@@ -10,10 +10,25 @@ type Counters = {
   closes?: number;
   errors?: number;
 
+  prelive_setups?: number;
+  prelive_signals?: number;
+
   ignored_live?: number;
-  ignored_recent?: number;
-  ignored_postclose?: number;
-  ignored_dedup?: number;
+
+  valid_pairs_found?: number;
+  valid_pairs_with_third?: number;
+  scenario_candidates?: number;
+  scenario_valid?: number;
+  scenario_rejected?: number;
+
+  ignored_third?: number;
+  ignored_third_missing?: number;
+  ignored_third_too_old?: number;
+  ignored_third_weak?: number;
+
+  ignored_freshness?: number;
+  ignored_signal_too_old?: number;
+  ignored_ema_not_fresh?: number;
 };
 
 type Monitor = {
@@ -32,17 +47,30 @@ type Monitor = {
   slow_tf_ms?: number;
 };
 
+type SignalComponent = {
+  token?: string;
+  ts_ms?: number;
+  trigger_price?: number;
+  bar_open_ts_ms?: number;
+  bar_close_ts_ms?: number;
+  bar_index?: number;
+};
+
 type SignalItem = {
   coin: string;
   timeframe?: string;
+  tf_exec?: string;
+  hybrid_reason?: string;
+
   side: "LONG" | "SHORT" | string;
   scenario: string;
   classe: string;
   timestamp_ms: number;
   trigger_price?: number;
-  patterns_hit?: string[];
 
-  // ✅ NEW
+  patterns_hit?: string[] | SignalComponent[];
+  components?: SignalComponent[];
+
   third?: {
     token?: string;
     ts_ms?: number;
@@ -156,6 +184,50 @@ function calcInitialSl(entry: number, direction: string, slPct = 1.0) {
   if (d === "LONG") return entry * (1 - slPct / 100);
   if (d === "SHORT") return entry * (1 + slPct / 100);
   return entry * (1 - slPct / 100);
+}
+
+function extractTfFromToken(token?: string | null) {
+  const t = String(token || "").trim();
+  if (!t.includes("@")) return null;
+  const parts = t.split("@");
+  return parts[parts.length - 1] || null;
+}
+
+function signalDisplayTf(s: SignalItem): string | null {
+  if (s?.tf_exec) return String(s.tf_exec);
+  if (s?.timeframe) return String(s.timeframe);
+
+  const comps = Array.isArray(s?.components)
+    ? s.components
+    : Array.isArray(s?.patterns_hit) && typeof s.patterns_hit[0] === "object"
+      ? (s.patterns_hit as SignalComponent[])
+      : [];
+
+  const tfs = comps
+    .map((c) => extractTfFromToken(c?.token))
+    .filter(Boolean) as string[];
+
+  if (!tfs.length) return null;
+
+  const uniq = Array.from(new Set(tfs));
+  return uniq.join(" + ");
+}
+
+function signalDisplayComponents(s: SignalItem): string[] {
+  if (Array.isArray(s?.components) && s.components.length) {
+    return s.components.map((c) => String(c?.token || "")).filter(Boolean);
+  }
+
+  if (Array.isArray(s?.patterns_hit) && s.patterns_hit.length) {
+    if (typeof s.patterns_hit[0] === "string") {
+      return (s.patterns_hit as string[]).filter(Boolean);
+    }
+    return (s.patterns_hit as SignalComponent[])
+      .map((c) => String(c?.token || ""))
+      .filter(Boolean);
+  }
+
+  return [];
 }
 
 export default function TifidePage() {
@@ -341,7 +413,9 @@ export default function TifidePage() {
     const err = counters?.errors ?? 0;
     const opens = counters?.opens ?? 0;
     const closes = counters?.closes ?? 0;
-    return { st, wl, cyc, sig, err, opens, closes };
+    const scenValid = counters?.scenario_valid ?? 0;
+    const scenRejected = counters?.scenario_rejected ?? 0;
+    return { st, wl, cyc, sig, err, opens, closes, scenValid, scenRejected };
   }, [status, counters]);
 
   return (
@@ -351,6 +425,8 @@ export default function TifidePage() {
           <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.0</h1>
           <div className="text-sm opacity-80">
             Status: <span className="font-mono">{summary.st}</span> · watchlist:{" "}
+            · scen_valid: <span className="font-mono">{summary.scenValid}</span>
+            · scen_rejected: <span className="font-mono">{summary.scenRejected}</span>
             <span className="font-mono">{summary.wl}</span>
             {status?.catalog_size != null ? (
               <>
@@ -466,13 +542,38 @@ export default function TifidePage() {
             errors: <span className="font-mono">{summary.err}</span>
             <br />
             <br />
+            prelive_setups: <span className="font-mono">{counters?.prelive_setups ?? 0}</span>
+            <br />
+            prelive_signals: <span className="font-mono">{counters?.prelive_signals ?? 0}</span>
+            <br />
             ignored_live: <span className="font-mono">{counters?.ignored_live ?? 0}</span>
             <br />
-            ignored_recent: <span className="font-mono">{counters?.ignored_recent ?? 0}</span>
             <br />
-            ignored_postclose: <span className="font-mono">{counters?.ignored_postclose ?? 0}</span>
+            valid_pairs_found: <span className="font-mono">{counters?.valid_pairs_found ?? 0}</span>
             <br />
-            ignored_dedup: <span className="font-mono">{counters?.ignored_dedup ?? 0}</span>
+            valid_pairs_with_third: <span className="font-mono">{counters?.valid_pairs_with_third ?? 0}</span>
+            <br />
+            scenario_candidates: <span className="font-mono">{counters?.scenario_candidates ?? 0}</span>
+            <br />
+            scenario_valid: <span className="font-mono">{counters?.scenario_valid ?? 0}</span>
+            <br />
+            scenario_rejected: <span className="font-mono">{counters?.scenario_rejected ?? 0}</span>
+            <br />
+            <br />
+            ignored_third: <span className="font-mono">{counters?.ignored_third ?? 0}</span>
+            <br />
+            ignored_third_missing: <span className="font-mono">{counters?.ignored_third_missing ?? 0}</span>
+            <br />
+            ignored_third_too_old: <span className="font-mono">{counters?.ignored_third_too_old ?? 0}</span>
+            <br />
+            ignored_third_weak: <span className="font-mono">{counters?.ignored_third_weak ?? 0}</span>
+            <br />
+            <br />
+            ignored_freshness: <span className="font-mono">{counters?.ignored_freshness ?? 0}</span>
+            <br />
+            ignored_signal_too_old: <span className="font-mono">{counters?.ignored_signal_too_old ?? 0}</span>
+            <br />
+            ignored_ema_not_fresh: <span className="font-mono">{counters?.ignored_ema_not_fresh ?? 0}</span>
             <br />
             <br />
             equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
@@ -614,48 +715,60 @@ export default function TifidePage() {
             {signalsView.length === 0 ? (
               <div className="text-sm opacity-70">—</div>
             ) : (
-              signalsView.map((s, idx) => (
-                <div
-                  key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
-                  className="rounded-xl border border-white/10 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-mono text-sm">
-                      {s.coin} · {s.side}
+              signalsView.map((s, idx) => {
+                const displayTf = signalDisplayTf(s);
+                const displayComponents = signalDisplayComponents(s);
+
+                return (
+                  <div
+                    key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
+                    className="rounded-xl border border-white/10 p-3"
+                  >
+                    <div className="flex items-center justify-between gap-2">
+                      <div className="font-mono text-sm">
+                        {s.coin} · {s.side}
+                      </div>
+                      <div className="text-xs opacity-70 font-mono">
+                        {fmtTs(s.timestamp_ms)}
+                      </div>
                     </div>
-                    <div className="text-xs opacity-70 font-mono">{fmtTs(s.timestamp_ms)}</div>
-                  </div>
 
-                  <div className="text-xs opacity-80 mt-1">
-                    <span className="font-mono">{s.scenario}</span> · <span className="font-mono">{s.classe}</span>
-                    {s.timeframe ? (
-                      <>
-                        {" "}
-                        · <span className="font-mono">{s.timeframe}</span>
-                      </>
-                    ) : null}
-                    {typeof s.trigger_price === "number" ? (
-                      <>
-                        {" "}
-                        · px: <span className="font-mono">{s.trigger_price}</span>
-                      </>
-                    ) : null}
-                  </div>
-
-                  {Array.isArray(s.patterns_hit) && s.patterns_hit.length ? (
-                    <div className="text-[11px] opacity-70 mt-1 font-mono">{s.patterns_hit.join(" + ")}</div>
-                  ) : null}
-
-                  {s.third?.token ? (
-                    <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-[11px] font-mono text-emerald-300">
-                      THIRD: {s.third.token}
-                      {typeof s.third.strength === "number" ? (
-                        <span className="opacity-70">({s.third.strength.toFixed(2)})</span>
+                    <div className="text-xs opacity-80 mt-1">
+                      <span className="font-mono">{s.scenario}</span> ·{" "}
+                      <span className="font-mono">{s.classe}</span>
+                      {displayTf ? (
+                        <>
+                          {" "}
+                          · <span className="font-mono">{displayTf}</span>
+                        </>
+                      ) : null}
+                      {typeof s.trigger_price === "number" ? (
+                        <>
+                          {" "}
+                          · px: <span className="font-mono">{s.trigger_price}</span>
+                        </>
                       ) : null}
                     </div>
-                  ) : null}
-                </div>
-              ))
+
+                    {displayComponents.length ? (
+                      <div className="text-[11px] opacity-70 mt-1 font-mono">
+                        {displayComponents.join(" + ")}
+                      </div>
+                    ) : null}
+
+                    {s.third?.token ? (
+                      <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-[11px] font-mono text-emerald-300">
+                        THIRD: {s.third.token}
+                        {typeof s.third.strength === "number" ? (
+                          <span className="opacity-70">
+                            ({s.third.strength.toFixed(2)})
+                          </span>
+                        ) : null}
+                      </div>
+                    ) : null}
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
@@ -670,25 +783,41 @@ export default function TifidePage() {
             {tradesView.length === 0 ? (
               <div className="text-sm opacity-70">—</div>
             ) : (
-              tradesView.map((t, idx) => (
-                <div key={`trade-${idx}`} className="rounded-xl border border-white/10 p-3">
-                  <pre className="text-[11px] font-mono whitespace-pre-wrap opacity-90">{JSON.stringify(t, null, 2)}</pre>
-                </div>
-              ))
+              tradesView.map((t, idx) => {
+                const tradeTf =
+                  t?.tf_exec ??
+                  t?.timeframe ??
+                  t?.meta?.tf_exec ??
+                  t?.meta?.timeframe ??
+                  "—";
+
+                return (
+                  <div
+                    key={`trade-${idx}`}
+                    className="rounded-xl border border-white/10 p-3"
+                  >
+                    <div className="text-xs opacity-80 mb-2">
+                      tf: <span className="font-mono">{tradeTf}</span>
+                    </div>
+                    <pre className="text-[11px] font-mono whitespace-pre-wrap opacity-90">
+                      {JSON.stringify(t, null, 2)}
+                    </pre>
+                  </div>
+                );
+              })
             )}
           </div>
         </div>
       </div>
 
       <details className="rounded-2xl border border-white/10 bg-black/20 p-4">
-        <summary className="cursor-pointer text-sm font-semibold">Raw status (debug)</summary>
-        <pre className="mt-3 text-[11px] font-mono whitespace-pre-wrap opacity-90">{JSON.stringify(status, null, 2)}</pre>
+        <summary className="cursor-pointer text-sm font-semibold">
+          Raw status (debug)
+        </summary>
+        <pre className="mt-3 text-[11px] font-mono whitespace-pre-wrap opacity-90">
+          {JSON.stringify(status, null, 2)}
+        </pre>
       </details>
     </div>
   );
 }
-
-
-
-
-
