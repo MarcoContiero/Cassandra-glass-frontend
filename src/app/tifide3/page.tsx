@@ -534,7 +534,7 @@ export default function TifidePage() {
     <div className="p-4 md:p-6 space-y-4">
       <div className="flex items-center justify-between gap-3 flex-wrap">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.0</h1>
+          <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.5</h1>
           <div className="text-sm opacity-80">
             Status: <span className="font-mono">{summary.st}</span>
             {" · "}watchlist: <span className="font-mono">{summary.wl}</span>
