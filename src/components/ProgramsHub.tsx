@@ -17,7 +17,7 @@ const APPS: { key: AppKey; label: string; emoji: string }[] = [
   { key: 'orione', label: 'Orione', emoji: '✨' },
   { key: 'tifide2', label: 'Tifi 2.0', emoji: '⬅️' },
   { key: 'orione2', label: 'Segnali', emoji: '✅' },
-  { key: 'tifide3', label: 'Tifi 3.0', emoji: '🧪' },
+  { key: 'tifide3', label: 'Tifi 3.5', emoji: '🧪' },
   { key: 'agema', label: 'Agema', emoji: '🏅' },
 ];
 

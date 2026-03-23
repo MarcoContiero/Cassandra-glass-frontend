@@ -29,6 +29,14 @@ type Counters = {
   ignored_freshness?: number;
   ignored_signal_too_old?: number;
   ignored_ema_not_fresh?: number;
+
+  rejected_shadow_started?: number;
+  rejected_shadow_sl?: number;
+  rejected_shadow_trail_armed?: number;
+  rejected_shadow_trail_exit?: number;
+  rejected_shadow_positive_close?: number;
+  rejected_shadow_negative_close?: number;
+  rejected_shadow_timeout?: number;
 };
 
 type Monitor = {
@@ -81,6 +89,25 @@ type SignalItem = {
 
 type TradeItem = any;
 
+type RejectedShadowItem = {
+  key: string;
+  coin_key?: string;
+  side?: string;
+  scenario?: string;
+  classe?: string;
+  entry_ts_ms?: number;
+  entry_px?: number;
+  stop_px?: number;
+  lock_pct?: number;
+  max_fav_pct?: number;
+  reject_reason?: string;
+  reject_details?: string;
+  timeframe?: string | null;
+  tf_exec?: string | null;
+  hybrid_reason?: string | null;
+  third_reason?: string | null;
+};
+
 type CoinsStatus = Record<
   string,
   {
@@ -119,6 +146,9 @@ type TifideStatus = {
 
   recent_signals?: SignalItem[];
   recent_trades?: TradeItem[];
+
+  rejected_shadow_open_count?: number;
+  rejected_shadow_open?: RejectedShadowItem[];
 
   monitor?: Monitor;
 
@@ -230,6 +260,83 @@ function signalDisplayComponents(s: SignalItem): string[] {
   return [];
 }
 
+function normalizeScenarioLabel(s?: string | null) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_raw\b/g, "")
+    .replace(/_confirmed\b/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function normalizeTokenLabel(s?: string | null) {
+  return String(s || "")
+    .trim()
+    .toLowerCase()
+    .replace(/_raw(?=@|$)/g, "")
+    .replace(/_confirmed(?=@|$)/g, "")
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+function dedupSignals(items: SignalItem[]): SignalItem[] {
+  const bestByKey = new Map<string, SignalItem>();
+
+  for (const s of items || []) {
+    const coin = String(s?.coin || "").trim().toUpperCase();
+    const side = String(s?.side || "").trim().toUpperCase();
+    const ts = Number(s?.timestamp_ms || 0);
+
+    const comps = signalDisplayComponents(s)
+      .map((x) => normalizeTokenLabel(x))
+      .filter(Boolean)
+      .sort();
+
+    const scen = normalizeScenarioLabel(s?.scenario);
+    const combo = comps.length ? comps.join(" + ") : scen;
+
+    const key = `${coin}|${side}|${ts}|${combo}`;
+
+    const prev = bestByKey.get(key);
+    if (!prev) {
+      bestByKey.set(key, s);
+      continue;
+    }
+
+    const prevScenario = String(prev?.scenario || "");
+    const curScenario = String(s?.scenario || "");
+
+    const prevIsRaw = /_raw\b/i.test(prevScenario);
+    const curIsRaw = /_raw\b/i.test(curScenario);
+
+    // preferisci la versione NON raw
+    if (prevIsRaw && !curIsRaw) {
+      bestByKey.set(key, s);
+      continue;
+    }
+
+    // a parità, tieni quella con tf_exec/timeframe valorizzato
+    const prevScore =
+      (prev?.tf_exec ? 1 : 0) +
+      (prev?.timeframe ? 1 : 0) +
+      (Array.isArray(prev?.components) && prev.components.length ? 1 : 0);
+
+    const curScore =
+      (s?.tf_exec ? 1 : 0) +
+      (s?.timeframe ? 1 : 0) +
+      (Array.isArray(s?.components) && s.components.length ? 1 : 0);
+
+    if (curScore > prevScore) {
+      bestByKey.set(key, s);
+    }
+  }
+
+  return Array.from(bestByKey.values()).sort(
+    (a, b) => Number(b?.timestamp_ms || 0) - Number(a?.timestamp_ms || 0),
+  );
+}
+
 export default function TifidePage() {
   const [status, setStatus] = useState<TifideStatus | null>(null);
   const [hbLine, setHbLine] = useState<string | null>(null);
@@ -248,8 +355,13 @@ export default function TifidePage() {
   const position = status?.position ?? {};
   const coinsStatus = status?.coins_status ?? null;
 
+  const rejectedShadowOpen = status?.rejected_shadow_open ?? [];
+  const rejectedShadowOpenCount = status?.rejected_shadow_open_count ?? 0;
+
   // ✅ fallback UI: se lo state locale è vuoto usa i buffer arrivati nello status
-  const signalsView = (signals.length ? signals : (status?.recent_signals ?? []));
+  const rawSignalsView = signals.length ? signals : (status?.recent_signals ?? []);
+  const signalsView = useMemo(() => dedupSignals(rawSignalsView), [rawSignalsView]);
+
   const tradesView = (trades.length ? trades : (status?.recent_trades ?? []));
 
   async function refreshStatus() {
@@ -424,10 +536,13 @@ export default function TifidePage() {
         <div>
           <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.0</h1>
           <div className="text-sm opacity-80">
-            Status: <span className="font-mono">{summary.st}</span> · watchlist:{" "}
-            · scen_valid: <span className="font-mono">{summary.scenValid}</span>
-            · scen_rejected: <span className="font-mono">{summary.scenRejected}</span>
-            <span className="font-mono">{summary.wl}</span>
+            Status: <span className="font-mono">{summary.st}</span>
+            {" · "}watchlist: <span className="font-mono">{summary.wl}</span>
+            {" · "}scen_valid: <span className="font-mono">{summary.scenValid}</span>
+            {" · "}scen_rejected: <span className="font-mono">{summary.scenRejected}</span>
+            {" · "}rej_shadow_open: <span className="font-mono">{rejectedShadowOpenCount}</span>
+            {" · "}rej_shadow_sl: <span className="font-mono">{counters?.rejected_shadow_sl ?? 0}</span>
+            {" · "}rej_shadow_trail: <span className="font-mono">{counters?.rejected_shadow_trail_armed ?? 0}</span>
             {status?.catalog_size != null ? (
               <>
                 {" "}
@@ -578,6 +693,24 @@ export default function TifidePage() {
             <br />
             equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
             <br />
+            rejected_shadow_started: <span className="font-mono">{counters?.rejected_shadow_started ?? 0}</span>
+            <br />
+            rejected_shadow_sl: <span className="font-mono">{counters?.rejected_shadow_sl ?? 0}</span>
+            <br />
+            rejected_shadow_trail_armed: <span className="font-mono">{counters?.rejected_shadow_trail_armed ?? 0}</span>
+            <br />
+            rejected_shadow_trail_exit: <span className="font-mono">{counters?.rejected_shadow_trail_exit ?? 0}</span>
+            <br />
+            rejected_shadow_positive_close: <span className="font-mono">{counters?.rejected_shadow_positive_close ?? 0}</span>
+            <br />
+            rejected_shadow_negative_close: <span className="font-mono">{counters?.rejected_shadow_negative_close ?? 0}</span>
+            <br />
+            rejected_shadow_timeout: <span className="font-mono">{counters?.rejected_shadow_timeout ?? 0}</span>
+            <br />
+            rejected_shadow_open_count: <span className="font-mono">{rejectedShadowOpenCount}</span>
+            <br />
+            equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
+            <br />
             fees: <span className="font-mono">{portfolio?.fees_paid ?? "—"}</span>
             <br />
             position:{" "}
@@ -668,6 +801,65 @@ export default function TifidePage() {
         <div className="flex items-center justify-between mb-2">
           <div className="text-sm font-semibold">Coins</div>
           <div className="text-xs opacity-70 font-mono">{coinsStatus ? Object.keys(coinsStatus).length : 0}</div>
+        </div>
+
+        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div className="text-sm font-semibold">Rejected Shadow Open</div>
+            <div className="text-xs opacity-70 font-mono">{rejectedShadowOpenCount}</div>
+          </div>
+
+          {rejectedShadowOpen.length === 0 ? (
+            <div className="text-sm opacity-70">—</div>
+          ) : (
+            <div className="space-y-2 max-h-[360px] overflow-auto pr-2">
+              {rejectedShadowOpen.map((r, idx) => (
+                <div
+                  key={r.key || `${r.coin_key}-${r.scenario}-${r.entry_ts_ms}-${idx}`}
+                  className="rounded-xl border border-white/10 p-3"
+                >
+                  <div className="flex items-center justify-between gap-2">
+                    <div className="font-mono text-sm">
+                      {r.coin_key ?? "—"} · {r.side ?? "—"}
+                    </div>
+                    <div className="text-xs opacity-70 font-mono">
+                      {fmtTs(r.entry_ts_ms ?? null)}
+                    </div>
+                  </div>
+
+                  <div className="text-xs opacity-80 mt-1">
+                    <span className="font-mono">{r.scenario ?? "—"}</span>
+                    {" · "}
+                    <span className="font-mono">{r.classe ?? "—"}</span>
+                    {r.tf_exec || r.timeframe ? (
+                      <>
+                        {" · "}
+                        <span className="font-mono">{r.tf_exec ?? r.timeframe}</span>
+                      </>
+                    ) : null}
+                  </div>
+
+                  <div className="text-[11px] opacity-70 mt-1 font-mono">
+                    reject_reason: {r.reject_reason ?? "—"}
+                    {r.third_reason ? ` · third_reason: ${r.third_reason}` : ""}
+                  </div>
+
+                  {r.reject_details ? (
+                    <div className="text-[11px] opacity-60 mt-1 font-mono break-all">
+                      {r.reject_details}
+                    </div>
+                  ) : null}
+
+                  <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
+                    <div>entry: {fmtNum(r.entry_px, 6)}</div>
+                    <div>stop: {fmtNum(r.stop_px, 6)}</div>
+                    <div>lock: {fmtNum(r.lock_pct, 4)}</div>
+                    <div>maxFav: {fmtNum(r.max_fav_pct, 4)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
         </div>
 
         {!coinsStatus || Object.keys(coinsStatus).length === 0 ? (
