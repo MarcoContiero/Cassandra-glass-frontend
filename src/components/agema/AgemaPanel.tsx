@@ -146,148 +146,143 @@ export default function AgemaPanel() {
     });
   }, [data, minScore, maxHours, dir]);
 
+  const glassInput = "rounded-lg border border-white/[0.10] bg-white/[0.04] text-xs px-2 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30";
+
   return (
-    <Card className="bg-black/30 border-white/10">
-      <CardHeader>
-        <CardTitle className="text-sm">Agema — Classifica operativa</CardTitle>
-        <CardDescription className="text-xs text-muted-foreground">
-          Seleziona solo le coin con setup utili (ciclica + strategia AI) entro una finestra temporale.
-        </CardDescription>
+    <div
+      className="rounded-2xl border border-white/[0.08] text-white"
+      style={{
+        backdropFilter: 'blur(20px)',
+        WebkitBackdropFilter: 'blur(20px)',
+        background: 'rgba(255,255,255,0.03)',
+      }}
+    >
+      {/* Header */}
+      <div className="px-6 pt-5 pb-4 border-b border-white/[0.06]">
+        <div className="flex items-center gap-3 mb-1">
+          <span className="text-cyan-400/60">❋</span>
+          <span className="font-semibold text-white/90">Agema — Classifica operativa</span>
+        </div>
+        <p className="text-xs text-white/35 mb-4">
+          Coin con setup utili (ciclica + strategia AI) entro una finestra temporale.
+        </p>
 
-        <div className="mt-3 flex flex-wrap items-center gap-2 text-xs">
-          <div className="flex items-center gap-2">
-            <span className="opacity-70">Min score</span>
-            <input
-              className="w-20 px-2 py-1 bg-black/40 rounded border border-white/10"
-              type="number"
-              value={minScore}
-              onChange={(e) => setMinScore(Number(e.target.value))}
-            />
+        <div className="flex flex-wrap items-center gap-2 text-xs">
+          <div className="flex items-center gap-1.5">
+            <span className="text-white/40">Min score</span>
+            <input className={`${glassInput} w-20`} type="number" value={minScore} onChange={(e) => setMinScore(Number(e.target.value))} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="opacity-70">Entro (ore)</span>
-            <input
-              className="w-20 px-2 py-1 bg-black/40 rounded border border-white/10"
-              type="number"
-              value={maxHours}
-              onChange={(e) => setMaxHours(Number(e.target.value))}
-            />
+          <div className="flex items-center gap-1.5">
+            <span className="text-white/40">Entro (ore)</span>
+            <input className={`${glassInput} w-20`} type="number" value={maxHours} onChange={(e) => setMaxHours(Number(e.target.value))} />
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="opacity-70">Direzione</span>
+          <div className="flex items-center gap-1.5">
+            <span className="text-white/40">Dir.</span>
             <select
-              className="px-2 py-1 bg-black/40 rounded border border-white/10"
+              className="rounded-lg border border-white/[0.10] bg-[#0a0e1a] text-xs px-2 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
               value={dir}
               onChange={(e) => setDir(e.target.value as any)}
             >
-              <option value="ALL">ALL</option>
+              <option value="ALL">Tutte</option>
               <option value="LONG">LONG</option>
               <option value="SHORT">SHORT</option>
             </select>
           </div>
 
-          <Button variant="secondary" onClick={fetchAgema} disabled={loading}>
-            {loading ? 'Carico…' : 'Aggiorna'}
-          </Button>
+          <button
+            onClick={fetchAgema}
+            disabled={loading}
+            className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-200 disabled:opacity-40"
+            style={{
+              background: 'linear-gradient(135deg, rgba(6,182,212,0.20) 0%, rgba(99,102,241,0.14) 100%)',
+              border: '1px solid rgba(6,182,212,0.35)',
+              color: '#67e8f9',
+            }}
+          >
+            {loading ? '⟳ Carico…' : '▶ Aggiorna'}
+          </button>
 
           {data?.updated_at && (
-            <span className="ml-auto opacity-60">
-              aggiornato: {data.updated_at}
-            </span>
+            <span className="ml-auto text-white/30 font-mono">{data.updated_at}</span>
           )}
-
-          {error && <div className="text-red-400">Errore: {error}</div>}
+          {error && <div className="text-red-400 text-xs">{error}</div>}
         </div>
-      </CardHeader>
+      </div>
 
-      <CardContent className="text-xs">
+      {/* Content */}
+      <div className="px-6 py-4 text-xs">
         {!data && !error && (
-          <div className="opacity-70">
-            Premi <b>Aggiorna</b> per caricare la classifica.
-          </div>
+          <div className="text-white/35 py-6 text-center">Premi Aggiorna per caricare la classifica.</div>
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2.5">
             {rows.map((row) => {
               const best = (row.best ?? []).slice(0, 3);
+              const dirColor = row.direction === 'LONG' ? '#86efac' : row.direction === 'SHORT' ? '#fca5a5' : '#94a3b8';
               return (
                 <div
                   key={row.coin}
-                  className="rounded-lg border border-white/10 bg-white/5 px-3 py-2"
+                  className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3"
                 >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <div className="font-semibold">{row.coin}</div>
-
-                    <Badge variant="outline" className="text-[0.7rem]">
-                      prezzo {fmt(row.price, 6)}
-                    </Badge>
-
-                    <Badge variant="outline" className="text-[0.7rem]">
-                      score {fmt(row.score, 0)}
-                    </Badge>
+                  <div className="flex flex-wrap items-center gap-2 mb-2">
+                    <span className="font-semibold text-sm text-white/90 font-mono">{row.coin}</span>
 
                     {row.direction && (
-                      <Badge variant="outline" className="text-[0.7rem]">
+                      <span
+                        className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
+                        style={{ color: dirColor, borderColor: `${dirColor}55`, background: `${dirColor}12` }}
+                      >
                         {row.direction}
-                      </Badge>
+                      </span>
                     )}
 
-                    {/* opzionali se li metti nel BE */}
+                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-cyan-400/25 text-cyan-300/70 bg-cyan-400/[0.07]">
+                      score {fmt(row.score, 0)}
+                    </span>
+
+                    <span className="text-[10px] text-white/35 font-mono">
+                      {fmt(row.price, 6)}
+                    </span>
+
                     {row.reentry_label && (
-                      <Badge variant="outline" className="text-[0.7rem]">
+                      <span className="text-[10px] text-white/40 border border-white/[0.08] px-2 py-0.5 rounded-full">
                         {row.reentry_label}
-                      </Badge>
+                      </span>
                     )}
                     {Number.isFinite(row.eta_reentry_hours as number) && (
-                      <Badge variant="outline" className="text-[0.7rem]">
+                      <span className="text-[10px] text-white/40 border border-white/[0.08] px-2 py-0.5 rounded-full">
                         ETA {fmt(row.eta_reentry_hours, 0)}h
-                      </Badge>
+                      </span>
                     )}
                   </div>
 
-                  <div className="mt-2 grid grid-cols-1 md:grid-cols-3 gap-2">
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {best.map((s, i) => {
                       const cw = s.ciclica_window;
                       const etaH = cw ? barsToHours(cw.countdown_bars, cw.tf_ciclo) : null;
-
+                      const sDir = s.direction === 'LONG' ? '#86efac' : s.direction === 'SHORT' ? '#fca5a5' : '#94a3b8';
                       return (
-                        <div key={i} className="rounded-md border border-white/10 bg-black/30 px-2 py-2">
-                          <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="text-[0.7rem]">
-                              TF {s.tf}
-                            </Badge>
-                            <Badge variant="outline" className="text-[0.7rem]">
-                              {s.direction} score {fmt(s.score, 0)}
-                            </Badge>
+                        <div key={i} className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 space-y-1">
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/[0.10] text-white/50">
+                              {s.tf}
+                            </span>
+                            <span className="text-[10px]" style={{ color: sDir }}>{s.direction}</span>
+                            <span className="text-[10px] text-cyan-300/60">sc {fmt(s.score, 0)}</span>
                             {etaH !== null && (
-                              <Badge variant="outline" className="text-[0.7rem]">
-                                entro {fmt(etaH, 0)}h
-                              </Badge>
+                              <span className="text-[10px] text-white/35">≤{fmt(etaH, 0)}h</span>
                             )}
                           </div>
-
-                          <div className="mt-1 font-mono tabular-nums">
+                          <div className="font-mono tabular-nums text-[10px] text-white/70">
                             entry {fmt(s.entry, 6)}
-                            {Number.isFinite(s.tp1_price as number) && (
-                              <> · tp1 {fmt(s.tp1_price, 6)}</>
-                            )}
-                            {Number.isFinite(s.tp2_price as number) && (
-                              <> · tp2 {fmt(s.tp2_price, 6)}</>
-                            )}
+                            {Number.isFinite(s.tp1_price as number) && <> · tp1 {fmt(s.tp1_price, 6)}</>}
+                            {Number.isFinite(s.tp2_price as number) && <> · tp2 {fmt(s.tp2_price, 6)}</>}
                           </div>
-
-                          {cw?.label && (
-                            <div className="mt-1 opacity-70">{cw.label}</div>
-                          )}
-
-                          {s.explanation && (
-                            <div className="mt-1 opacity-60 line-clamp-2">
-                              {s.explanation}
-                            </div>
-                          )}
+                          {cw?.label && <div className="text-[10px] text-white/40">{cw.label}</div>}
+                          {s.explanation && <div className="text-[10px] text-white/35 line-clamp-2">{s.explanation}</div>}
                         </div>
                       );
                     })}
@@ -299,9 +294,9 @@ export default function AgemaPanel() {
         )}
 
         {data && rows.length === 0 && !error && (
-          <div className="opacity-70">Nessun risultato con i filtri attuali.</div>
+          <div className="text-white/35 py-6 text-center">Nessun risultato con i filtri attuali.</div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }

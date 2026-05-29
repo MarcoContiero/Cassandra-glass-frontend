@@ -53,6 +53,9 @@ type Monitor = {
 
   slow_tf?: string;
   slow_tf_ms?: number;
+
+  btc_regime_score?: number | null;
+  btc_regime_score_prev?: number | null;
 };
 
 type SignalComponent = {
@@ -161,6 +164,16 @@ type TifideStatus = {
 
   // ✅ per-coin panel
   coins_status?: CoinsStatus;
+
+  recent_setups?: {
+    coin: string;
+    side: string;
+    scenario: string;
+    classe: string;
+    tf: string;
+    ts_ms: number;
+    ts_recv_ms: number;
+  }[];
 };
 
 type SseEnvelope =
@@ -337,12 +350,127 @@ function dedupSignals(items: SignalItem[]): SignalItem[] {
   );
 }
 
+// ── BTC trend + trade stats types ────────────────────────────────────────────
+type BtcTrend = {
+  direction: string | null;
+  guardrailColor: string | null;
+  guardrailScore: number | null;
+  faseAttuale: string | null;
+  loading: boolean;
+  error: boolean;
+};
+
+type TradeStat = { count: number; wins: number; wr: number; pf: number | null };
+
+// ── Counter groups ────────────────────────────────────────────────────────────
+type CounterGroupId = 'core' | 'prelive' | 'scenari' | 'filtri' | 'shadow' | 'portfolio';
+
+function CtrRow({ label, value, desc }: { label: string; value: React.ReactNode; desc?: string }) {
+  return (
+    <div className="flex items-center justify-between py-0.5">
+      <div className="relative group/tip">
+        <span className={`text-white/40 text-[11px] ${desc ? 'cursor-help border-b border-dashed border-white/20' : ''}`}>
+          {label}
+        </span>
+        {desc && (
+          <div className="pointer-events-none absolute left-0 bottom-full mb-1.5 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+            <div
+              className="rounded-lg border border-white/[0.12] px-2.5 py-1.5 text-[10px] text-white/75 leading-relaxed w-max max-w-[200px]"
+              style={{ backdropFilter: 'blur(12px)', background: 'rgba(8,12,28,0.92)', boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}
+            >
+              {desc}
+            </div>
+          </div>
+        )}
+      </div>
+      <span className="font-mono text-[11px] text-white/80">{value}</span>
+    </div>
+  );
+}
+
+function CounterGroup({
+  id, title, badge, open, onToggle, children,
+}: {
+  id: string;
+  title: string;
+  badge?: React.ReactNode;
+  open: boolean;
+  onToggle: () => void;
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+      <button
+        type="button"
+        onClick={onToggle}
+        className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
+      >
+        <div className="flex items-center gap-2">
+          <span className="text-xs font-medium text-white/70">{title}</span>
+          {badge}
+        </div>
+        <span className="text-white/30 text-[10px]">{open ? '▲' : '▼'}</span>
+      </button>
+      {open && (
+        <div className="px-3 py-2 border-t border-white/[0.05] space-y-0.5">
+          {children}
+        </div>
+      )}
+    </div>
+  );
+}
+// ─────────────────────────────────────────────────────────────────────────────
+
 export default function TifidePage() {
   const [status, setStatus] = useState<TifideStatus | null>(null);
   const [hbLine, setHbLine] = useState<string | null>(null);
   const [signals, setSignals] = useState<SignalItem[]>([]);
   const [trades, setTrades] = useState<TradeItem[]>([]);
   const [lastError, setLastError] = useState<string | null>(null);
+  const [openGroups, setOpenGroups] = useState<Set<CounterGroupId>>(
+    new Set(['core', 'portfolio'] as CounterGroupId[])
+  );
+
+  const [recentSetups, setRecentSetups] = useState<NonNullable<TifideStatus['recent_setups']>>([]);
+
+  const [btcTrend, setBtcTrend] = useState<BtcTrend>({
+    direction: null, guardrailColor: null, guardrailScore: null, faseAttuale: null, loading: false, error: false,
+  });
+
+  function toggleGroup(id: CounterGroupId) {
+    setOpenGroups(prev => {
+      const next = new Set(prev);
+      next.has(id) ? next.delete(id) : next.add(id);
+      return next;
+    });
+  }
+
+  async function fetchBtcTrend() {
+    setBtcTrend(prev => ({ ...prev, loading: true, error: false }));
+    try {
+      const q = new URLSearchParams();
+      q.set('coin', 'BTCUSDT');
+      q.set('timeframes', '1d');
+      q.set('programma', 'cassandra');
+      q.set('tipo', 'riepilogo_totale');
+      const r = await fetch(`/api/analisi_light?${q.toString()}`, { cache: 'no-store' });
+      if (!r.ok) throw new Error(String(r.status));
+      const json = await r.json();
+      const cic = json?.ciclica ?? {};
+      const rp = cic?.reentry_path ?? {};
+      const badges = cic?.guida_umano?.badges ?? {};
+      setBtcTrend({
+        direction: rp?.direzione_reentry ?? badges?.reentry_direction ?? null,
+        guardrailColor: badges?.guardrail_color ?? null,
+        guardrailScore: badges?.guardrail_score ?? null,
+        faseAttuale: rp?.fase_attuale ?? null,
+        loading: false,
+        error: false,
+      });
+    } catch {
+      setBtcTrend(prev => ({ ...prev, loading: false, error: true }));
+    }
+  }
 
   const esRef = useRef<EventSource | null>(null);
 
@@ -372,8 +500,9 @@ export default function TifidePage() {
 
     if (Array.isArray(st?.recent_signals)) setSignals(st.recent_signals);
     if (Array.isArray(st?.recent_trades)) setTrades(st.recent_trades);
+    if (Array.isArray(st?.recent_setups)) setRecentSetups(st.recent_setups);
 
-    // reset dell’errore “SSE connection error” quando lo status torna OK
+    // reset dell'errore “SSE connection error” quando lo status torna OK
     setLastError((prev) => (prev === "SSE connection error (retrying…)" ? null : prev));
   }
 
@@ -403,6 +532,7 @@ export default function TifidePage() {
         // ✅ IMPORTANT: copia anche i recent buffers nello state UI
         if (Array.isArray(st?.recent_signals)) setSignals(st.recent_signals);
         if (Array.isArray(st?.recent_trades)) setTrades(st.recent_trades);
+        if (Array.isArray(st?.recent_setups)) setRecentSetups(st.recent_setups);
 
         return;
       }
@@ -517,6 +647,13 @@ export default function TifidePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  useEffect(() => {
+    fetchBtcTrend();
+    const id = setInterval(fetchBtcTrend, 5 * 60 * 1000);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   const summary = useMemo(() => {
     const st = status?.status ?? "—";
     const wl = status?.watchlist_count ?? 0;
@@ -530,483 +667,627 @@ export default function TifidePage() {
     return { st, wl, cyc, sig, err, opens, closes, scenValid, scenRejected };
   }, [status, counters]);
 
+  const tradeStats = useMemo((): { byScenario: [string, TradeStat][]; byCoin: [string, TradeStat][] } => {
+    type Acc = { count: number; wins: number; pnlWins: number; pnlLoss: number };
+    const byScenario = new Map<string, Acc>();
+    const byCoin = new Map<string, Acc>();
+
+    for (const t of tradesView) {
+      const coin = String(t?.coin ?? t?.meta?.coin ?? '?');
+      const scenario = String(t?.scenario ?? t?.meta?.scenario ?? '?');
+      const rawPnl = t?.pnl ?? t?.pnl_pct ?? t?.net_pnl ?? t?.meta?.pnl ?? t?.result_pct;
+      const pnl = typeof rawPnl === 'number' ? rawPnl : Number(rawPnl);
+      const hasPnl = Number.isFinite(pnl);
+      const isWin = hasPnl ? pnl > 0 : null;
+
+      const upd = (map: Map<string, Acc>, key: string) => {
+        const p = map.get(key) ?? { count: 0, wins: 0, pnlWins: 0, pnlLoss: 0 };
+        map.set(key, {
+          count: p.count + 1,
+          wins: p.wins + (isWin === true ? 1 : 0),
+          pnlWins: p.pnlWins + (isWin === true && hasPnl ? pnl : 0),
+          pnlLoss: p.pnlLoss + (isWin === false && hasPnl ? Math.abs(pnl) : 0),
+        });
+      };
+      upd(byScenario, scenario);
+      upd(byCoin, coin);
+    }
+
+    const finalize = (map: Map<string, Acc>): [string, TradeStat][] =>
+      Array.from(map.entries())
+        .map(([k, v]): [string, TradeStat] => [k, {
+          count: v.count,
+          wins: v.wins,
+          wr: v.count > 0 ? Math.round((v.wins / v.count) * 100) : 0,
+          pf: v.pnlLoss > 0 ? Math.round((v.pnlWins / v.pnlLoss) * 100) / 100 : null,
+        }])
+        .sort((a, b) => b[1].count - a[1].count);
+
+    return { byScenario: finalize(byScenario), byCoin: finalize(byCoin) };
+  }, [tradesView]);
+
+  // Status color
+  const stColor = running ? '#86efac' : paused ? '#fbbf24' : '#94a3b8';
+
   return (
-    <div className="p-4 md:p-6 space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
-        <div>
-          <h1 className="text-xl md:text-2xl font-semibold">TIFI 3.5</h1>
-          <div className="text-sm opacity-80">
-            Status: <span className="font-mono">{summary.st}</span>
-            {" · "}watchlist: <span className="font-mono">{summary.wl}</span>
-            {" · "}scen_valid: <span className="font-mono">{summary.scenValid}</span>
-            {" · "}scen_rejected: <span className="font-mono">{summary.scenRejected}</span>
-            {" · "}rej_shadow_open: <span className="font-mono">{rejectedShadowOpenCount}</span>
-            {" · "}rej_shadow_sl: <span className="font-mono">{counters?.rejected_shadow_sl ?? 0}</span>
-            {" · "}rej_shadow_trail: <span className="font-mono">{counters?.rejected_shadow_trail_armed ?? 0}</span>
-            {status?.catalog_size != null ? (
-              <>
-                {" "}
-                · catalog: <span className="font-mono">{status.catalog_size}</span>
-              </>
-            ) : null}
-            {status?.orione_ready != null ? (
-              <>
-                {" "}
-                · orione_ready: <span className="font-mono">{String(status.orione_ready)}</span>
-              </>
-            ) : null}
-          </div>
+    <div className="p-3 md:p-5 space-y-3 text-white">
+
+      {/* ── Header ─────────────────────────────────────────────────── */}
+      <div
+        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.07] px-4 py-3"
+        style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.03)' }}
+      >
+        {/* Title + status chips */}
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="text-cyan-400/50 text-sm">⬡</span>
+          <span className="font-semibold text-white/90">TIFI 4.0</span>
+          <span
+            className="text-[10px] px-2 py-0.5 rounded-full border font-mono"
+            style={{ color: stColor, borderColor: `${stColor}55`, background: `${stColor}12` }}
+          >
+            {summary.st}
+          </span>
+          {[
+            { l: 'wl', v: summary.wl },
+            { l: 'sig', v: summary.sig },
+            { l: 'scen', v: `${summary.scenValid}/${summary.scenRejected}` },
+            { l: 'shadow', v: rejectedShadowOpenCount },
+          ].map(({ l, v }) => (
+            <span key={l} className="text-[10px] font-mono text-white/40">
+              <span className="text-white/25">{l}:</span> {v}
+            </span>
+          ))}
+          {status?.catalog_size != null && (
+            <span className="text-[10px] font-mono text-white/40">
+              <span className="text-white/25">catalog:</span> {status.catalog_size}
+            </span>
+          )}
+          {status?.orione_ready != null && (
+            <span
+              className="text-[10px] font-mono"
+              style={{ color: status.orione_ready ? '#86efac' : '#fca5a5' }}
+            >
+              orione {status.orione_ready ? 'ready' : 'not ready'}
+            </span>
+          )}
+
+          {/* BTC regime score chip */}
+          {(() => {
+            const score = monitor?.btc_regime_score ?? null;
+            if (score == null) return null;
+            const c = score >= 4 ? '#86efac' : score >= 2 ? '#fbbf24' : '#fca5a5';
+            return (
+              <span
+                className="text-[10px] px-2 py-0.5 rounded-full border font-mono"
+                style={{ color: c, borderColor: `${c}55`, background: `${c}12` }}
+                title="BTC regime score (0-7)"
+              >
+                BTC {score}/7
+              </span>
+            );
+          })()}
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          <button className="px-3 py-2 rounded-lg border border-white/10 hover:bg-white/5" onClick={() => refreshStatus()}>
-            Refresh
-          </button>
-
+        {/* Control buttons */}
+        <div className="flex items-center gap-1.5 flex-wrap">
           <button
-            className="px-3 py-2 rounded-lg bg-emerald-600/80 hover:bg-emerald-600 text-white disabled:opacity-50"
-            disabled={running || paused}
-            onClick={() => post("/api/tifide3/start")}
+            className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs text-white/60 hover:bg-white/[0.05] transition-colors"
+            onClick={() => refreshStatus()}
           >
-            Start
+            ↺ Refresh
           </button>
-
-          <button
-            className="px-3 py-2 rounded-lg bg-amber-600/80 hover:bg-amber-600 text-white disabled:opacity-50"
-            disabled={!running}
-            onClick={() => post("/api/tifide3/pause")}
-          >
-            Pause
-          </button>
-
-          <button
-            className="px-3 py-2 rounded-lg bg-sky-600/80 hover:bg-sky-600 text-white disabled:opacity-50"
-            disabled={!paused}
-            onClick={() => post("/api/tifide3/resume")}
-          >
-            Resume
-          </button>
-
-          <button
-            className="px-3 py-2 rounded-lg bg-rose-600/80 hover:bg-rose-600 text-white disabled:opacity-50"
-            disabled={!running && !paused}
-            onClick={() => post("/api/tifide3/stop")}
-          >
-            Stop
-          </button>
+          {[
+            { label: 'Start', disabled: running || paused, action: '/api/tifide3/start', color: '#86efac' },
+            { label: 'Pause', disabled: !running, action: '/api/tifide3/pause', color: '#fbbf24' },
+            { label: 'Resume', disabled: !paused, action: '/api/tifide3/resume', color: '#67e8f9' },
+            { label: 'Stop', disabled: !running && !paused, action: '/api/tifide3/stop', color: '#fca5a5' },
+          ].map(({ label, disabled, action, color }) => (
+            <button
+              key={label}
+              className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              style={{
+                borderColor: disabled ? 'rgba(255,255,255,0.08)' : `${color}55`,
+                color: disabled ? 'rgba(255,255,255,0.35)' : color,
+                background: disabled ? 'transparent' : `${color}12`,
+              }}
+              disabled={disabled}
+              onClick={() => post(action)}
+            >
+              {label}
+            </button>
+          ))}
         </div>
       </div>
 
       {lastError ? (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-sm">
-          <div className="font-semibold">Error</div>
-          <div className="font-mono whitespace-pre-wrap">{lastError}</div>
+        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm">
+          <div className="font-semibold text-rose-300 mb-1">Errore</div>
+          <div className="font-mono text-xs whitespace-pre-wrap text-rose-200/80">{lastError}</div>
         </div>
       ) : null}
 
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
-          <div className="text-sm font-semibold">Monitor</div>
-          <div className="text-sm opacity-90">
-            poll_sec: <span className="font-mono">{monitor?.poll_sec ?? "—"}</span>
-            <br />
-            subscribers: <span className="font-mono">{monitor?.subscribers_count ?? "—"}</span>
-            <br />
-            uptime: <span className="font-mono">{fmtMs(monitor?.uptime_ms ?? null)}</span>
-            <br />
-            orione_ready:{" "}
-            <span className="font-mono">{String(status?.orione_ready ?? monitor?.orione_ready ?? "—")}</span>
-            <br />
-            catalog_size: <span className="font-mono">{status?.catalog_size ?? monitor?.catalog_size ?? "—"}</span>
-            <br />
-            post_close_delay_ms: <span className="font-mono">{monitor?.post_close_delay_ms ?? "—"}</span>
-            <br />
-            recent_window_ms: <span className="font-mono">{monitor?.recent_window_ms ?? "—"}</span>
-            <br />
-            slow_tf: <span className="font-mono">{monitor?.slow_tf ?? status?.slow_tf ?? "—"}</span>
-            <br />
-            slow_tf_ms: <span className="font-mono">{monitor?.slow_tf_ms ?? status?.slow_tf_ms ?? "—"}</span>
-          </div>
-
+      {/* ── Monitor + Heartbeat ─────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Monitor */}
+        <div className="rounded-2xl border border-white/[0.07] p-4 space-y-1" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Monitor</div>
+          {[
+            ['poll_sec', monitor?.poll_sec ?? '—'],
+            ['subscribers', monitor?.subscribers_count ?? '—'],
+            ['uptime', fmtMs(monitor?.uptime_ms ?? null)],
+            ['orione_ready', String(status?.orione_ready ?? monitor?.orione_ready ?? '—')],
+            ['catalog_size', status?.catalog_size ?? monitor?.catalog_size ?? '—'],
+            ['post_close_delay', monitor?.post_close_delay_ms != null ? `${monitor.post_close_delay_ms}ms` : '—'],
+            ['recent_window', monitor?.recent_window_ms != null ? `${monitor.recent_window_ms}ms` : '—'],
+            ['slow_tf', monitor?.slow_tf ?? status?.slow_tf ?? '—'],
+            ['slow_tf_ms', monitor?.slow_tf_ms ?? status?.slow_tf_ms ?? '—'],
+          ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
           {Array.isArray(status?.coins) && status!.coins!.length ? (
-            <div className="pt-2 text-xs opacity-80">
-              coins: <span className="font-mono">{status!.coins!.length}</span>
-            </div>
+            <CtrRow label="coins" value={status!.coins!.length} />
           ) : null}
-
           {Array.isArray(status?.timeframes) && status!.timeframes!.length ? (
-            <div className="text-xs opacity-80">
-              tfs: <span className="font-mono">{status!.timeframes!.join(", ")}</span>
-            </div>
+            <CtrRow label="tfs" value={status!.timeframes!.join(', ')} />
           ) : null}
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
-          <div className="text-sm font-semibold">Counters</div>
-          <div className="text-sm opacity-90">
-            cycles: <span className="font-mono">{summary.cyc}</span>
-            <br />
-            setups: <span className="font-mono">{counters?.setups ?? 0}</span>
-            <br />
-            signals: <span className="font-mono">{summary.sig}</span>
-            <br />
-            opens: <span className="font-mono">{summary.opens}</span>
-            <br />
-            closes: <span className="font-mono">{summary.closes}</span>
-            <br />
-            errors: <span className="font-mono">{summary.err}</span>
-            <br />
-            <br />
-            prelive_setups: <span className="font-mono">{counters?.prelive_setups ?? 0}</span>
-            <br />
-            prelive_signals: <span className="font-mono">{counters?.prelive_signals ?? 0}</span>
-            <br />
-            ignored_live: <span className="font-mono">{counters?.ignored_live ?? 0}</span>
-            <br />
-            <br />
-            valid_pairs_found: <span className="font-mono">{counters?.valid_pairs_found ?? 0}</span>
-            <br />
-            valid_pairs_with_third: <span className="font-mono">{counters?.valid_pairs_with_third ?? 0}</span>
-            <br />
-            scenario_candidates: <span className="font-mono">{counters?.scenario_candidates ?? 0}</span>
-            <br />
-            scenario_valid: <span className="font-mono">{counters?.scenario_valid ?? 0}</span>
-            <br />
-            scenario_rejected: <span className="font-mono">{counters?.scenario_rejected ?? 0}</span>
-            <br />
-            <br />
-            ignored_third: <span className="font-mono">{counters?.ignored_third ?? 0}</span>
-            <br />
-            ignored_third_missing: <span className="font-mono">{counters?.ignored_third_missing ?? 0}</span>
-            <br />
-            ignored_third_too_old: <span className="font-mono">{counters?.ignored_third_too_old ?? 0}</span>
-            <br />
-            ignored_third_weak: <span className="font-mono">{counters?.ignored_third_weak ?? 0}</span>
-            <br />
-            <br />
-            ignored_freshness: <span className="font-mono">{counters?.ignored_freshness ?? 0}</span>
-            <br />
-            ignored_signal_too_old: <span className="font-mono">{counters?.ignored_signal_too_old ?? 0}</span>
-            <br />
-            ignored_ema_not_fresh: <span className="font-mono">{counters?.ignored_ema_not_fresh ?? 0}</span>
-            <br />
-            <br />
-            equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
-            <br />
-            rejected_shadow_started: <span className="font-mono">{counters?.rejected_shadow_started ?? 0}</span>
-            <br />
-            rejected_shadow_sl: <span className="font-mono">{counters?.rejected_shadow_sl ?? 0}</span>
-            <br />
-            rejected_shadow_trail_armed: <span className="font-mono">{counters?.rejected_shadow_trail_armed ?? 0}</span>
-            <br />
-            rejected_shadow_trail_exit: <span className="font-mono">{counters?.rejected_shadow_trail_exit ?? 0}</span>
-            <br />
-            rejected_shadow_positive_close: <span className="font-mono">{counters?.rejected_shadow_positive_close ?? 0}</span>
-            <br />
-            rejected_shadow_negative_close: <span className="font-mono">{counters?.rejected_shadow_negative_close ?? 0}</span>
-            <br />
-            rejected_shadow_timeout: <span className="font-mono">{counters?.rejected_shadow_timeout ?? 0}</span>
-            <br />
-            rejected_shadow_open_count: <span className="font-mono">{rejectedShadowOpenCount}</span>
-            <br />
-            equity: <span className="font-mono">{portfolio?.equity ?? "—"}</span>
-            <br />
-            fees: <span className="font-mono">{portfolio?.fees_paid ?? "—"}</span>
-            <br />
-            position:{" "}
-            <span className="font-mono">
-              {position?.coin ? `${position.coin} ${position.direction} ${position.classe}` : "—"}
-            </span>
+        {/* Heartbeat + timing */}
+        <div className="rounded-2xl border border-white/[0.07] p-4 space-y-1" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Heartbeat</div>
+          <div className="text-[11px] font-mono text-white/70 whitespace-pre-wrap break-all leading-relaxed mb-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+            {hbLine ?? '—'}
           </div>
+          {[
+            ['started', fmtTs(status?.started_at_ms)],
+            ['updated', fmtTs(status?.updated_at_ms)],
+            ['last_sig', fmtTs(status?.last_sig_ts ?? null)],
+            ['now', fmtTs(status?.now_ms ?? null)],
+            ['live_from', fmtTs(status?.live_from_ms ?? null)],
+            ['cooldown_until', fmtTs(status?.cooldown_until_ms ?? null)],
+            ['cooldown_left', status?.cooldown_until_ms && status?.now_ms
+              ? String(Math.max(0, Math.floor((status.cooldown_until_ms - status.now_ms) / 1000))) + 's'
+              : '—'],
+          ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
 
-          {position?.coin ? (
-            <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2 mt-3">
-              <div className="text-sm font-semibold">Position</div>
-
-              {(() => {
-                const entry = toNum(position.entry_px);
-                const stop = toNum(position.stop_px);
-                const lock = toNum(position.lock_pct);
-
-                // Se backend li manda, usali
-                const slFromApi = toNum((position as any).sl_px);
-                const trailFromApi = toNum((position as any).trail_px);
-
-                // Fallback: SL iniziale coerente con SL_INIT_PCT = -1.00 (=> 1%)
-                const slFallback = entry != null ? calcInitialSl(entry, String(position.direction), 1.0) : null;
-
-                // Fallback: se trailing attivo (lock>=0) allora trail = stop_px
-                const trailFallback = lock != null && lock >= 0 && stop != null ? stop : null;
-
-                const slPx = slFromApi ?? slFallback;
-                const trailPx = trailFromApi ?? trailFallback;
-
-                const activeLabel = lock != null && lock >= 0 ? "TRAIL" : "SL";
-
-                return (
-                  <div className="text-sm opacity-90">
-                    coin: <span className="font-mono">{position.coin}</span>
-                    <br />
-                    dir: <span className="font-mono">{position.direction}</span>
-                    <br />
-                    class: <span className="font-mono">{position.classe}</span>
-                    <br />
-                    entry: <span className="font-mono">{fmtNum(entry, 6)}</span>
-                    <br />
-                    SL: <span className="font-mono">{fmtNum(slPx, 6)}</span>
-                    <br />
-                    TRAIL: <span className="font-mono">{fmtNum(trailPx, 6)}</span>
-                    <br />
-                    stop_active ({activeLabel}): <span className="font-mono">{fmtNum(stop, 6)}</span>
-                    <br />
-                    lock: <span className="font-mono">{fmtNum(lock, 4)}</span>
-                    <br />
-                    maxFav: <span className="font-mono">{fmtNum(position.max_fav_pct, 4)}</span>
+          {/* BTC Regime Score */}
+          <div className="mt-2 pt-2 border-t border-white/[0.05] space-y-1.5">
+            <div className="text-[9px] text-white/25 uppercase tracking-wider">BTC Regime Score</div>
+            {(() => {
+              const score = monitor?.btc_regime_score ?? null;
+              const prev  = monitor?.btc_regime_score_prev ?? null;
+              const color = score == null ? '#94a3b8'
+                : score >= 4 ? '#86efac'
+                : score >= 2 ? '#fbbf24'
+                : '#fca5a5';
+              const label = score == null ? '—'
+                : score >= 4 ? 'bullish'
+                : score >= 2 ? 'neutro'
+                : 'bearish';
+              return (
+                <>
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-mono" style={{ color }}>
+                      {score != null ? `${score} / 7` : '—'}
+                      {prev != null && score != null && (
+                        <span className="ml-1.5 text-[9px] text-white/30">
+                          {score > prev ? '▲' : score < prev ? '▼' : '='}{prev}
+                        </span>
+                      )}
+                    </span>
+                    <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
                   </div>
-                );
-              })()}
-            </div>
-          ) : null}
-        </div>
-
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4 space-y-2">
-          <div className="text-sm font-semibold">Heartbeat</div>
-          <div className="text-xs font-mono whitespace-pre-wrap opacity-90">{hbLine ?? "—"}</div>
-
-          <div className="text-xs opacity-70">
-            started: <span className="font-mono">{fmtTs(status?.started_at_ms)}</span>
-            <br />
-            updated: <span className="font-mono">{fmtTs(status?.updated_at_ms)}</span>
-            <br />
-            last_sig: <span className="font-mono">{fmtTs(status?.last_sig_ts ?? null)}</span>
-            <br />
-            now: <span className="font-mono">{fmtTs(status?.now_ms ?? null)}</span>
-            <br />
-            live_from: <span className="font-mono">{fmtTs(status?.live_from_ms ?? null)}</span>
-            <br />
-            cooldown_until: <span className="font-mono">{fmtTs(status?.cooldown_until_ms ?? null)}</span>
-            <br />
-            cooldown_left:{" "}
-            <span className="font-mono">
-              {status?.cooldown_until_ms && status?.now_ms
-                ? Math.max(0, Math.floor((status.cooldown_until_ms - status.now_ms) / 1000)) + "s"
-                : "—"}
-            </span>
+                  <div className="flex gap-0.5">
+                    {Array.from({ length: 7 }, (_, i) => (
+                      <div key={i} className="h-1.5 flex-1 rounded-full"
+                        style={{ background: score != null && i < score ? color : 'rgba(255,255,255,0.07)' }}
+                      />
+                    ))}
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       </div>
 
-      {/* ✅ Riquadro Coins (per-coin status) */}
-      <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-        <div className="flex items-center justify-between mb-2">
-          <div className="text-sm font-semibold">Coins</div>
-          <div className="text-xs opacity-70 font-mono">{coinsStatus ? Object.keys(coinsStatus).length : 0}</div>
-        </div>
+      {/* ── Counters (macro-gruppi espandibili) ─────────────────────── */}
+      <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Counters</div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold">Rejected Shadow Open</div>
-            <div className="text-xs opacity-70 font-mono">{rejectedShadowOpenCount}</div>
-          </div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
 
-          {rejectedShadowOpen.length === 0 ? (
-            <div className="text-sm opacity-70">—</div>
-          ) : (
-            <div className="space-y-2 max-h-[360px] overflow-auto pr-2">
-              {rejectedShadowOpen.map((r, idx) => (
-                <div
-                  key={r.key || `${r.coin_key}-${r.scenario}-${r.entry_ts_ms}-${idx}`}
-                  className="rounded-xl border border-white/10 p-3"
-                >
-                  <div className="flex items-center justify-between gap-2">
-                    <div className="font-mono text-sm">
-                      {r.coin_key ?? "—"} · {r.side ?? "—"}
-                    </div>
-                    <div className="text-xs opacity-70 font-mono">
-                      {fmtTs(r.entry_ts_ms ?? null)}
-                    </div>
-                  </div>
+          {/* Core */}
+          <CounterGroup
+            id="core" title="Core"
+            badge={<span className="text-[10px] font-mono text-cyan-400/70">{summary.sig} sig · {summary.opens} open</span>}
+            open={openGroups.has('core')} onToggle={() => toggleGroup('core')}
+          >
+            <CtrRow label="cycles" value={summary.cyc} desc="Cicli di polling completati dall'avvio" />
+            <CtrRow label="setups" value={counters?.setups ?? 0} desc="Setup grezzi ricevuti da Orione in modalità live (pattern rilevati, prima dei filtri)" />
 
-                  <div className="text-xs opacity-80 mt-1">
-                    <span className="font-mono">{r.scenario ?? "—"}</span>
-                    {" · "}
-                    <span className="font-mono">{r.classe ?? "—"}</span>
-                    {r.tf_exec || r.timeframe ? (
-                      <>
-                        {" · "}
-                        <span className="font-mono">{r.tf_exec ?? r.timeframe}</span>
-                      </>
-                    ) : null}
-                  </div>
-
-                  <div className="text-[11px] opacity-70 mt-1 font-mono">
-                    reject_reason: {r.reject_reason ?? "—"}
-                    {r.third_reason ? ` · third_reason: ${r.third_reason}` : ""}
-                  </div>
-
-                  {r.reject_details ? (
-                    <div className="text-[11px] opacity-60 mt-1 font-mono break-all">
-                      {r.reject_details}
-                    </div>
-                  ) : null}
-
-                  <div className="mt-2 grid grid-cols-2 md:grid-cols-4 gap-2 text-[11px] font-mono">
-                    <div>entry: {fmtNum(r.entry_px, 6)}</div>
-                    <div>stop: {fmtNum(r.stop_px, 6)}</div>
-                    <div>lock: {fmtNum(r.lock_pct, 4)}</div>
-                    <div>maxFav: {fmtNum(r.max_fav_pct, 4)}</div>
-                  </div>
+            {/* Dettaglio setups per coin da coins_status */}
+            {coinsStatus && (() => {
+              const withSetup = Object.entries(coinsStatus)
+                .filter(([, info]) => info.last_setup_state)
+                .sort((a, b) => (b[1].last_setup_state_at_ms ?? 0) - (a[1].last_setup_state_at_ms ?? 0));
+              if (!withSetup.length) return null;
+              return (
+                <div className="mt-1 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1.5 space-y-0.5 max-h-[180px] overflow-y-auto">
+                  <div className="text-[9px] text-white/20 uppercase tracking-wider mb-1">dettaglio · {withSetup.length} coin</div>
+                  {withSetup.map(([coin, info]) => {
+                    const state = info.last_setup_state ?? '';
+                    const c = /valid|confirm|ready|active|ok/i.test(state) ? '#86efac'
+                      : /form|watch|pend|scan|wait/i.test(state) ? '#67e8f9'
+                        : /reject|expir|sl|clos|done|timeout|skip/i.test(state) ? '#fca5a5aa'
+                          : '#94a3b8';
+                    const ageMs = info.last_setup_state_at_ms
+                      ? Date.now() - info.last_setup_state_at_ms
+                      : null;
+                    const ageStr = ageMs != null
+                      ? ageMs < 60000 ? `${Math.floor(ageMs / 1000)}s`
+                        : ageMs < 3600000 ? `${Math.floor(ageMs / 60000)}m`
+                          : `${Math.floor(ageMs / 3600000)}h`
+                      : null;
+                    return (
+                      <div key={coin} className="flex items-center justify-between gap-2 py-px">
+                        <span className="font-mono text-[10px] text-white/65 truncate">{coin}</span>
+                        <div className="flex items-center gap-1.5 shrink-0">
+                          <span className="text-[10px] font-mono" style={{ color: c }}>{state}</span>
+                          {ageStr && <span className="text-[9px] text-white/25 font-mono">{ageStr}</span>}
+                        </div>
+                      </div>
+                    );
+                  })}
                 </div>
-              ))}
-            </div>
-          )}
-        </div>
+              );
+            })()}
 
-        {!coinsStatus || Object.keys(coinsStatus).length === 0 ? (
-          <div className="text-sm opacity-70">—</div>
-        ) : (
-          <div className="max-h-[360px] overflow-auto pr-2">
-            <table className="w-full text-xs">
-              <thead className="sticky top-0 bg-black/60 backdrop-blur border-b border-white/10">
-                <tr className="text-left">
-                  <th className="py-2 pr-2">Coin</th>
-                  <th className="py-2 pr-2">Ultimo scan</th>
-                  <th className="py-2 pr-2">Ultimo setup (candela)</th>
-                  <th className="py-2 pr-2">Stato</th>
-                  <th className="py-2 pr-2">Ultimo segnale</th>
-                  <th className="py-2 pr-2">Hits</th>
+            <CtrRow label="signals" value={summary.sig} desc="Setup che hanno superato tutti i filtri live e generato un segnale operativo" />
+            <CtrRow label="opens" value={summary.opens} desc="Trade aperti dall'avvio del motore" />
+            <CtrRow label="closes" value={summary.closes} desc="Trade chiusi (SL, TP, timeout o stop manuale)" />
+            <CtrRow label="errors" value={<span className={summary.err > 0 ? 'text-red-400' : ''}>{summary.err}</span>} desc="Errori interni durante i cicli di scansione" />
+          </CounterGroup>
+
+          {/* Pre-live */}
+          <CounterGroup
+            id="prelive" title="Pre-live"
+            badge={<span className="text-[10px] font-mono text-white/30">{counters?.prelive_signals ?? 0} sig</span>}
+            open={openGroups.has('prelive')} onToggle={() => toggleGroup('prelive')}
+          >
+            <CtrRow label="prelive_setups" value={counters?.prelive_setups ?? 0} />
+            <CtrRow label="prelive_signals" value={counters?.prelive_signals ?? 0} />
+            <CtrRow label="ignored_live" value={counters?.ignored_live ?? 0} />
+          </CounterGroup>
+
+          {/* Scenari */}
+          <CounterGroup
+            id="scenari" title="Scenari"
+            badge={
+              <span className="text-[10px] font-mono">
+                <span className="text-emerald-400/70">{summary.scenValid}v</span>
+                <span className="text-white/30"> / </span>
+                <span className="text-red-400/60">{summary.scenRejected}r</span>
+              </span>
+            }
+            open={openGroups.has('scenari')} onToggle={() => toggleGroup('scenari')}
+          >
+            <CtrRow label="valid_pairs_found" value={counters?.valid_pairs_found ?? 0} />
+            <CtrRow label="valid_pairs_with_third" value={counters?.valid_pairs_with_third ?? 0} />
+            <CtrRow label="scenario_candidates" value={counters?.scenario_candidates ?? 0} />
+            <CtrRow label="scenario_valid" value={<span className="text-emerald-400/80">{counters?.scenario_valid ?? 0}</span>} />
+            <CtrRow label="scenario_rejected" value={<span className="text-red-400/70">{counters?.scenario_rejected ?? 0}</span>} />
+          </CounterGroup>
+
+          {/* Filtri / Ignored */}
+          <CounterGroup
+            id="filtri" title="Filtri"
+            badge={<span className="text-[10px] font-mono text-white/30">{(counters?.ignored_third ?? 0) + (counters?.ignored_freshness ?? 0)} ign.</span>}
+            open={openGroups.has('filtri')} onToggle={() => toggleGroup('filtri')}
+          >
+            <CtrRow label="ignored_third" value={counters?.ignored_third ?? 0} />
+            <CtrRow label="third_missing" value={counters?.ignored_third_missing ?? 0} />
+            <CtrRow label="third_too_old" value={counters?.ignored_third_too_old ?? 0} />
+            <CtrRow label="third_weak" value={counters?.ignored_third_weak ?? 0} />
+            <CtrRow label="ignored_freshness" value={counters?.ignored_freshness ?? 0} />
+            <CtrRow label="signal_too_old" value={counters?.ignored_signal_too_old ?? 0} />
+            <CtrRow label="ema_not_fresh" value={counters?.ignored_ema_not_fresh ?? 0} />
+          </CounterGroup>
+
+          {/* Shadow trades */}
+          <CounterGroup
+            id="shadow" title="Shadow"
+            badge={<span className="text-[10px] font-mono text-amber-400/70">{rejectedShadowOpenCount} open</span>}
+            open={openGroups.has('shadow')} onToggle={() => toggleGroup('shadow')}
+          >
+            <CtrRow label="started" value={counters?.rejected_shadow_started ?? 0} />
+            <CtrRow label="sl" value={counters?.rejected_shadow_sl ?? 0} />
+            <CtrRow label="trail_armed" value={counters?.rejected_shadow_trail_armed ?? 0} />
+            <CtrRow label="trail_exit" value={counters?.rejected_shadow_trail_exit ?? 0} />
+            <CtrRow label="pos_close" value={counters?.rejected_shadow_positive_close ?? 0} />
+            <CtrRow label="neg_close" value={counters?.rejected_shadow_negative_close ?? 0} />
+            <CtrRow label="timeout" value={counters?.rejected_shadow_timeout ?? 0} />
+            <CtrRow label="open_count" value={<span className="text-amber-300/80">{rejectedShadowOpenCount}</span>} />
+          </CounterGroup>
+
+          {/* Portfolio */}
+          <CounterGroup
+            id="portfolio" title="Portfolio"
+            badge={portfolio?.equity != null ? <span className="text-[10px] font-mono text-cyan-300/70">eq {portfolio.equity}</span> : undefined}
+            open={openGroups.has('portfolio')} onToggle={() => toggleGroup('portfolio')}
+          >
+            <CtrRow label="equity" value={portfolio?.equity ?? '—'} />
+            <CtrRow label="fees" value={portfolio?.fees_paid ?? '—'} />
+            <CtrRow label="position" value={position?.coin ? `${position.coin} ${position.direction} ${position.classe}` : '—'} />
+            {position?.coin ? (() => {
+              const entry = toNum(position.entry_px);
+              const stop = toNum(position.stop_px);
+              const lock = toNum(position.lock_pct);
+              const slPx = toNum((position as any).sl_px) ?? (entry != null ? calcInitialSl(entry, String(position.direction), 1.0) : null);
+              const trailPx = toNum((position as any).trail_px) ?? (lock != null && lock >= 0 && stop != null ? stop : null);
+              const activeLabel = lock != null && lock >= 0 ? 'TRAIL' : 'SL';
+              return <>
+                <CtrRow label="entry" value={fmtNum(entry, 6)} />
+                <CtrRow label="SL" value={fmtNum(slPx, 6)} />
+                <CtrRow label="TRAIL" value={fmtNum(trailPx, 6)} />
+                <CtrRow label={`stop (${activeLabel})`} value={fmtNum(stop, 6)} />
+                <CtrRow label="lock" value={fmtNum(lock, 4)} />
+                <CtrRow label="maxFav" value={fmtNum(position.max_fav_pct, 4)} />
+              </>;
+            })() : null}
+          </CounterGroup>
+
+        </div>
+      </div>
+
+      {/* ── Rejected Shadow Open ────────────────────────────────────── */}
+      {rejectedShadowOpen.length > 0 && (
+        <div className="rounded-2xl border border-amber-400/[0.12] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(251,191,36,0.03)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-amber-300/70 uppercase tracking-wider">Rejected Shadow Open</span>
+            <span className="text-[10px] font-mono text-amber-300/50">{rejectedShadowOpenCount}</span>
+          </div>
+          <div className="space-y-2 max-h-[320px] overflow-auto pr-2">
+            {rejectedShadowOpen.map((r, idx) => (
+              <div key={r.key || `${r.coin_key}-${r.scenario}-${r.entry_ts_ms}-${idx}`}
+                className="rounded-xl border border-white/[0.06] px-3 py-2 bg-white/[0.01]">
+                <div className="flex items-center justify-between gap-2 mb-1">
+                  <span className="font-mono text-xs text-white/80">{r.coin_key ?? '—'} · {r.side ?? '—'}</span>
+                  <span className="text-[10px] font-mono text-white/35">{fmtTs(r.entry_ts_ms ?? null)}</span>
+                </div>
+                <div className="text-[11px] text-white/50 font-mono mb-1">
+                  {r.scenario ?? '—'} · {r.classe ?? '—'}{r.tf_exec || r.timeframe ? ` · ${r.tf_exec ?? r.timeframe}` : ''}
+                </div>
+                <div className="text-[10px] text-amber-300/60 font-mono">
+                  {r.reject_reason ?? '—'}{r.third_reason ? ` · ${r.third_reason}` : ''}
+                </div>
+                {r.reject_details && (
+                  <div className="text-[10px] text-white/30 font-mono mt-1 break-all">{r.reject_details}</div>
+                )}
+                <div className="mt-2 grid grid-cols-4 gap-1 text-[10px] font-mono text-white/40">
+                  <span>entry {fmtNum(r.entry_px, 6)}</span>
+                  <span>stop {fmtNum(r.stop_px, 6)}</span>
+                  <span>lock {fmtNum(r.lock_pct, 4)}</span>
+                  <span>maxFav {fmtNum(r.max_fav_pct, 4)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* ── Coins table ─────────────────────────────────────────────── */}
+      {coinsStatus && Object.keys(coinsStatus).length > 0 && (
+        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Coins</span>
+            <span className="text-[10px] font-mono text-white/30">{Object.keys(coinsStatus).length}</span>
+          </div>
+          <div className="max-h-[320px] overflow-auto pr-1">
+            <table className="w-full text-[11px]">
+              <thead className="sticky top-0 border-b border-white/[0.06]" style={{ backdropFilter: 'blur(8px)', background: 'rgba(8,12,22,0.8)' }}>
+                <tr className="text-left text-white/35">
+                  <th className="py-1.5 pr-3 font-medium">Coin</th>
+                  <th className="py-1.5 pr-3 font-medium">Ultimo scan</th>
+                  <th className="py-1.5 pr-3 font-medium">Setup</th>
+                  <th className="py-1.5 pr-3 font-medium">Stato</th>
+                  <th className="py-1.5 pr-3 font-medium">Segnale</th>
+                  <th className="py-1.5 font-medium">Hits</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(coinsStatus)
                   .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
                   .map(([coin, info]) => (
-                    <tr key={coin} className="border-b border-white/5">
-                      <td className="py-2 pr-2 font-mono">{coin}</td>
-                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_scan_ms ?? null)}</td>
-                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_setup_ts ?? null)}</td>
-                      <td className="py-2 pr-2 font-mono">{info.last_setup_state ?? "—"}</td>
-                      <td className="py-2 pr-2 font-mono">{fmtTs(info.last_signal_ts ?? null)}</td>
-                      <td className="py-2 pr-2 font-mono">{info.scan_hits ?? 0}</td>
+                    <tr key={coin} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
+                      <td className="py-1.5 pr-3 font-mono text-white/80">{coin}</td>
+                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_scan_ms ?? null)}</td>
+                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_setup_ts ?? null)}</td>
+                      <td className="py-1.5 pr-3 font-mono text-white/50">{info.last_setup_state ?? '—'}</td>
+                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_signal_ts ?? null)}</td>
+                      <td className="py-1.5 font-mono text-cyan-400/60">{info.scan_hits ?? 0}</td>
                     </tr>
                   ))}
               </tbody>
             </table>
           </div>
-        )}
-      </div>
+        </div>
+      )}
 
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold">Recent Signals</div>
-            <div className="text-xs opacity-70">{signalsView.length}</div>
+      {/* ── Setups recenti ──────────────────────────────────────────── */}
+      {recentSetups.length > 0 && (
+        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Setups recenti</span>
+            <span className="text-[10px] font-mono text-white/30">{recentSetups.length}</span>
           </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[11px]">
+              <thead>
+                <tr className="text-left text-white/30 border-b border-white/[0.05]">
+                  <th className="pb-1.5 font-medium">Coin</th>
+                  <th className="pb-1.5 font-medium">Side</th>
+                  <th className="pb-1.5 font-medium">Scenario</th>
+                  <th className="pb-1.5 font-medium">Classe</th>
+                  <th className="pb-1.5 font-medium">TF</th>
+                  <th className="pb-1.5 font-medium">Ricevuto</th>
+                </tr>
+              </thead>
+              <tbody>
+                {recentSetups.map((s, i) => {
+                  const sideColor = s.side === 'LONG' ? '#86efac' : s.side === 'SHORT' ? '#fca5a5' : '#94a3b8';
+                  return (
+                    <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
+                      <td className="py-1 pr-3 font-mono text-white/80">{s.coin}</td>
+                      <td className="py-1 pr-3 font-mono text-[10px]" style={{ color: sideColor }}>{s.side}</td>
+                      <td className="py-1 pr-3 font-mono text-white/55 max-w-[140px] truncate" title={s.scenario}>{s.scenario || '—'}</td>
+                      <td className="py-1 pr-3 font-mono text-white/45">{s.classe || '—'}</td>
+                      <td className="py-1 pr-3 font-mono text-cyan-400/60">{s.tf || '—'}</td>
+                      <td className="py-1 font-mono text-white/30">{fmtTs(s.ts_recv_ms || s.ts_ms)}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
-          <div className="space-y-2 max-h-[520px] overflow-auto pr-2">
+      {/* ── Signals + Trades ────────────────────────────────────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        {/* Signals */}
+        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Segnali recenti</span>
+            <span className="text-[10px] font-mono text-white/30">{signalsView.length}</span>
+          </div>
+          <div className="space-y-2 max-h-[520px] overflow-auto pr-1">
             {signalsView.length === 0 ? (
-              <div className="text-sm opacity-70">—</div>
-            ) : (
-              signalsView.map((s, idx) => {
-                const displayTf = signalDisplayTf(s);
-                const displayComponents = signalDisplayComponents(s);
-
-                return (
-                  <div
-                    key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
-                    className="rounded-xl border border-white/10 p-3"
-                  >
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="font-mono text-sm">
-                        {s.coin} · {s.side}
-                      </div>
-                      <div className="text-xs opacity-70 font-mono">
-                        {fmtTs(s.timestamp_ms)}
-                      </div>
+              <div className="text-xs text-white/30 py-4 text-center">—</div>
+            ) : signalsView.map((s, idx) => {
+              const displayTf = signalDisplayTf(s);
+              const displayComponents = signalDisplayComponents(s);
+              const sideColor = s.side === 'LONG' ? '#86efac' : s.side === 'SHORT' ? '#fca5a5' : '#94a3b8';
+              return (
+                <div key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
+                  className="rounded-xl border border-white/[0.06] px-3 py-2.5 bg-white/[0.01]">
+                  <div className="flex items-center justify-between gap-2 mb-1">
+                    <div className="flex items-center gap-2">
+                      <span className="font-mono text-xs text-white/90">{s.coin}</span>
+                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: sideColor, background: `${sideColor}18` }}>{s.side}</span>
                     </div>
-
-                    <div className="text-xs opacity-80 mt-1">
-                      <span className="font-mono">{s.scenario}</span> ·{" "}
-                      <span className="font-mono">{s.classe}</span>
-                      {displayTf ? (
-                        <>
-                          {" "}
-                          · <span className="font-mono">{displayTf}</span>
-                        </>
-                      ) : null}
-                      {typeof s.trigger_price === "number" ? (
-                        <>
-                          {" "}
-                          · px: <span className="font-mono">{s.trigger_price}</span>
-                        </>
-                      ) : null}
-                    </div>
-
-                    {displayComponents.length ? (
-                      <div className="text-[11px] opacity-70 mt-1 font-mono">
-                        {displayComponents.join(" + ")}
-                      </div>
-                    ) : null}
-
-                    {s.third?.token ? (
-                      <div className="mt-2 inline-flex items-center gap-2 rounded-lg bg-emerald-500/10 border border-emerald-500/30 px-2 py-1 text-[11px] font-mono text-emerald-300">
-                        THIRD: {s.third.token}
-                        {typeof s.third.strength === "number" ? (
-                          <span className="opacity-70">
-                            ({s.third.strength.toFixed(2)})
-                          </span>
-                        ) : null}
-                      </div>
-                    ) : null}
+                    <span className="text-[10px] font-mono text-white/30">{fmtTs(s.timestamp_ms)}</span>
                   </div>
-                );
-              })
-            )}
+                  <div className="text-[11px] text-white/50 font-mono">
+                    {s.scenario} · {s.classe}
+                    {displayTf ? ` · ${displayTf}` : ''}
+                    {typeof s.trigger_price === 'number' ? ` · px ${s.trigger_price}` : ''}
+                  </div>
+                  {displayComponents.length > 0 && (
+                    <div className="text-[10px] text-white/35 font-mono mt-0.5">{displayComponents.join(' + ')}</div>
+                  )}
+                  {s.third?.token && (
+                    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-mono"
+                      style={{ background: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.25)', color: '#67e8f9' }}>
+                      THIRD: {s.third.token}
+                      {typeof s.third.strength === 'number' && (
+                        <span className="opacity-60">({s.third.strength.toFixed(2)})</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
 
-        <div className="rounded-2xl border border-white/10 bg-black/20 p-4">
-          <div className="flex items-center justify-between mb-2">
-            <div className="text-sm font-semibold">Recent Trades</div>
-            <div className="text-xs opacity-70">{tradesView.length}</div>
+        {/* Trades */}
+        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Trade recenti</span>
+            <span className="text-[10px] font-mono text-white/30">{tradesView.length}</span>
           </div>
-
-          <div className="space-y-2 max-h-[520px] overflow-auto pr-2">
+          <div className="space-y-2 max-h-[520px] overflow-auto pr-1">
             {tradesView.length === 0 ? (
-              <div className="text-sm opacity-70">—</div>
-            ) : (
-              tradesView.map((t, idx) => {
-                const tradeTf =
-                  t?.tf_exec ??
-                  t?.timeframe ??
-                  t?.meta?.tf_exec ??
-                  t?.meta?.timeframe ??
-                  "—";
-
-                return (
-                  <div
-                    key={`trade-${idx}`}
-                    className="rounded-xl border border-white/10 p-3"
-                  >
-                    <div className="text-xs opacity-80 mb-2">
-                      tf: <span className="font-mono">{tradeTf}</span>
-                    </div>
-                    <pre className="text-[11px] font-mono whitespace-pre-wrap opacity-90">
-                      {JSON.stringify(t, null, 2)}
-                    </pre>
-                  </div>
-                );
-              })
-            )}
+              <div className="text-xs text-white/30 py-4 text-center">—</div>
+            ) : tradesView.map((t, idx) => {
+              const tradeTf = t?.tf_exec ?? t?.timeframe ?? t?.meta?.tf_exec ?? t?.meta?.timeframe ?? '—';
+              return (
+                <div key={`trade-${idx}`} className="rounded-xl border border-white/[0.06] px-3 py-2 bg-white/[0.01]">
+                  <div className="text-[10px] text-white/40 font-mono mb-1">tf: {tradeTf}</div>
+                  <pre className="text-[10px] font-mono whitespace-pre-wrap text-white/55 leading-relaxed">
+                    {JSON.stringify(t, null, 2)}
+                  </pre>
+                </div>
+              );
+            })}
           </div>
         </div>
       </div>
 
-      <details className="rounded-2xl border border-white/10 bg-black/20 p-4">
-        <summary className="cursor-pointer text-sm font-semibold">
+      {/* ── Trade Statistics ────────────────────────────────────────── */}
+      {(tradeStats.byScenario.length > 0 || tradeStats.byCoin.length > 0) && (
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {/* Per scenario */}
+          {tradeStats.byScenario.length > 0 && (
+            <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+              <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Stats per scenario</div>
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-left text-white/30 border-b border-white/[0.05]">
+                    <th className="pb-1.5 font-medium">Scenario</th>
+                    <th className="pb-1.5 font-medium text-right">Trade</th>
+                    <th className="pb-1.5 font-medium text-right">WR%</th>
+                    <th className="pb-1.5 font-medium text-right">PF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradeStats.byScenario.map(([k, v]) => (
+                    <tr key={k} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
+                      <td className="py-1 pr-2 font-mono text-white/55 text-[10px] max-w-[140px] truncate" title={k}>{k}</td>
+                      <td className="py-1 text-right font-mono text-white/70">{v.count}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: v.wr >= 50 ? '#86efac' : '#fca5a5' }}>{v.wr}%</td>
+                      <td className="py-1 text-right font-mono text-cyan-300/70">{v.pf != null ? v.pf.toFixed(2) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Per coin */}
+          {tradeStats.byCoin.length > 0 && (
+            <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+              <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Stats per coin</div>
+              <table className="w-full text-[11px]">
+                <thead>
+                  <tr className="text-left text-white/30 border-b border-white/[0.05]">
+                    <th className="pb-1.5 font-medium">Coin</th>
+                    <th className="pb-1.5 font-medium text-right">Trade</th>
+                    <th className="pb-1.5 font-medium text-right">WR%</th>
+                    <th className="pb-1.5 font-medium text-right">PF</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {tradeStats.byCoin.map(([k, v]) => (
+                    <tr key={k} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
+                      <td className="py-1 pr-2 font-mono text-white/70">{k}</td>
+                      <td className="py-1 text-right font-mono text-white/70">{v.count}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: v.wr >= 50 ? '#86efac' : '#fca5a5' }}>{v.wr}%</td>
+                      <td className="py-1 text-right font-mono text-cyan-300/70">{v.pf != null ? v.pf.toFixed(2) : '—'}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* ── Debug ───────────────────────────────────────────────────── */}
+      <details className="rounded-2xl border border-white/[0.06] p-4" style={{ background: 'rgba(0,0,0,0.3)' }}>
+        <summary className="cursor-pointer text-[11px] text-white/25 hover:text-white/50 transition-colors select-none">
           Raw status (debug)
         </summary>
-        <pre className="mt-3 text-[11px] font-mono whitespace-pre-wrap opacity-90">
+        <pre className="mt-3 text-[10px] font-mono whitespace-pre-wrap text-white/40 leading-relaxed">
           {JSON.stringify(status, null, 2)}
         </pre>
       </details>

@@ -3,28 +3,28 @@
 /* 1) SCANLINES: sottili linee orizzontali tipo CRT */
 .scanlines {
     position: relative;
-    isolation: isolate; /* così lo pseudo-element resta sopra solo al suo contenuto */
+    isolation: isolate;
   }
-  
+
   .scanlines::after {
     content: "";
     position: absolute;
     inset: 0;
     pointer-events: none;
-    opacity: 0.08; /* alza/abbassa per più/meno effetto */
+    opacity: 0.05;
     background:
       repeating-linear-gradient(
         to bottom,
         transparent 0px,
         transparent 2px,
-        rgba(255, 255, 255, 0.35) 3px,
+        rgba(255, 255, 255, 0.25) 3px,
         transparent 4px
       );
-    mix-blend-mode: screen; /* aiuta l'effetto CRT */
+    mix-blend-mode: screen;
     z-index: 1;
   }
-  
-  /* 2) CRT FLICKER: leggerissimo battito di luminosità */
+
+  /* 2) CRT FLICKER */
   .crt-flicker {
     animation: crt-flicker 2.8s ease-in-out infinite;
   }
@@ -34,8 +34,8 @@
     50% { filter: brightness(1.05) contrast(1.02); opacity: 0.97; }
     55% { filter: brightness(1.02) contrast(1.01); opacity: 0.98; }
   }
-  
-  /* 3) MATRIX GLOW: alone/vesseggiatura verde molto tenue */
+
+  /* 3) CYAN GLOW (sostituisce il vecchio matrix-glow verde) */
   .matrix-glow {
     position: relative;
   }
@@ -46,13 +46,13 @@
     pointer-events: none;
     background: radial-gradient(
       circle at 50% 0%,
-      rgba(16, 185, 129, 0.10),
+      rgba(6, 182, 212, 0.10),
       transparent 60%
     );
     z-index: 0;
   }
-  
-  /* Utility: bordo sottile verde pulsante, utile per cards selezionate */
+
+  /* Utility: bordo sottile cyan pulsante */
   .pulse-border {
     position: relative;
   }
@@ -62,15 +62,15 @@
     inset: 0;
     border-radius: inherit;
     pointer-events: none;
-    box-shadow: 0 0 0 1px rgba(16,185,129,0.20) inset;
+    box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.18) inset;
     animation: pulse-border 3.2s ease-in-out infinite;
   }
   @keyframes pulse-border {
-    0%, 100% { box-shadow: 0 0 0 1px rgba(16,185,129,0.20) inset; }
-    50% { box-shadow: 0 0 0 1px rgba(16,185,129,0.45) inset; }
+    0%, 100% { box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.18) inset; }
+    50%       { box-shadow: 0 0 0 1px rgba(6, 182, 212, 0.42) inset; }
   }
-  
-  /* (opzionale) leggera aberrazione cromatica text-only */
+
+  /* Aberrazione cromatica */
   .chroma-split {
     position: relative;
   }
@@ -80,6 +80,5 @@
     mix-blend-mode: screen;
     pointer-events: none;
   }
-  .chroma-split > .chroma-layer.green { color: rgba(16,185,129,0.5); transform: translateX(-0.6px); filter: blur(0.6px); }
-  .chroma-split > .chroma-layer.red   { color: rgba(244,63,94,0.4);  transform: translateX( 0.6px); filter: blur(0.6px); }
-  
+  .chroma-split > .chroma-layer.green { color: rgba(6, 182, 212, 0.45); transform: translateX(-0.6px); filter: blur(0.6px); }
+  .chroma-split > .chroma-layer.red   { color: rgba(244, 63, 94, 0.35); transform: translateX( 0.6px); filter: blur(0.6px); }

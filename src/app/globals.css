@@ -1,8 +1,7 @@
 @import "tailwindcss";
-/* opzionale: se hai installato il plugin */
-/* @plugin "tailwindcss-animate"; */
 
 @custom-variant dark (&:is(.dark *));
+
 @theme inline {
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
@@ -22,25 +21,110 @@
 }
 
 .dark {
-  --background: oklch(0.14 0.005 286);
+  --background: oklch(0.085 0.022 258);
   --foreground: oklch(0.985 0 0);
-  --card: oklch(0.17 0.006 286);
+  --card: oklch(0.11 0.018 258);
   --card-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.88 0.01 286);
-  --primary-foreground: oklch(0.19 0.01 286);
-  --muted: oklch(0.26 0.006 286);
-  --muted-foreground: oklch(0.70 0.015 286);
-  --border: oklch(1 0 0 / 10%);
+  --primary: oklch(0.72 0.15 198);
+  --primary-foreground: oklch(0.085 0.022 258);
+  --secondary: oklch(0.18 0.014 258);
+  --secondary-foreground: oklch(0.985 0 0);
+  --muted: oklch(0.18 0.012 258);
+  --muted-foreground: oklch(0.63 0.015 258);
+  --accent: oklch(0.72 0.15 198);
+  --accent-foreground: oklch(0.085 0.022 258);
+  --border: oklch(1 0 0 / 7%);
+  --ring: oklch(0.72 0.15 198 / 40%);
 }
 
 @layer base {
-  * { @apply border-[color:var(--border)]; }
+  * { @apply border-(--border); }
   html, body { height: 100%; }
-  body { @apply bg-[color:var(--background)] text-[color:var(--foreground)] font-sans; }
+  body {
+    @apply bg-(--background) text-(--foreground) font-sans;
+    background-image:
+      radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.72 0.15 198 / 0.13), transparent),
+      radial-gradient(ellipse 60% 40% at 80% 80%, oklch(0.55 0.18 280 / 0.09), transparent);
+  }
 }
 
 @layer components {
-  .btn { @apply inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-white/5 transition; }
+  /* ─── Glass primitives ─────────────────────────────────────────── */
+  .glass {
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    @apply bg-white/[0.04] border border-white/[0.08] rounded-2xl;
+  }
+
+  .glass-panel {
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    @apply bg-white/[0.04] border border-white/[0.07] rounded-xl;
+  }
+
+  /* ─── Nav pill buttons ─────────────────────────────────────────── */
+  .nav-pill {
+    @apply inline-flex items-center gap-2 rounded-full px-4 py-1.5 text-sm
+           border border-white/[0.06] bg-white/[0.04] text-white/60
+           transition-all duration-200
+           hover:bg-cyan-400/[0.08] hover:border-cyan-400/[0.25] hover:text-white/90;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  .nav-pill-active {
+    @apply bg-cyan-400/[0.14] border-cyan-400/[0.45] text-cyan-300 font-medium;
+    box-shadow: 0 0 16px rgba(6, 182, 212, 0.16), inset 0 0 12px rgba(6, 182, 212, 0.04);
+  }
+
+  /* ─── Glass action cards (bottoni-card) ────────────────────────── */
+  .glass-card {
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    @apply rounded-xl bg-white/[0.04] border border-white/[0.07]
+           transition-all duration-200
+           hover:bg-cyan-400/[0.06] hover:border-cyan-400/[0.22];
+  }
+
+  .glass-card:hover {
+    box-shadow: 0 0 20px rgba(6, 182, 212, 0.08);
+  }
+
+  /* ─── TF / toggle pill ─────────────────────────────────────────── */
+  .tf-pill {
+    @apply px-2.5 py-1 rounded-md border text-xs font-medium transition-all duration-150
+           bg-white/[0.03] border-white/[0.08] text-white/50
+           hover:bg-white/[0.07] hover:text-white/80;
+  }
+
+  .tf-pill-active {
+    @apply bg-cyan-500/[0.18] border-cyan-400/[0.55] text-cyan-300;
+    box-shadow: 0 0 8px rgba(6, 182, 212, 0.15);
+  }
+
+  /* ─── Inputs ────────────────────────────────────────────────────── */
+  .glass-input {
+    @apply rounded-lg border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-sm
+           text-white placeholder:text-white/30
+           focus:outline-none focus:ring-2 focus:ring-cyan-400/[0.30] focus:border-cyan-400/[0.40]
+           transition-all duration-150;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
+
+  /* ─── Legacy aliases ───────────────────────────────────────────── */
+  /* ─── Scrollbar utilities ─────────────────────────────────────── */
+  .scrollbar-none { scrollbar-width: none; }
+  .scrollbar-none::-webkit-scrollbar { display: none; }
+
+  .btn  { @apply inline-flex items-center gap-2 rounded-md border px-3 py-1.5 text-sm hover:bg-white/5 transition; }
   .chip { @apply inline-flex items-center rounded-md border px-2 py-0.5 text-xs; }
-  .input { @apply rounded-md border bg-black/20 px-2 py-1 text-sm placeholder:text-white/40 focus:outline-none focus:ring-2 focus:ring-white/20; }
+  .input {
+    @apply rounded-lg border border-white/[0.10] bg-white/[0.05] px-3 py-1.5 text-sm
+           text-white placeholder:text-white/30
+           focus:outline-none focus:ring-2 focus:border-cyan-400/[0.40]
+           transition-all duration-150;
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+  }
 }
