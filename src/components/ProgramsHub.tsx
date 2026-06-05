@@ -5,11 +5,12 @@ import CassandraUI from './CassandraUI';
 import ArgonautaPanel from './ArgonautaPanel';
 import OrionePanel from './orione/OrionePanel';
 import AgemaPanel from './agema/AgemaPanel';
+import DnaPanel from './dna/DnaPanel';
 import Tifide3Panel from '@/app/tifide3/page';
 import TifidePage from '@/app/tifide/page';
 import Orione2Page from '@/app/orione2/patterns/page';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'tifide2' | 'orione2' | 'tifide3';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'tifide2' | 'orione2' | 'tifide3';
 
 const APPS: { key: AppKey; label: string; icon: string }[] = [
   { key: 'cassandra', label: 'Cassandra', icon: '🔮' },
@@ -19,6 +20,7 @@ const APPS: { key: AppKey; label: string; icon: string }[] = [
   { key: 'tifide2', label: 'Tifi 2.0', icon: '◈' },
   { key: 'orione2', label: 'Segnali', icon: '◉' },
   { key: 'agema', label: 'Agema', icon: '❋' },
+  { key: 'dna', label: 'DNA Coin', icon: '◈' },
 ];
 
 export default function ProgramsHub() {
@@ -33,6 +35,7 @@ export default function ProgramsHub() {
       case 'tifide2': return <TifidePage />;
       case 'tifide3': return <Tifide3Panel />;
       case 'agema': return <AgemaPanel />;
+      case 'dna': return <DnaPanel />;
       case 'orione2': return <Orione2Page />;
       case 'cassandra':
       default: return <CassandraUI />;
