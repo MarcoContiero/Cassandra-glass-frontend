@@ -305,7 +305,13 @@ export default function DnaPanel() {
 
   useEffect(() => {
     fetch('/api/tradedb/genome')
-      .then(r => r.json())
+      .then(async r => {
+        if (!r.ok) {
+          const txt = await r.text();
+          throw new Error(`HTTP ${r.status}: ${txt.slice(0, 200)}`);
+        }
+        return r.json();
+      })
       .then(d => { setList(d); setLoading(false); })
       .catch(e => { setError(String(e)); setLoading(false); });
   }, []);
@@ -323,10 +329,15 @@ export default function DnaPanel() {
     setLoadingDetail(true);
     try {
       const r = await fetch(`/api/tradedb/genome/${coin}`);
+      if (!r.ok) {
+        const txt = await r.text();
+        setError(`Genome ${coin}: HTTP ${r.status} — ${txt.slice(0, 200)}`);
+        return;
+      }
       const d = await r.json();
       setSelected(d);
-    } catch {
-      // ignore
+    } catch (e) {
+      setError(`Genome ${coin}: ${String(e)}`);
     } finally {
       setLoadingDetail(false);
     }

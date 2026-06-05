@@ -56,6 +56,10 @@ async function handler(req: Request, ctx: Ctx) {
 
   const respHeaders = new Headers(upstream.headers);
   respHeaders.set("cache-control", "no-store, no-cache");
+  // fetch() decomprime gzip automaticamente — rimuoviamo gli header di compressione
+  // altrimenti il browser legge content-length (compresso) su body decompresso → troncato
+  respHeaders.delete("content-encoding");
+  respHeaders.delete("content-length");
 
   return new Response(upstream.body, { status: upstream.status, headers: respHeaders });
 }
