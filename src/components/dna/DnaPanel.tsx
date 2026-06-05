@@ -256,15 +256,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
 // ── Coin Card ─────────────────────────────────────────────────────────────────
 
 function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
-  const score = useMemo(() => {
-    let s = 0;
-    if (g.profit_factor != null && g.profit_factor >= 1.0) s += (g.profit_factor - 1) * 50;
-    s += Math.max(0, (g.win_rate - 50) * 0.8);
-    if (g.n_trades >= 500) s += 5;
-    return Math.min(100, Math.round(s));
-  }, [g]);
-
-  const scoreColor = score >= 60 ? 'text-emerald-400' : score >= 40 ? 'text-yellow-400' : 'text-red-400';
+  const pfOk = g.profit_factor != null && g.profit_factor >= 1.0;
 
   return (
     <button
@@ -273,12 +265,11 @@ function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
       style={{
         background: 'rgba(255,255,255,0.03)',
         border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: score >= 60 ? '0 0 20px rgba(52,211,153,0.06)' : undefined,
+        boxShadow: pfOk && g.win_rate >= 57 ? '0 0 20px rgba(52,211,153,0.05)' : undefined,
       }}
     >
-      <div className="flex items-start justify-between mb-3">
+      <div className="mb-3">
         <span className="text-base font-bold text-white font-mono">{g.coin}</span>
-        <span className={`text-xs font-mono font-semibold ${scoreColor}`}>{score}</span>
       </div>
 
       <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono">
