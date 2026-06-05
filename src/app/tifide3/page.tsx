@@ -672,9 +672,18 @@ export default function TifidePage() {
     const byScenario = new Map<string, Acc>();
     const byCoin = new Map<string, Acc>();
 
+    const normScenario = (s: string): string =>
+      s.split('+').map(p => {
+        p = p.trim();
+        if (p.endsWith('_confirmed')) p = p.slice(0, -10);
+        else if (p.endsWith('_raw')) p = p.slice(0, -4);
+        return p.trim();
+      }).filter(Boolean).join(' + ');
+
     for (const t of tradesView) {
-      const coin = String(t?.coin ?? t?.meta?.coin ?? '?');
-      const scenario = String(t?.scenario ?? t?.meta?.scenario ?? '?');
+      const coin = String(t?.coin ?? t?.coin_key ?? t?.meta?.coin ?? t?.meta?.coin_key ?? '?');
+      const rawScenario = String(t?.scenario ?? t?.meta?.scenario ?? '?');
+      const scenario = rawScenario !== '?' ? normScenario(rawScenario) : '?';
       const rawPnl = t?.pnl ?? t?.pnl_pct ?? t?.net_pnl ?? t?.meta?.pnl ?? t?.result_pct;
       const pnl = typeof rawPnl === 'number' ? rawPnl : Number(rawPnl);
       const hasPnl = Number.isFinite(pnl);
