@@ -64,6 +64,7 @@ interface SessionProfile {
   asia?: SessionStats;
   europe?: SessionStats;
   us?: SessionStats;
+  weekend?: SessionStats;
 }
 
 interface DowStats { n: number; wr: number; pf: number | null }
@@ -453,21 +454,26 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
         {/* Session profile */}
         {genome.session_profile && Object.keys(genome.session_profile).length > 0 && (
           <Section title="Sessioni di trading">
-            <div className="grid grid-cols-3 gap-2">
-              {(['asia', 'europe', 'us'] as const).map(sess => {
-                const s = genome.session_profile?.[sess];
-                const label = sess === 'asia' ? 'Asia 0–8h' : sess === 'europe' ? 'Europa 8–16h' : 'US 16–24h';
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+              {([
+                { key: 'asia',    label: 'Asia',    sub: '0–8h UTC',   color: '#67e8f9' },
+                { key: 'europe',  label: 'Europa',  sub: '8–16h UTC',  color: '#a78bfa' },
+                { key: 'us',      label: 'US',      sub: '16–24h UTC', color: '#86efac' },
+                { key: 'weekend', label: 'Weekend', sub: 'sab + dom',  color: '#fbbf24' },
+              ] as const).map(({ key, label, sub, color }) => {
+                const s = genome.session_profile?.[key];
                 return (
-                  <div key={sess} className="rounded-lg p-2 text-center"
-                    style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.06)' }}>
-                    <div className="text-[9px] text-white/30 mb-1">{label}</div>
+                  <div key={key} className="rounded-lg p-2 text-center"
+                    style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${color}22` }}>
+                    <div className="text-[10px] font-medium mb-0.5" style={{ color: `${color}cc` }}>{label}</div>
+                    <div className="text-[9px] text-white/25 mb-1.5">{sub}</div>
                     {s ? (
                       <>
                         <div className={`text-sm font-mono font-semibold ${wrColor(s.wr)}`}>{wr(s.wr)}</div>
                         <div className="text-[10px] text-white/40 font-mono">PF {fmt(s.pf)}</div>
-                        <div className="text-[9px] text-white/25">n={s.n}</div>
+                        <div className="text-[9px] text-white/25 mt-0.5">n={s.n}</div>
                       </>
-                    ) : <span className="text-white/20 text-xs">—</span>}
+                    ) : <span className="text-white/15 text-xs">—</span>}
                   </div>
                 );
               })}
