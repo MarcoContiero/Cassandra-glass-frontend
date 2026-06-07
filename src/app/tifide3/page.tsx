@@ -165,6 +165,24 @@ type TifideStatus = {
   // ✅ per-coin panel
   coins_status?: CoinsStatus;
 
+  // debug regime gate
+  debug?: {
+    btc_regime_score?: number | null;
+    btc_regime_prev?: number | null;
+    regime_gate_active?: boolean | null;
+    regime_gate_override?: boolean | null;
+    last_regime_blocked?: {
+      coin_key: string;
+      scenario: string;
+      tf: string;
+      ts_ms: number;
+      btc_score: number;
+      blocked_at_ms: number;
+    } | null;
+    last_open_block?: any;
+    last_open_attempt?: any;
+  } | null;
+
   recent_setups?: {
     coin: string;
     side: string;
@@ -1046,6 +1064,118 @@ export default function TifidePage() {
 
         </div>
       </div>
+
+      {/* ── Regime Gate Status ──────────────────────────────────────── */}
+      {(() => {
+        const dbg = status?.debug ?? null;
+        const gateActive = dbg?.regime_gate_active ?? null;
+        const btcScore = dbg?.btc_regime_score ?? null;
+        const btcPrev = dbg?.btc_regime_prev ?? null;
+        const blocked = dbg?.last_regime_blocked ?? null;
+        const hasOverride = dbg?.regime_gate_override != null;
+
+        const gateColor = gateActive ? '#fbbf24' : '#86efac';
+        const gateLabel = gateActive ? 'ATTIVO' : 'DISATTIVO';
+        const scoreColor = btcScore == null ? '#94a3b8'
+          : btcScore >= 4 ? '#86efac'
+          : btcScore >= 2 ? '#fbbf24'
+          : '#fca5a5';
+
+        return (
+          <div
+            className="rounded-2xl border p-4 space-y-3"
+            style={{
+              backdropFilter: 'blur(16px)',
+              WebkitBackdropFilter: 'blur(16px)',
+              background: gateActive ? 'rgba(251,191,36,0.03)' : 'rgba(134,239,172,0.02)',
+              borderColor: gateActive ? 'rgba(251,191,36,0.15)' : 'rgba(134,239,172,0.1)',
+            }}
+          >
+            {/* Header */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Regime Gate BTC</span>
+                <span
+                  className="text-[10px] px-2 py-0.5 rounded-full border font-mono font-medium"
+                  style={{ color: gateColor, borderColor: `${gateColor}55`, background: `${gateColor}12` }}
+                >
+                  {gateLabel}
+                </span>
+                {hasOverride && (
+                  <span className="text-[9px] px-1.5 py-0.5 rounded border border-cyan-400/30 text-cyan-400/60 font-mono">
+                    override
+                  </span>
+                )}
+              </div>
+              <button
+                type="button"
+                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150"
+                style={{
+                  borderColor: gateActive ? 'rgba(134,239,172,0.3)' : 'rgba(251,191,36,0.3)',
+                  color: gateActive ? '#86efac' : '#fbbf24',
+                  background: gateActive ? 'rgba(134,239,172,0.06)' : 'rgba(251,191,36,0.06)',
+                }}
+                onClick={() => post('/api/tifide3/regime-gate/toggle')}
+              >
+                {gateActive ? 'Disattiva gate' : 'Attiva gate'}
+              </button>
+            </div>
+
+            {/* BTC score row */}
+            <div className="flex items-center gap-4">
+              <div>
+                <div className="text-[9px] text-white/25 uppercase tracking-wider mb-1">BTC Score</div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm font-mono font-semibold" style={{ color: scoreColor }}>
+                    {btcScore != null ? `${btcScore} / 7` : '—'}
+                  </span>
+                  {btcPrev != null && btcScore != null && (
+                    <span className="text-[10px] text-white/30 font-mono">
+                      {btcScore > btcPrev ? '▲' : btcScore < btcPrev ? '▼' : '='}{btcPrev}
+                    </span>
+                  )}
+                  <span className="text-[10px] font-medium" style={{ color: scoreColor }}>
+                    {btcScore == null ? '' : btcScore >= 4 ? 'bullish' : btcScore >= 2 ? 'neutro' : 'bearish'}
+                  </span>
+                </div>
+              </div>
+              {btcScore != null && (
+                <div className="flex gap-0.5 flex-1">
+                  {Array.from({ length: 7 }, (_, i) => (
+                    <div key={i} className="h-1.5 flex-1 rounded-full"
+                      style={{ background: i < btcScore ? scoreColor : 'rgba(255,255,255,0.07)' }}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Ultimo segnale bloccato */}
+            {blocked ? (
+              <div className="rounded-xl border border-rose-400/[0.12] bg-rose-500/[0.04] px-3 py-2 space-y-1">
+                <div className="text-[9px] text-rose-300/50 uppercase tracking-wider">Ultimo segnale bloccato dal gate</div>
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-xs text-white/80 font-semibold">{blocked.coin_key}</span>
+                  <span className="text-[10px] font-mono text-white/35">{fmtTs(blocked.blocked_at_ms)}</span>
+                </div>
+                <div className="text-[11px] text-white/55 font-mono">
+                  {blocked.scenario} · @{blocked.tf}
+                </div>
+                <div className="flex items-center gap-3 text-[10px] font-mono text-white/40">
+                  <span>BTC score al blocco: <span style={{ color: scoreColor }}>{blocked.btc_score} / 7</span></span>
+                  <span>signal ts: {fmtTs(blocked.ts_ms)}</span>
+                </div>
+              </div>
+            ) : (
+              gateActive && (
+                <div className="text-[11px] text-white/25 font-mono italic">
+                  nessun segnale bloccato in questa sessione
+                </div>
+              )
+            )}
+          </div>
+        );
+      })()}
 
       {/* ── Rejected Shadow Open ────────────────────────────────────── */}
       {rejectedShadowOpen.length > 0 && (
