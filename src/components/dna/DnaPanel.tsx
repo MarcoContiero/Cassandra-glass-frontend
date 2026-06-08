@@ -547,50 +547,37 @@ function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
 type SortKey = 'coin' | 'win_rate' | 'profit_factor' | 'n_trades' | 'avg_pnl_pct';
 
 export default function DnaPanel() {
-  const [list,          setList]          = useState<GenomeSummary[]>([]);
-  const [loading,       setLoading]       = useState(true);
-  const [error,         setError]         = useState<string | null>(null);
-  const [selected,      setSelected]      = useState<GenomeFull | null>(null);
-  const [sort,          setSort]          = useState<SortKey>('win_rate');
-  const [loadingDetail, setLoadingDetail] = useState(false);
+  const [cache,    setCache]   = useState<GenomeFull[]>([]);
+  const [loading,  setLoading] = useState(true);
+  const [error,    setError]   = useState<string | null>(null);
+  const [selected, setSelected] = useState<GenomeFull | null>(null);
+  const [sort,     setSort]    = useState<SortKey>('win_rate');
 
   useEffect(() => {
-    fetch('/api/tradedb/genome')
+    fetch('/api/tradedb/genome-cache')
       .then(async r => {
         if (!r.ok) {
           const txt = await r.text();
           throw new Error(`HTTP ${r.status}: ${txt.slice(0, 200)}`);
         }
-        return r.json();
+        return r.json() as Promise<GenomeFull[]>;
       })
-      .then(d => { setList(d); setLoading(false); })
+      .then(d => { setCache(d); setLoading(false); })
       .catch(e => { setError(String(e)); setLoading(false); });
   }, []);
 
   const sorted = useMemo(() => {
-    return [...list].sort((a, b) => {
+    return [...cache].sort((a, b) => {
       if (sort === 'coin') return a.coin.localeCompare(b.coin);
       const av = a[sort] ?? -Infinity;
       const bv = b[sort] ?? -Infinity;
       return (bv as number) - (av as number);
     });
-  }, [list, sort]);
+  }, [cache, sort]);
 
-  async function openDetail(coin: string) {
-    setLoadingDetail(true);
-    try {
-      const r = await fetch(`/api/tradedb/genome/${coin}`);
-      if (!r.ok) {
-        const txt = await r.text();
-        setError(`Genome ${coin}: HTTP ${r.status} — ${txt.slice(0, 200)}`);
-        return;
-      }
-      setSelected(await r.json());
-    } catch (e) {
-      setError(`Genome ${coin}: ${String(e)}`);
-    } finally {
-      setLoadingDetail(false);
-    }
+  function openDetail(coin: string) {
+    const g = cache.find(r => r.coin === coin) ?? null;
+    setSelected(g);
   }
 
   const sortBtns: { key: SortKey; label: string }[] = [
@@ -606,7 +593,7 @@ export default function DnaPanel() {
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
           <h2 className="text-lg font-semibold text-white tracking-wide">DNA Coin</h2>
-          <p className="text-xs text-white/30 mt-0.5">Genoma 2y — {list.length} coin · backtest storico</p>
+          <p className="text-xs text-white/30 mt-0.5">Genoma 2y — {cache.length} coin · backtest storico</p>
         </div>
         <div className="flex gap-1.5 flex-wrap">
           {sortBtns.map(b => (
@@ -630,13 +617,6 @@ export default function DnaPanel() {
           {sorted.map(g => (
             <CoinCard key={g.coin} g={g} onClick={() => openDetail(g.coin)} />
           ))}
-        </div>
-      )}
-
-      {loadingDetail && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center"
-          style={{ background: 'rgba(4,8,18,0.7)' }}>
-          <span className="text-white/50 text-sm font-mono">Carico genoma…</span>
         </div>
       )}
 
