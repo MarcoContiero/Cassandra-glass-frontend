@@ -321,15 +321,15 @@ async function processSymbol(
     if (!hasDir) return null;
   }
 
-  // filtro tempo
+  // filtro tempo: applica solo se ci sono ETA valide;
+  // se ciclica_window manca su tutti i setup, non filtrare (ETA sconosciuta ≠ fuori finestra)
   if (Number.isFinite(maxHoursParam) && maxHoursParam > 0) {
-    const hasValidTime = top3WithETA.some(
-      (s) =>
-        s.etaHours !== null &&
-        Number.isFinite(s.etaHours) &&
-        (s.etaHours as number) <= maxHoursParam,
-    );
-    if (!hasValidTime) return null;
+    const validEtas = top3WithETA
+      .map((s) => s.etaHours)
+      .filter((h): h is number => h !== null && Number.isFinite(h));
+    if (validEtas.length > 0 && !validEtas.some((h) => h <= maxHoursParam)) {
+      return null;
+    }
   }
 
   const best = top3WithETA[0];

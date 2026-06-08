@@ -119,16 +119,16 @@ export default function AgemaPanel() {
         if (!hasDir) return false;
       }
 
-      // maxHours: la riga passa se almeno UNA delle top entry ha countdown <= maxHours
+      // maxHours: filtra solo se esistono ETA valide; se ciclica_window manca → passa
       if (Number.isFinite(maxHours) && maxHours > 0) {
-        const okTime = (row.best ?? []).some((s) => {
-          const cw = s.ciclica_window;
-          if (!cw) return false;
-          const h = barsToHours(cw.countdown_bars, cw.tf_ciclo);
-          return h !== null && h <= maxHours;
-        });
-        // Se non hai ciclica_window nel BE per quella coin, la scartiamo (se maxHours attivo)
-        if (!okTime) return false;
+        const etas = (row.best ?? [])
+          .map((s) => {
+            const cw = s.ciclica_window;
+            if (!cw) return null;
+            return barsToHours(cw.countdown_bars, cw.tf_ciclo);
+          })
+          .filter((h): h is number => h !== null);
+        if (etas.length > 0 && !etas.some((h) => h <= maxHours)) return false;
       }
 
       return true;
