@@ -547,13 +547,17 @@ function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
 type SortKey = 'coin' | 'win_rate' | 'profit_factor' | 'n_trades' | 'avg_pnl_pct';
 
 export default function DnaPanel() {
-  const [cache,    setCache]   = useState<GenomeFull[]>([]);
-  const [loading,  setLoading] = useState(true);
-  const [error,    setError]   = useState<string | null>(null);
-  const [selected, setSelected] = useState<GenomeFull | null>(null);
-  const [sort,     setSort]    = useState<SortKey>('win_rate');
+  const [cache,     setCache]    = useState<GenomeFull[]>([]);
+  const [loading,   setLoading]  = useState(true);
+  const [error,     setError]    = useState<string | null>(null);
+  const [selected,  setSelected] = useState<GenomeFull | null>(null);
+  const [sort,      setSort]     = useState<SortKey>('win_rate');
+  const [rebuilding, setRebuilding] = useState(false);
+  const [rebuildMsg, setRebuildMsg] = useState<string | null>(null);
 
-  useEffect(() => {
+  function loadCache() {
+    setLoading(true);
+    setError(null);
     fetch('/api/tradedb/genome-cache')
       .then(async r => {
         if (!r.ok) {
@@ -564,7 +568,24 @@ export default function DnaPanel() {
       })
       .then(d => { setCache(d); setLoading(false); })
       .catch(e => { setError(String(e)); setLoading(false); });
-  }, []);
+  }
+
+  useEffect(() => { loadCache(); }, []);
+
+  async function triggerRebuild() {
+    setRebuilding(true);
+    setRebuildMsg(null);
+    try {
+      const r = await fetch('/api/tradedb/rebuild-genome', { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail ?? `HTTP ${r.status}`);
+      setRebuildMsg(`Rebuild avviato (PID ${j.pid}) — ricarica tra qualche minuto`);
+    } catch (e: any) {
+      setRebuildMsg(`Errore: ${e?.message ?? String(e)}`);
+    } finally {
+      setRebuilding(false);
+    }
+  }
 
   const sorted = useMemo(() => {
     return [...cache].sort((a, b) => {
@@ -594,8 +615,35 @@ export default function DnaPanel() {
         <div>
           <h2 className="text-lg font-semibold text-white tracking-wide">DNA Coin</h2>
           <p className="text-xs text-white/30 mt-0.5">Genoma 2y — {cache.length} coin · backtest storico</p>
+          {rebuildMsg && (
+            <p className="text-xs mt-1 text-cyan-300/70">{rebuildMsg}</p>
+          )}
         </div>
-        <div className="flex gap-1.5 flex-wrap">
+        <div className="flex gap-1.5 flex-wrap items-center">
+          <button
+            onClick={triggerRebuild}
+            disabled={rebuilding}
+            className="px-3 py-1 rounded-lg text-xs font-mono transition-all disabled:opacity-40"
+            style={{
+              background: 'rgba(6,182,212,0.10)',
+              border: '1px solid rgba(6,182,212,0.30)',
+              color: '#67e8f9',
+            }}
+          >
+            {rebuilding ? '⟳ Avvio…' : '⚙ Rebuild genome'}
+          </button>
+          <button
+            onClick={loadCache}
+            disabled={loading}
+            className="px-3 py-1 rounded-lg text-xs font-mono transition-all disabled:opacity-40"
+            style={{
+              background: 'rgba(255,255,255,0.04)',
+              border: '1px solid rgba(255,255,255,0.10)',
+              color: 'rgba(255,255,255,0.50)',
+            }}
+          >
+            {loading ? '⟳' : '↺ Ricarica'}
+          </button>
           {sortBtns.map(b => (
             <button key={b.key} onClick={() => setSort(b.key)}
               className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all ${
