@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { callBackend } from '@/lib/proxy';
 
 export const dynamic = 'force-dynamic';
+export const maxDuration = 60; // secondi — aumenta il timeout su Render/Vercel
 
 /**
  * TYPES
@@ -239,7 +241,6 @@ function formatZonaReentry(zone: any): string | null {
  */
 async function processSymbol(
   symbol: string,
-  origin: string,
   dirParam: 'LONG' | 'SHORT' | '',
   maxHoursParam: number,
   minScoreParam: number,
@@ -251,9 +252,7 @@ async function processSymbol(
   q.set('tipo', 'riepilogo_totale');
   q.set('limit', '300');
 
-  const res = await fetch(`${origin}/api/analisi_light?${q.toString()}`, {
-    cache: 'no-store',
-  });
+  const res = await callBackend(`/api/analisi_light?${q.toString()}`);
   if (!res.ok) return null;
 
   const json: any = await res.json();
@@ -406,11 +405,9 @@ export async function GET(req: NextRequest) {
     ? symbolsParam.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
     : DEFAULT_SYMBOLS);
 
-  const origin = url.origin;
-
   const tasks = symbols.map(
     (sym) => () =>
-      processSymbol(sym, origin, dirParam, maxHoursParam, minScoreParam),
+      processSymbol(sym, dirParam, maxHoursParam, minScoreParam),
   );
 
   const settled = await fetchConcurrent(tasks, FETCH_CONCURRENCY);
