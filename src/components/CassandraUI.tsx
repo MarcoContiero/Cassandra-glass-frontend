@@ -21,6 +21,7 @@ import SpiegazioneOverlay from './overlays/SpiegazioneOverlay';
 import StrategiaAIOverlay from './overlays/StrategiaAIOverlay';
 import MiddleOverlay from './MiddleOverlay';
 import BoxOverlay from './overlays/BoxOverlay';
+import GraficoOverlay from './overlays/GraficoOverlay';
 import ScenariOverlay from './overlays/ScenariOverlay';
 import AlertOverlay from './overlays/AlertOverlay';
 import ScenariPrevistiOverlay from "@/components/overlays/ScenariPrevistiOverlay";
@@ -46,6 +47,7 @@ type OverlayKey =
   | 'strategia_ai'
   | 'middles'
   | 'box'
+  | 'grafico'
   | 'comparativa_full'
   | 'scenari_previsti'
   | 'ciclica' // 👈 NEW
@@ -434,6 +436,7 @@ export default function CassandraUI() {
     liquidita: "Livelli di liquidità",
     scenari: "Scenari attivi",
     ciclica: "Analisi ciclica",
+    grafico: "Grafico + Trendline",
   };
 
   // ✅ niente indicizzazione con null
@@ -591,6 +594,8 @@ export default function CassandraUI() {
         const vmFromOverlay = (overlayData as any)?.ciclicaVm as any;
         return <CiclicaOverlay data={vmFromOverlay ?? ciclicaVm} />;
       }
+      case 'grafico':
+        return <GraficoOverlay symbol={symbol} timeframes={timeframes} />;
       default:
         return null;
     }
@@ -608,6 +613,7 @@ export default function CassandraUI() {
     { key: 'spiegazione' as OverlayKey, icon: '◍', label: 'Pregresso',              desc: 'Da dove veniamo' },
     { key: 'ciclica'     as OverlayKey, icon: '◐', label: 'Analisi ciclica',        desc: 'Fasi e finestre temporali' },
     { key: 'entrate'     as OverlayKey, icon: '⊕', label: 'Setup in costruzione',   desc: 'Entrate valide correnti' },
+    { key: 'grafico'     as OverlayKey, icon: '◫', label: 'Grafico + Trendline',     desc: 'Chart con supporti e resistenze' },
   ] as const;
 
   return (
