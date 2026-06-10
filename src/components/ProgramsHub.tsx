@@ -12,15 +12,15 @@ import Orione2Page from '@/app/orione2/patterns/page';
 
 type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'tifide2' | 'orione2' | 'tifide3';
 
-const APPS: { key: AppKey; label: string; icon: string }[] = [
-  { key: 'cassandra', label: 'Cassandra', icon: '🔮' },
-  { key: 'argonauta', label: 'Argonauta', icon: '🧭' },
-  { key: 'orione', label: 'Orione', icon: '✦' },
-  { key: 'tifide3', label: 'Tifi 4.0', icon: '⬡' },
-  { key: 'tifide2', label: 'Tifi 2.0', icon: '◈' },
-  { key: 'orione2', label: 'Segnali', icon: '◉' },
-  { key: 'agema', label: 'Agema', icon: '❋' },
-  { key: 'dna', label: 'DNA Coin', icon: '◈' },
+const APPS: { key: AppKey; label: string }[] = [
+  { key: 'cassandra', label: 'Cassandra' },
+  { key: 'argonauta', label: 'Argonauta' },
+  { key: 'orione',    label: 'Orione' },
+  { key: 'tifide3',   label: 'Tifi 4.0' },
+  { key: 'tifide2',   label: 'Tifi 2.0' },
+  { key: 'orione2',   label: 'Segnali' },
+  { key: 'agema',     label: 'Agema' },
+  { key: 'dna',       label: 'DNA Coin' },
 ];
 
 export default function ProgramsHub() {
@@ -31,99 +31,132 @@ export default function ProgramsHub() {
   const content = useMemo(() => {
     switch (activeApp) {
       case 'argonauta': return <ArgonautaPanel />;
-      case 'orione': return <OrionePanel />;
-      case 'tifide2': return <TifidePage />;
-      case 'tifide3': return <Tifide3Panel />;
-      case 'agema': return <AgemaPanel />;
-      case 'dna': return <DnaPanel />;
-      case 'orione2': return <Orione2Page />;
+      case 'orione':    return <OrionePanel />;
+      case 'tifide2':   return <TifidePage />;
+      case 'tifide3':   return <Tifide3Panel />;
+      case 'agema':     return <AgemaPanel />;
+      case 'dna':       return <DnaPanel />;
+      case 'orione2':   return <Orione2Page />;
       case 'cassandra':
-      default: return <CassandraUI />;
+      default:          return <CassandraUI />;
     }
   }, [activeApp]);
 
   return (
-    <div
-      className="flex min-h-screen flex-col text-white"
-      style={{
-        background: 'var(--background)',
-        backgroundImage: [
-          'radial-gradient(ellipse 80% 50% at 50% -20%, oklch(0.72 0.15 198 / 0.13), transparent)',
-          'radial-gradient(ellipse 60% 40% at 80% 80%, oklch(0.55 0.18 280 / 0.09), transparent)',
-        ].join(', '),
-      }}
-    >
+    <div style={{ minHeight: '100vh', background: 'var(--color-void)', color: 'var(--color-text)' }}>
 
-      {/* ── Top nav ─────────────────────────────────────────────── */}
+      {/* ── Navbar ────────────────────────────────────────────────── */}
       <header
-        className="sticky top-0 z-40 border-b border-white/[0.06]"
         style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          background: 'rgba(8, 12, 22, 0.80)',
+          position: 'sticky',
+          top: 0,
+          zIndex: 40,
+          borderBottom: '1px solid var(--color-border-dim)',
+          backdropFilter: 'blur(8px)',
+          background: 'rgba(2,2,14,0.92)',
         }}
       >
-        <div className="relative mx-auto max-w-[1600px] px-5 py-2.5">
-
-          {/* Status dot — assoluto top-right, non partecipa al flow */}
-          <div className="absolute right-5 top-1/2 -translate-y-1/2 flex items-center gap-1.5 pointer-events-none">
-            <span className="h-1.5 w-1.5 rounded-full bg-cyan-400 opacity-70" style={{ boxShadow: '0 0 6px rgba(6,182,212,0.7)' }} />
-            <span className="text-[11px] text-white/30 font-mono">live</span>
+        <div
+          style={{
+            maxWidth: '1600px',
+            margin: '0 auto',
+            padding: '0 20px',
+            display: 'flex',
+            alignItems: 'stretch',
+            position: 'relative',
+          }}
+        >
+          {/* Logo */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              paddingRight: '24px',
+              marginRight: '8px',
+              borderRight: '1px solid var(--color-border-dim)',
+            }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-decorative)',
+                fontSize: '13px',
+                fontWeight: 300,
+                letterSpacing: '0.2em',
+                color: 'var(--color-gold)',
+                whiteSpace: 'nowrap',
+              }}
+            >
+              CASSANDRA
+            </span>
           </div>
 
-          {/* Logo + nav — lascia spazio a destra per il live dot */}
-          <div className="flex items-center gap-3 pr-14">
+          {/* Nav tabs */}
+          <nav
+            style={{
+              display: 'flex',
+              alignItems: 'stretch',
+              gap: 0,
+              overflowX: 'auto',
+              scrollbarWidth: 'none',
+              flex: 1,
+            }}
+          >
+            {APPS.map((app) => {
+              const isActive = activeApp === app.key;
+              return (
+                <button
+                  key={app.key}
+                  onClick={() => setActiveApp(app.key)}
+                  className={isActive ? 'nav-tab nav-tab-active' : 'nav-tab'}
+                >
+                  {app.label}
+                </button>
+              );
+            })}
+          </nav>
 
-            {/* Logo */}
-            <div className="flex items-center gap-2 shrink-0">
-              <div
-                className="flex h-7 w-7 items-center justify-center rounded-lg text-base shrink-0"
-                style={{
-                  background: 'linear-gradient(135deg, rgba(6,182,212,0.25) 0%, rgba(99,102,241,0.20) 100%)',
-                  border: '1px solid rgba(6,182,212,0.30)',
-                  boxShadow: '0 0 12px rgba(6,182,212,0.12)',
-                }}
-              >
-                ◈
-              </div>
-              <span
-                className="text-sm font-semibold tracking-wide shrink-0"
-                style={{
-                  background: 'linear-gradient(90deg, #67e8f9 0%, #a78bfa 100%)',
-                  WebkitBackgroundClip: 'text',
-                  WebkitTextFillColor: 'transparent',
-                }}
-              >
-                Cassandra
-              </span>
-            </div>
-
-            {/* App switcher */}
-            <nav className="flex gap-1 flex-wrap">
-              {APPS.map((app) => {
-                const isActive = activeApp === app.key;
-                return (
-                  <button
-                    key={app.key}
-                    onClick={() => setActiveApp(app.key)}
-                    className={['nav-pill', isActive ? 'nav-pill-active' : ''].join(' ')}
-                  >
-                    <span className="text-xs opacity-80">{app.icon}</span>
-                    <span>{app.label}</span>
-                  </button>
-                );
-              })}
-            </nav>
+          {/* Live indicator */}
+          <div
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              paddingLeft: '20px',
+              marginLeft: 'auto',
+              borderLeft: '1px solid var(--color-border-dim)',
+            }}
+          >
+            <span
+              style={{
+                width: '6px',
+                height: '6px',
+                borderRadius: '50%',
+                background: 'var(--color-long-bright)',
+                animation: 'cassandraPulse 2s ease-in-out infinite',
+                flexShrink: 0,
+              }}
+            />
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '9px',
+                letterSpacing: '0.3em',
+                color: 'var(--color-text-dim)',
+                textTransform: 'uppercase',
+              }}
+            >
+              live
+            </span>
           </div>
         </div>
       </header>
 
       {/* ── Content ─────────────────────────────────────────────── */}
       <main
-        className={
+        style={
           isWide
-            ? 'flex-1 w-full px-2 md:px-4 py-3'
-            : 'mx-auto max-w-[1600px] flex-1 px-5 py-5 w-full'
+            ? { flex: 1, width: '100%', padding: '12px 8px' }
+            : { maxWidth: '1600px', margin: '0 auto', flex: 1, padding: '24px 20px', width: '100%' }
         }
       >
         {content}

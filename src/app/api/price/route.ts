@@ -5,5 +5,6 @@ import { proxyGET } from '../_utils/proxy';
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  return proxyGET(req);
+  const { pathname, search } = req.nextUrl;
+  return proxyGET(req, pathname + search);
 }

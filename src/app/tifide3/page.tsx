@@ -162,7 +162,7 @@ type TifideStatus = {
   live_from_ms?: number | null;
   cooldown_until_ms?: number | null;
 
-  // ✅ per-coin panel
+  // per-coin panel
   coins_status?: CoinsStatus;
 
   // debug regime gate
@@ -205,7 +205,7 @@ type SseEnvelope =
   | { type: "coins"; data: { coins_status: CoinsStatus } }
   | { type: string; data: any };
 
-// ✅ Always use same-origin Next routes (/api/...) to avoid split-brain between FE and backend
+// Always use same-origin Next routes (/api/...) to avoid split-brain between FE and backend
 const apiUrl = (path: string) => path;
 
 function fmtTs(ms?: number | null) {
@@ -236,7 +236,6 @@ function toNum(v: any): number | null {
 function fmtNum(v: any, digits = 6) {
   const n = toNum(v);
   if (n == null) return "—";
-  // niente super-format: tienilo leggibile e stabile
   return n.toFixed(digits).replace(/\.?0+$/, "");
 }
 
@@ -341,13 +340,11 @@ function dedupSignals(items: SignalItem[]): SignalItem[] {
     const prevIsRaw = /_raw\b/i.test(prevScenario);
     const curIsRaw = /_raw\b/i.test(curScenario);
 
-    // preferisci la versione NON raw
     if (prevIsRaw && !curIsRaw) {
       bestByKey.set(key, s);
       continue;
     }
 
-    // a parità, tieni quella con tf_exec/timeframe valorizzato
     const prevScore =
       (prev?.tf_exec ? 1 : 0) +
       (prev?.timeframe ? 1 : 0) +
@@ -368,32 +365,44 @@ function dedupSignals(items: SignalItem[]): SignalItem[] {
   );
 }
 
-// ── Trade stats types ────────────────────────────────────────────────────────
-
+// Trade stats types
 type TradeStat = { count: number; wins: number; wr: number; pf: number | null };
 
-// ── Counter groups ────────────────────────────────────────────────────────────
+// Counter groups
 type CounterGroupId = 'core' | 'prelive' | 'scenari' | 'filtri' | 'shadow' | 'portfolio';
 
 function CtrRow({ label, value, desc }: { label: string; value: React.ReactNode; desc?: string }) {
   return (
     <div className="flex items-center justify-between py-0.5">
       <div className="relative group/tip">
-        <span className={`text-white/40 text-[11px] ${desc ? 'cursor-help border-b border-dashed border-white/20' : ''}`}>
+        <span
+          className="font-mono text-[11px]"
+          style={{
+            color: 'var(--color-text-dim)',
+            borderBottom: desc ? '1px dashed var(--color-border)' : undefined,
+            cursor: desc ? 'help' : undefined,
+          }}
+        >
           {label}
         </span>
         {desc && (
-          <div className="pointer-events-none absolute left-0 bottom-full mb-1.5 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-150">
+          <div className="pointer-events-none absolute left-0 bottom-full mb-1.5 z-50 opacity-0 group-hover/tip:opacity-100 transition-opacity duration-200">
             <div
-              className="rounded-lg border border-white/[0.12] px-2.5 py-1.5 text-[10px] text-white/75 leading-relaxed w-max max-w-[200px]"
-              style={{ backdropFilter: 'blur(12px)', background: 'rgba(8,12,28,0.92)', boxShadow: '0 4px 16px rgba(0,0,0,0.6)' }}
+              className="font-mono text-[10px] leading-relaxed w-max max-w-[200px]"
+              style={{
+                background: 'var(--color-deep)',
+                border: '1px solid var(--color-border)',
+                padding: '6px 10px',
+                color: 'var(--color-text)',
+                boxShadow: '0 4px 16px rgba(0,0,0,0.6)',
+              }}
             >
               {desc}
             </div>
           </div>
         )}
       </div>
-      <span className="font-mono text-[11px] text-white/80">{value}</span>
+      <span className="font-mono text-[11px]" style={{ color: 'var(--color-text)' }}>{value}</span>
     </div>
   );
 }
@@ -409,20 +418,25 @@ function CounterGroup({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-white/[0.06] overflow-hidden">
+    <div style={{ border: '1px solid var(--color-border-dim)', overflow: 'hidden' }}>
       <button
         type="button"
         onClick={onToggle}
-        className="w-full flex items-center justify-between px-3 py-2 bg-white/[0.02] hover:bg-white/[0.04] transition-colors text-left"
+        className="w-full flex items-center justify-between text-left transition-colors duration-200"
+        style={{
+          background: 'var(--color-surface)',
+          borderBottom: open ? '1px solid var(--color-border-dim)' : 'none',
+          padding: '8px 12px',
+        }}
       >
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-white/70">{title}</span>
+          <span className="font-mono text-[11px]" style={{ color: 'var(--color-text)' }}>{title}</span>
           {badge}
         </div>
-        <span className="text-white/30 text-[10px]">{open ? '▲' : '▼'}</span>
+        <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{open ? '▲' : '▼'}</span>
       </button>
       {open && (
-        <div className="px-3 py-2 border-t border-white/[0.05] space-y-0.5">
+        <div style={{ padding: '8px 12px' }} className="space-y-0.5">
           {children}
         </div>
       )}
@@ -465,7 +479,7 @@ export default function TifidePage() {
   const rejectedShadowOpen = status?.rejected_shadow_open ?? [];
   const rejectedShadowOpenCount = status?.rejected_shadow_open_count ?? 0;
 
-  // ✅ fallback UI: se lo state locale è vuoto usa i buffer arrivati nello status
+  // fallback UI: se lo state locale e vuoto usa i buffer arrivati nello status
   const rawSignalsView = signals.length ? signals : (status?.recent_signals ?? []);
   const signalsView = useMemo(() => dedupSignals(rawSignalsView), [rawSignalsView]);
 
@@ -481,8 +495,7 @@ export default function TifidePage() {
     if (Array.isArray(st?.recent_trades)) setTrades(st.recent_trades);
     if (Array.isArray(st?.recent_setups)) setRecentSetups(st.recent_setups);
 
-    // reset dell'errore “SSE connection error” quando lo status torna OK
-    setLastError((prev) => (prev === "SSE connection error (retrying…)" ? null : prev));
+    setLastError((prev) => (prev === "SSE connection error (retrying...)" ? null : prev));
   }
 
   async function post(path: string) {
@@ -508,7 +521,6 @@ export default function TifidePage() {
         setStatus(st);
         setHbLine(st?.hb_last_line ?? null);
 
-        // ✅ IMPORTANT: copia anche i recent buffers nello state UI
         if (Array.isArray(st?.recent_signals)) setSignals(st.recent_signals);
         if (Array.isArray(st?.recent_trades)) setTrades(st.recent_trades);
         if (Array.isArray(st?.recent_setups)) setRecentSetups(st.recent_setups);
@@ -582,7 +594,7 @@ export default function TifidePage() {
         esRef.current = es;
 
         es.onopen = () => {
-          setLastError(null); // ✅ appena la SSE torna su, togli il banner rosso
+          setLastError(null);
         };
 
         const onTyped = (ev: MessageEvent) => {
@@ -606,7 +618,7 @@ export default function TifidePage() {
         es.addEventListener("coins", onTyped);
 
         es.onerror = () => {
-          setLastError((prev) => prev ?? "SSE connection error (retrying…)");
+          setLastError((prev) => prev ?? "SSE connection error (retrying...)");
         };
       } catch (e: any) {
         setLastError(`SSE init error: ${String(e?.message ?? e)}`);
@@ -689,23 +701,26 @@ export default function TifidePage() {
   }, [tradesView]);
 
   // Status color
-  const stColor = running ? '#86efac' : paused ? '#fbbf24' : '#94a3b8';
+  const stColor = running ? 'var(--color-long-bright)' : paused ? '#fbbf24' : 'var(--color-text-dim)';
 
   return (
-    <div className="p-3 md:p-5 space-y-3 text-white">
+    <div
+      className="space-y-4"
+      style={{ background: 'var(--color-void)', padding: '16px 20px', minHeight: '100vh' }}
+    >
 
-      {/* ── Header ─────────────────────────────────────────────────── */}
-      <div
-        className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-white/[0.07] px-4 py-3"
-        style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.03)' }}
-      >
+      {/* Header / control bar */}
+      <div className="cassandra-card p-3 flex flex-wrap items-center justify-between gap-3">
         {/* Title + status chips */}
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-cyan-400/50 text-sm">⬡</span>
-          <span className="font-semibold text-white/90">TIFI 4.0</span>
+          <span className="font-mono text-[11px] tracking-[0.3em] uppercase" style={{ color: 'var(--color-gold)' }}>TIFI 4.0</span>
           <span
-            className="text-[10px] px-2 py-0.5 rounded-full border font-mono"
-            style={{ color: stColor, borderColor: `${stColor}55`, background: `${stColor}12` }}
+            className="font-mono text-[10px] border px-2 py-0.5"
+            style={{
+              color: stColor,
+              borderColor: stColor,
+              background: 'transparent',
+            }}
           >
             {summary.st}
           </span>
@@ -715,19 +730,19 @@ export default function TifidePage() {
             { l: 'scen', v: `${summary.scenValid}/${summary.scenRejected}` },
             { l: 'shadow', v: rejectedShadowOpenCount },
           ].map(({ l, v }) => (
-            <span key={l} className="text-[10px] font-mono text-white/40">
-              <span className="text-white/25">{l}:</span> {v}
+            <span key={l} className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+              <span style={{ color: 'var(--color-text-faint)' }}>{l}:</span> {v}
             </span>
           ))}
           {status?.catalog_size != null && (
-            <span className="text-[10px] font-mono text-white/40">
-              <span className="text-white/25">catalog:</span> {status.catalog_size}
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+              <span style={{ color: 'var(--color-text-faint)' }}>catalog:</span> {status.catalog_size}
             </span>
           )}
           {status?.orione_ready != null && (
             <span
-              className="text-[10px] font-mono"
-              style={{ color: status.orione_ready ? '#86efac' : '#fca5a5' }}
+              className="font-mono text-[10px]"
+              style={{ color: status.orione_ready ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}
             >
               orione {status.orione_ready ? 'ready' : 'not ready'}
             </span>
@@ -737,11 +752,11 @@ export default function TifidePage() {
           {(() => {
             const score = monitor?.btc_regime_score ?? null;
             if (score == null) return null;
-            const c = score >= 4 ? '#86efac' : score >= 2 ? '#fbbf24' : '#fca5a5';
+            const c = score >= 4 ? 'var(--color-long-bright)' : score >= 2 ? 'var(--color-gold)' : 'var(--color-short-bright)';
             return (
               <span
-                className="text-[10px] px-2 py-0.5 rounded-full border font-mono"
-                style={{ color: c, borderColor: `${c}55`, background: `${c}12` }}
+                className="font-mono text-[10px] border px-2 py-0.5"
+                style={{ color: c, borderColor: c }}
                 title="BTC regime score (0-7)"
               >
                 BTC {score}/7
@@ -753,24 +768,27 @@ export default function TifidePage() {
         {/* Control buttons */}
         <div className="flex items-center gap-1.5 flex-wrap">
           <button
-            className="px-3 py-1.5 rounded-lg border border-white/[0.08] text-xs text-white/60 hover:bg-white/[0.05] transition-colors"
+            className="bg-transparent font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 transition-all duration-200"
+            style={{
+              border: '1px solid var(--color-border)',
+              color: 'var(--color-text-dim)',
+            }}
             onClick={() => refreshStatus()}
           >
-            ↺ Refresh
+            REFRESH
           </button>
           {[
-            { label: 'Start', disabled: running || paused, action: '/api/tifide3/start', color: '#86efac' },
-            { label: 'Pause', disabled: !running, action: '/api/tifide3/pause', color: '#fbbf24' },
-            { label: 'Resume', disabled: !paused, action: '/api/tifide3/resume', color: '#67e8f9' },
-            { label: 'Stop', disabled: !running && !paused, action: '/api/tifide3/stop', color: '#fca5a5' },
+            { label: 'START', disabled: running || paused, action: '/api/tifide3/start', color: 'var(--color-long-bright)' },
+            { label: 'PAUSE', disabled: !running, action: '/api/tifide3/pause', color: 'var(--color-gold)' },
+            { label: 'RESUME', disabled: !paused, action: '/api/tifide3/resume', color: 'var(--color-cyan)' },
+            { label: 'STOP', disabled: !running && !paused, action: '/api/tifide3/stop', color: 'var(--color-short-bright)' },
           ].map(({ label, disabled, action, color }) => (
             <button
               key={label}
-              className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150 disabled:opacity-30 disabled:cursor-not-allowed"
+              className="bg-transparent font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 disabled:opacity-30 transition-colors duration-200"
               style={{
-                borderColor: disabled ? 'rgba(255,255,255,0.08)' : `${color}55`,
-                color: disabled ? 'rgba(255,255,255,0.35)' : color,
-                background: disabled ? 'transparent' : `${color}12`,
+                border: `1px solid ${disabled ? 'var(--color-border)' : color}`,
+                color: disabled ? 'var(--color-text-dim)' : color,
               }}
               disabled={disabled}
               onClick={() => post(action)}
@@ -781,65 +799,81 @@ export default function TifidePage() {
         </div>
       </div>
 
+      {/* Error banner */}
       {lastError ? (
-        <div className="rounded-xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 text-sm">
-          <div className="font-semibold text-rose-300 mb-1">Errore</div>
-          <div className="font-mono text-xs whitespace-pre-wrap text-rose-200/80">{lastError}</div>
+        <div
+          className="cassandra-card p-3"
+          style={{ borderLeft: '2px solid var(--color-short-bright)' }}
+        >
+          <div className="font-mono text-[11px] mb-1" style={{ color: 'var(--color-short-bright)' }}>Errore</div>
+          <div className="font-mono text-[11px] whitespace-pre-wrap" style={{ color: 'var(--color-short-bright)' }}>{lastError}</div>
         </div>
       ) : null}
 
-      {/* ── Monitor + Heartbeat ─────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      {/* Monitor + Heartbeat */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Monitor */}
-        <div className="rounded-2xl border border-white/[0.07] p-4 space-y-1" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
-          <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Monitor</div>
-          {[
-            ['poll_sec', monitor?.poll_sec ?? '—'],
-            ['subscribers', monitor?.subscribers_count ?? '—'],
-            ['uptime', fmtMs(monitor?.uptime_ms ?? null)],
-            ['orione_ready', String(status?.orione_ready ?? monitor?.orione_ready ?? '—')],
-            ['catalog_size', status?.catalog_size ?? monitor?.catalog_size ?? '—'],
-            ['post_close_delay', monitor?.post_close_delay_ms != null ? `${monitor.post_close_delay_ms}ms` : '—'],
-            ['recent_window', monitor?.recent_window_ms != null ? `${monitor.recent_window_ms}ms` : '—'],
-            ['slow_tf', monitor?.slow_tf ?? status?.slow_tf ?? '—'],
-            ['slow_tf_ms', monitor?.slow_tf_ms ?? status?.slow_tf_ms ?? '—'],
-          ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
-          {Array.isArray(status?.coins) && status!.coins!.length ? (
-            <CtrRow label="coins" value={status!.coins!.length} />
-          ) : null}
-          {Array.isArray(status?.timeframes) && status!.timeframes!.length ? (
-            <CtrRow label="tfs" value={status!.timeframes!.join(', ')} />
-          ) : null}
+        <div className="cassandra-card cassandra-card-corners p-4">
+          <div className="section-tag mb-3">Monitor</div>
+          <div className="space-y-0.5">
+            {[
+              ['poll_sec', monitor?.poll_sec ?? '—'],
+              ['subscribers', monitor?.subscribers_count ?? '—'],
+              ['uptime', fmtMs(monitor?.uptime_ms ?? null)],
+              ['orione_ready', String(status?.orione_ready ?? monitor?.orione_ready ?? '—')],
+              ['catalog_size', status?.catalog_size ?? monitor?.catalog_size ?? '—'],
+              ['post_close_delay', monitor?.post_close_delay_ms != null ? `${monitor.post_close_delay_ms}ms` : '—'],
+              ['recent_window', monitor?.recent_window_ms != null ? `${monitor.recent_window_ms}ms` : '—'],
+              ['slow_tf', monitor?.slow_tf ?? status?.slow_tf ?? '—'],
+              ['slow_tf_ms', monitor?.slow_tf_ms ?? status?.slow_tf_ms ?? '—'],
+            ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
+            {Array.isArray(status?.coins) && status!.coins!.length ? (
+              <CtrRow label="coins" value={status!.coins!.length} />
+            ) : null}
+            {Array.isArray(status?.timeframes) && status!.timeframes!.length ? (
+              <CtrRow label="tfs" value={status!.timeframes!.join(', ')} />
+            ) : null}
+          </div>
         </div>
 
         {/* Heartbeat + timing */}
-        <div className="rounded-2xl border border-white/[0.07] p-4 space-y-1" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
-          <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-2">Heartbeat</div>
-          <div className="text-[11px] font-mono text-white/70 whitespace-pre-wrap break-all leading-relaxed mb-2 p-2 rounded-lg bg-white/[0.03] border border-white/[0.05]">
+        <div className="cassandra-card cassandra-card-corners p-4">
+          <div className="section-tag mb-3">Heartbeat</div>
+          <div
+            className="font-mono text-[11px] whitespace-pre-wrap break-all leading-relaxed mb-3"
+            style={{
+              background: 'var(--color-surface)',
+              border: '1px solid var(--color-border-dim)',
+              padding: '8px',
+              color: 'var(--color-text)',
+            }}
+          >
             {hbLine ?? '—'}
           </div>
-          {[
-            ['started', fmtTs(status?.started_at_ms)],
-            ['updated', fmtTs(status?.updated_at_ms)],
-            ['last_sig', fmtTs(status?.last_sig_ts ?? null)],
-            ['now', fmtTs(status?.now_ms ?? null)],
-            ['live_from', fmtTs(status?.live_from_ms ?? null)],
-            ['cooldown_until', fmtTs(status?.cooldown_until_ms ?? null)],
-            ['cooldown_left', status?.cooldown_until_ms && status?.now_ms
-              ? String(Math.max(0, Math.floor((status.cooldown_until_ms - status.now_ms) / 1000))) + 's'
-              : '—'],
-          ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
+          <div className="space-y-0.5">
+            {[
+              ['started', fmtTs(status?.started_at_ms)],
+              ['updated', fmtTs(status?.updated_at_ms)],
+              ['last_sig', fmtTs(status?.last_sig_ts ?? null)],
+              ['now', fmtTs(status?.now_ms ?? null)],
+              ['live_from', fmtTs(status?.live_from_ms ?? null)],
+              ['cooldown_until', fmtTs(status?.cooldown_until_ms ?? null)],
+              ['cooldown_left', status?.cooldown_until_ms && status?.now_ms
+                ? String(Math.max(0, Math.floor((status.cooldown_until_ms - status.now_ms) / 1000))) + 's'
+                : '—'],
+            ].map(([l, v]) => <CtrRow key={String(l)} label={String(l)} value={v} />)}
+          </div>
 
           {/* BTC Regime Score */}
-          <div className="mt-2 pt-2 border-t border-white/[0.05] space-y-1.5">
-            <div className="text-[9px] text-white/25 uppercase tracking-wider">BTC Regime Score</div>
+          <div className="mt-3 pt-3 space-y-2" style={{ borderTop: '1px solid var(--color-border-dim)' }}>
+            <div className="section-tag mb-2">BTC Regime Score</div>
             {(() => {
               const score = monitor?.btc_regime_score ?? null;
               const prev  = monitor?.btc_regime_score_prev ?? null;
-              const color = score == null ? '#94a3b8'
-                : score >= 4 ? '#86efac'
-                : score >= 2 ? '#fbbf24'
-                : '#fca5a5';
+              const color = score == null ? 'var(--color-text-dim)'
+                : score >= 4 ? 'var(--color-long-bright)'
+                : score >= 2 ? 'var(--color-gold)'
+                : 'var(--color-short-bright)';
               const label = score == null ? '—'
                 : score >= 4 ? 'bullish'
                 : score >= 2 ? 'neutro'
@@ -847,20 +881,22 @@ export default function TifidePage() {
               return (
                 <>
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-mono" style={{ color }}>
+                    <span className="font-mono text-[11px]" style={{ color }}>
                       {score != null ? `${score} / 7` : '—'}
                       {prev != null && score != null && (
-                        <span className="ml-1.5 text-[9px] text-white/30">
+                        <span className="ml-1.5 font-mono text-[9px]" style={{ color: 'var(--color-text-dim)' }}>
                           {score > prev ? '▲' : score < prev ? '▼' : '='}{prev}
                         </span>
                       )}
                     </span>
-                    <span className="text-[10px] font-medium" style={{ color }}>{label}</span>
+                    <span className="font-mono text-[10px]" style={{ color }}>{label}</span>
                   </div>
                   <div className="flex gap-0.5">
                     {Array.from({ length: 7 }, (_, i) => (
-                      <div key={i} className="h-1.5 flex-1 rounded-full"
-                        style={{ background: score != null && i < score ? color : 'rgba(255,255,255,0.07)' }}
+                      <div
+                        key={i}
+                        className="h-1.5 flex-1"
+                        style={{ background: score != null && i < score ? color : 'var(--color-text-faint)' }}
                       />
                     ))}
                   </div>
@@ -871,20 +907,24 @@ export default function TifidePage() {
         </div>
       </div>
 
-      {/* ── Counters (macro-gruppi espandibili) ─────────────────────── */}
-      <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
-        <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Counters</div>
+      {/* Counters (macro-gruppi espandibili) */}
+      <div className="cassandra-card cassandra-card-corners p-4">
+        <div className="section-tag mb-3">Counters</div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
 
           {/* Core */}
           <CounterGroup
             id="core" title="Core"
-            badge={<span className="text-[10px] font-mono text-cyan-400/70">{summary.sig} sig · {summary.opens} open</span>}
+            badge={
+              <span className="font-mono text-[10px]" style={{ color: 'var(--color-cyan)' }}>
+                {summary.sig} sig · {summary.opens} open
+              </span>
+            }
             open={openGroups.has('core')} onToggle={() => toggleGroup('core')}
           >
             <CtrRow label="cycles" value={summary.cyc} desc="Cicli di polling completati dall'avvio" />
-            <CtrRow label="setups" value={counters?.setups ?? 0} desc="Setup grezzi ricevuti da Orione in modalità live (pattern rilevati, prima dei filtri)" />
+            <CtrRow label="setups" value={counters?.setups ?? 0} desc="Setup grezzi ricevuti da Orione in modalita live (pattern rilevati, prima dei filtri)" />
 
             {/* Dettaglio setups per coin da coins_status */}
             {coinsStatus && (() => {
@@ -893,14 +933,23 @@ export default function TifidePage() {
                 .sort((a, b) => (b[1].last_setup_state_at_ms ?? 0) - (a[1].last_setup_state_at_ms ?? 0));
               if (!withSetup.length) return null;
               return (
-                <div className="mt-1 rounded-lg border border-white/[0.05] bg-black/15 px-2 py-1.5 space-y-0.5 max-h-[180px] overflow-y-auto">
-                  <div className="text-[9px] text-white/20 uppercase tracking-wider mb-1">dettaglio · {withSetup.length} coin</div>
+                <div
+                  className="mt-1 space-y-0.5 max-h-[180px] overflow-y-auto"
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border-dim)',
+                    padding: '8px 12px',
+                  }}
+                >
+                  <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>
+                    dettaglio · {withSetup.length} coin
+                  </div>
                   {withSetup.map(([coin, info]) => {
                     const state = info.last_setup_state ?? '';
-                    const c = /valid|confirm|ready|active|ok/i.test(state) ? '#86efac'
-                      : /form|watch|pend|scan|wait/i.test(state) ? '#67e8f9'
-                        : /reject|expir|sl|clos|done|timeout|skip/i.test(state) ? '#fca5a5aa'
-                          : '#94a3b8';
+                    const c = /valid|confirm|ready|active|ok/i.test(state) ? 'var(--color-long-bright)'
+                      : /form|watch|pend|scan|wait/i.test(state) ? 'var(--color-cyan)'
+                        : /reject|expir|sl|clos|done|timeout|skip/i.test(state) ? 'var(--color-short-bright)'
+                          : 'var(--color-text-dim)';
                     const ageMs = info.last_setup_state_at_ms
                       ? Date.now() - info.last_setup_state_at_ms
                       : null;
@@ -911,10 +960,10 @@ export default function TifidePage() {
                       : null;
                     return (
                       <div key={coin} className="flex items-center justify-between gap-2 py-px">
-                        <span className="font-mono text-[10px] text-white/65 truncate">{coin}</span>
+                        <span className="font-mono text-[10px] truncate" style={{ color: 'var(--color-text)' }}>{coin}</span>
                         <div className="flex items-center gap-1.5 shrink-0">
-                          <span className="text-[10px] font-mono" style={{ color: c }}>{state}</span>
-                          {ageStr && <span className="text-[9px] text-white/25 font-mono">{ageStr}</span>}
+                          <span className="font-mono text-[10px]" style={{ color: c }}>{state}</span>
+                          {ageStr && <span className="font-mono text-[9px]" style={{ color: 'var(--color-text-dim)' }}>{ageStr}</span>}
                         </div>
                       </div>
                     );
@@ -926,13 +975,25 @@ export default function TifidePage() {
             <CtrRow label="signals" value={summary.sig} desc="Setup che hanno superato tutti i filtri live e generato un segnale operativo" />
             <CtrRow label="opens" value={summary.opens} desc="Trade aperti dall'avvio del motore" />
             <CtrRow label="closes" value={summary.closes} desc="Trade chiusi (SL, TP, timeout o stop manuale)" />
-            <CtrRow label="errors" value={<span className={summary.err > 0 ? 'text-red-400' : ''}>{summary.err}</span>} desc="Errori interni durante i cicli di scansione" />
+            <CtrRow
+              label="errors"
+              value={
+                <span style={{ color: summary.err > 0 ? 'var(--color-short-bright)' : 'var(--color-text)' }}>
+                  {summary.err}
+                </span>
+              }
+              desc="Errori interni durante i cicli di scansione"
+            />
           </CounterGroup>
 
           {/* Pre-live */}
           <CounterGroup
             id="prelive" title="Pre-live"
-            badge={<span className="text-[10px] font-mono text-white/30">{counters?.prelive_signals ?? 0} sig</span>}
+            badge={
+              <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+                {counters?.prelive_signals ?? 0} sig
+              </span>
+            }
             open={openGroups.has('prelive')} onToggle={() => toggleGroup('prelive')}
           >
             <CtrRow label="prelive_setups" value={counters?.prelive_setups ?? 0} />
@@ -944,10 +1005,10 @@ export default function TifidePage() {
           <CounterGroup
             id="scenari" title="Scenari"
             badge={
-              <span className="text-[10px] font-mono">
-                <span className="text-emerald-400/70">{summary.scenValid}v</span>
-                <span className="text-white/30"> / </span>
-                <span className="text-red-400/60">{summary.scenRejected}r</span>
+              <span className="font-mono text-[10px]">
+                <span style={{ color: 'var(--color-long-bright)' }}>{summary.scenValid}v</span>
+                <span style={{ color: 'var(--color-text-dim)' }}> / </span>
+                <span style={{ color: 'var(--color-short-bright)' }}>{summary.scenRejected}r</span>
               </span>
             }
             open={openGroups.has('scenari')} onToggle={() => toggleGroup('scenari')}
@@ -955,14 +1016,24 @@ export default function TifidePage() {
             <CtrRow label="valid_pairs_found" value={counters?.valid_pairs_found ?? 0} />
             <CtrRow label="valid_pairs_with_third" value={counters?.valid_pairs_with_third ?? 0} />
             <CtrRow label="scenario_candidates" value={counters?.scenario_candidates ?? 0} />
-            <CtrRow label="scenario_valid" value={<span className="text-emerald-400/80">{counters?.scenario_valid ?? 0}</span>} />
-            <CtrRow label="scenario_rejected" value={<span className="text-red-400/70">{counters?.scenario_rejected ?? 0}</span>} />
+            <CtrRow
+              label="scenario_valid"
+              value={<span style={{ color: 'var(--color-long-bright)' }}>{counters?.scenario_valid ?? 0}</span>}
+            />
+            <CtrRow
+              label="scenario_rejected"
+              value={<span style={{ color: 'var(--color-short-bright)' }}>{counters?.scenario_rejected ?? 0}</span>}
+            />
           </CounterGroup>
 
           {/* Filtri / Ignored */}
           <CounterGroup
             id="filtri" title="Filtri"
-            badge={<span className="text-[10px] font-mono text-white/30">{(counters?.ignored_third ?? 0) + (counters?.ignored_freshness ?? 0)} ign.</span>}
+            badge={
+              <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+                {(counters?.ignored_third ?? 0) + (counters?.ignored_freshness ?? 0)} ign.
+              </span>
+            }
             open={openGroups.has('filtri')} onToggle={() => toggleGroup('filtri')}
           >
             <CtrRow label="ignored_third" value={counters?.ignored_third ?? 0} />
@@ -977,7 +1048,11 @@ export default function TifidePage() {
           {/* Shadow trades */}
           <CounterGroup
             id="shadow" title="Shadow"
-            badge={<span className="text-[10px] font-mono text-amber-400/70">{rejectedShadowOpenCount} open</span>}
+            badge={
+              <span className="font-mono text-[10px]" style={{ color: 'var(--color-gold)' }}>
+                {rejectedShadowOpenCount} open
+              </span>
+            }
             open={openGroups.has('shadow')} onToggle={() => toggleGroup('shadow')}
           >
             <CtrRow label="started" value={counters?.rejected_shadow_started ?? 0} />
@@ -987,13 +1062,20 @@ export default function TifidePage() {
             <CtrRow label="pos_close" value={counters?.rejected_shadow_positive_close ?? 0} />
             <CtrRow label="neg_close" value={counters?.rejected_shadow_negative_close ?? 0} />
             <CtrRow label="timeout" value={counters?.rejected_shadow_timeout ?? 0} />
-            <CtrRow label="open_count" value={<span className="text-amber-300/80">{rejectedShadowOpenCount}</span>} />
+            <CtrRow
+              label="open_count"
+              value={<span style={{ color: 'var(--color-gold)' }}>{rejectedShadowOpenCount}</span>}
+            />
           </CounterGroup>
 
           {/* Portfolio */}
           <CounterGroup
             id="portfolio" title="Portfolio"
-            badge={portfolio?.equity != null ? <span className="text-[10px] font-mono text-cyan-300/70">eq {portfolio.equity}</span> : undefined}
+            badge={
+              portfolio?.equity != null
+                ? <span className="font-mono text-[10px]" style={{ color: 'var(--color-cyan)' }}>eq {portfolio.equity}</span>
+                : undefined
+            }
             open={openGroups.has('portfolio')} onToggle={() => toggleGroup('portfolio')}
           >
             <CtrRow label="equity" value={portfolio?.equity ?? '—'} />
@@ -1020,7 +1102,7 @@ export default function TifidePage() {
         </div>
       </div>
 
-      {/* ── Regime Gate Status ──────────────────────────────────────── */}
+      {/* Regime Gate Status */}
       {(() => {
         const dbg = status?.debug ?? null;
         const gateActive = dbg?.regime_gate_active ?? null;
@@ -1029,67 +1111,68 @@ export default function TifidePage() {
         const blocked = dbg?.last_regime_blocked ?? null;
         const hasOverride = dbg?.regime_gate_override != null;
 
-        const gateColor = gateActive ? '#fbbf24' : '#86efac';
+        const gateColor = gateActive ? 'var(--color-gold)' : 'var(--color-long-bright)';
         const gateLabel = gateActive ? 'ATTIVO' : 'DISATTIVO';
-        const scoreColor = btcScore == null ? '#94a3b8'
-          : btcScore >= 4 ? '#86efac'
-          : btcScore >= 2 ? '#fbbf24'
-          : '#fca5a5';
+        const scoreColor = btcScore == null ? 'var(--color-text-dim)'
+          : btcScore >= 4 ? 'var(--color-long-bright)'
+          : btcScore >= 2 ? 'var(--color-gold)'
+          : 'var(--color-short-bright)';
 
         return (
           <div
-            className="rounded-2xl border p-4 space-y-3"
+            className="cassandra-card p-4 space-y-3"
             style={{
-              backdropFilter: 'blur(16px)',
-              WebkitBackdropFilter: 'blur(16px)',
-              background: gateActive ? 'rgba(251,191,36,0.03)' : 'rgba(134,239,172,0.02)',
-              borderColor: gateActive ? 'rgba(251,191,36,0.15)' : 'rgba(134,239,172,0.1)',
+              borderColor: gateActive ? 'rgba(201,168,76,0.25)' : 'rgba(61,168,102,0.2)',
             }}
           >
             {/* Header */}
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Regime Gate BTC</span>
+                <span className="section-tag">Regime Gate BTC</span>
                 <span
-                  className="text-[10px] px-2 py-0.5 rounded-full border font-mono font-medium"
-                  style={{ color: gateColor, borderColor: `${gateColor}55`, background: `${gateColor}12` }}
+                  className="font-mono text-[10px] border px-2 py-0.5"
+                  style={{ color: gateColor, borderColor: gateColor }}
                 >
                   {gateLabel}
                 </span>
                 {hasOverride && (
-                  <span className="text-[9px] px-1.5 py-0.5 rounded border border-cyan-400/30 text-cyan-400/60 font-mono">
+                  <span
+                    className="font-mono text-[9px] px-1.5 py-0.5"
+                    style={{ border: '1px solid var(--color-border)', color: 'var(--color-cyan)' }}
+                  >
                     override
                   </span>
                 )}
               </div>
               <button
                 type="button"
-                className="px-3 py-1.5 rounded-lg border text-xs font-medium transition-all duration-150"
+                className="bg-transparent font-mono text-[10px] tracking-[0.2em] uppercase px-3 py-1.5 transition-colors duration-200"
                 style={{
-                  borderColor: gateActive ? 'rgba(134,239,172,0.3)' : 'rgba(251,191,36,0.3)',
-                  color: gateActive ? '#86efac' : '#fbbf24',
-                  background: gateActive ? 'rgba(134,239,172,0.06)' : 'rgba(251,191,36,0.06)',
+                  border: `1px solid ${gateActive ? 'var(--color-long-bright)' : 'var(--color-gold)'}`,
+                  color: gateActive ? 'var(--color-long-bright)' : 'var(--color-gold)',
                 }}
                 onClick={() => post('/api/tifide3/regime-gate/toggle')}
               >
-                {gateActive ? 'Disattiva gate' : 'Attiva gate'}
+                {gateActive ? 'DISATTIVA GATE' : 'ATTIVA GATE'}
               </button>
             </div>
 
             {/* BTC score row */}
             <div className="flex items-center gap-4">
               <div>
-                <div className="text-[9px] text-white/25 uppercase tracking-wider mb-1">BTC Score</div>
+                <div className="font-mono text-[9px] uppercase tracking-wider mb-1" style={{ color: 'var(--color-text-dim)' }}>
+                  BTC Score
+                </div>
                 <div className="flex items-center gap-2">
-                  <span className="text-sm font-mono font-semibold" style={{ color: scoreColor }}>
+                  <span className="font-mono text-[13px]" style={{ color: scoreColor }}>
                     {btcScore != null ? `${btcScore} / 7` : '—'}
                   </span>
                   {btcPrev != null && btcScore != null && (
-                    <span className="text-[10px] text-white/30 font-mono">
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                       {btcScore > btcPrev ? '▲' : btcScore < btcPrev ? '▼' : '='}{btcPrev}
                     </span>
                   )}
-                  <span className="text-[10px] font-medium" style={{ color: scoreColor }}>
+                  <span className="font-mono text-[10px]" style={{ color: scoreColor }}>
                     {btcScore == null ? '' : btcScore >= 4 ? 'bullish' : btcScore >= 2 ? 'neutro' : 'bearish'}
                   </span>
                 </div>
@@ -1097,8 +1180,10 @@ export default function TifidePage() {
               {btcScore != null && (
                 <div className="flex gap-0.5 flex-1">
                   {Array.from({ length: 7 }, (_, i) => (
-                    <div key={i} className="h-1.5 flex-1 rounded-full"
-                      style={{ background: i < btcScore ? scoreColor : 'rgba(255,255,255,0.07)' }}
+                    <div
+                      key={i}
+                      className="h-1.5 flex-1"
+                      style={{ background: i < btcScore ? scoreColor : 'var(--color-text-faint)' }}
                     />
                   ))}
                 </div>
@@ -1107,23 +1192,31 @@ export default function TifidePage() {
 
             {/* Ultimo segnale bloccato */}
             {blocked ? (
-              <div className="rounded-xl border border-rose-400/[0.12] bg-rose-500/[0.04] px-3 py-2 space-y-1">
-                <div className="text-[9px] text-rose-300/50 uppercase tracking-wider">Ultimo segnale bloccato dal gate</div>
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-mono text-xs text-white/80 font-semibold">{blocked.coin_key}</span>
-                  <span className="text-[10px] font-mono text-white/35">{fmtTs(blocked.blocked_at_ms)}</span>
+              <div
+                className="px-3 py-2 space-y-1"
+                style={{
+                  border: '1px solid rgba(168,61,61,0.2)',
+                  background: 'var(--color-short-faint)',
+                }}
+              >
+                <div className="font-mono text-[9px] uppercase tracking-wider" style={{ color: 'var(--color-short-bright)' }}>
+                  Ultimo segnale bloccato dal gate
                 </div>
-                <div className="text-[11px] text-white/55 font-mono">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-mono text-[12px]" style={{ color: 'var(--color-text)' }}>{blocked.coin_key}</span>
+                  <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(blocked.blocked_at_ms)}</span>
+                </div>
+                <div className="font-mono text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                   {blocked.scenario} · @{blocked.tf}
                 </div>
-                <div className="flex items-center gap-3 text-[10px] font-mono text-white/40">
+                <div className="flex items-center gap-3 font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                   <span>BTC score al blocco: <span style={{ color: scoreColor }}>{blocked.btc_score} / 7</span></span>
                   <span>signal ts: {fmtTs(blocked.ts_ms)}</span>
                 </div>
               </div>
             ) : (
               gateActive && (
-                <div className="text-[11px] text-white/25 font-mono italic">
+                <div className="font-mono text-[11px] italic" style={{ color: 'var(--color-text-dim)' }}>
                   nessun segnale bloccato in questa sessione
                 </div>
               )
@@ -1132,31 +1225,36 @@ export default function TifidePage() {
         );
       })()}
 
-      {/* ── Rejected Shadow Open ────────────────────────────────────── */}
+      {/* Rejected Shadow Open */}
       {rejectedShadowOpen.length > 0 && (
-        <div className="rounded-2xl border border-amber-400/[0.12] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(251,191,36,0.03)' }}>
+        <div
+          className="cassandra-card p-4"
+          style={{ borderLeft: '2px solid rgba(251,191,36,0.5)' }}
+        >
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-amber-300/70 uppercase tracking-wider">Rejected Shadow Open</span>
-            <span className="text-[10px] font-mono text-amber-300/50">{rejectedShadowOpenCount}</span>
+            <span className="section-tag">Rejected Shadow Open</span>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-gold-dim)' }}>{rejectedShadowOpenCount}</span>
           </div>
           <div className="space-y-2 max-h-[320px] overflow-auto pr-2">
             {rejectedShadowOpen.map((r, idx) => (
-              <div key={r.key || `${r.coin_key}-${r.scenario}-${r.entry_ts_ms}-${idx}`}
-                className="rounded-xl border border-white/[0.06] px-3 py-2 bg-white/[0.01]">
+              <div
+                key={r.key || `${r.coin_key}-${r.scenario}-${r.entry_ts_ms}-${idx}`}
+                className="cassandra-card p-2"
+              >
                 <div className="flex items-center justify-between gap-2 mb-1">
-                  <span className="font-mono text-xs text-white/80">{r.coin_key ?? '—'} · {r.side ?? '—'}</span>
-                  <span className="text-[10px] font-mono text-white/35">{fmtTs(r.entry_ts_ms ?? null)}</span>
+                  <span className="font-mono text-[12px]" style={{ color: 'var(--color-text)' }}>{r.coin_key ?? '—'} · {r.side ?? '—'}</span>
+                  <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(r.entry_ts_ms ?? null)}</span>
                 </div>
-                <div className="text-[11px] text-white/50 font-mono mb-1">
+                <div className="font-mono text-[11px] mb-1" style={{ color: 'var(--color-text-dim)' }}>
                   {r.scenario ?? '—'} · {r.classe ?? '—'}{r.tf_exec || r.timeframe ? ` · ${r.tf_exec ?? r.timeframe}` : ''}
                 </div>
-                <div className="text-[10px] text-amber-300/60 font-mono">
+                <div className="font-mono text-[10px]" style={{ color: 'var(--color-gold)' }}>
                   {r.reject_reason ?? '—'}{r.third_reason ? ` · ${r.third_reason}` : ''}
                 </div>
                 {r.reject_details && (
-                  <div className="text-[10px] text-white/30 font-mono mt-1 break-all">{r.reject_details}</div>
+                  <div className="font-mono text-[10px] mt-1 break-all" style={{ color: 'var(--color-text-dim)' }}>{r.reject_details}</div>
                 )}
-                <div className="mt-2 grid grid-cols-4 gap-1 text-[10px] font-mono text-white/40">
+                <div className="mt-2 grid grid-cols-4 gap-1 font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                   <span>entry {fmtNum(r.entry_px, 6)}</span>
                   <span>stop {fmtNum(r.stop_px, 6)}</span>
                   <span>lock {fmtNum(r.lock_pct, 4)}</span>
@@ -1168,36 +1266,45 @@ export default function TifidePage() {
         </div>
       )}
 
-      {/* ── Coins table ─────────────────────────────────────────────── */}
+      {/* Coins table */}
       {coinsStatus && Object.keys(coinsStatus).length > 0 && (
-        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="cassandra-card cassandra-card-corners p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Coins</span>
-            <span className="text-[10px] font-mono text-white/30">{Object.keys(coinsStatus).length}</span>
+            <span className="section-tag">Coins</span>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{Object.keys(coinsStatus).length}</span>
           </div>
           <div className="max-h-[320px] overflow-auto pr-1">
-            <table className="w-full text-[11px]">
-              <thead className="sticky top-0 border-b border-white/[0.06]" style={{ backdropFilter: 'blur(8px)', background: 'rgba(8,12,22,0.8)' }}>
-                <tr className="text-left text-white/35">
-                  <th className="py-1.5 pr-3 font-medium">Coin</th>
-                  <th className="py-1.5 pr-3 font-medium">Ultimo scan</th>
-                  <th className="py-1.5 pr-3 font-medium">Setup</th>
-                  <th className="py-1.5 pr-3 font-medium">Stato</th>
-                  <th className="py-1.5 pr-3 font-medium">Segnale</th>
-                  <th className="py-1.5 font-medium">Hits</th>
+            <table className="w-full font-mono text-[11px]">
+              <thead
+                className="sticky top-0"
+                style={{ borderBottom: '1px solid var(--color-text-faint)', background: 'var(--color-deep)' }}
+              >
+                <tr className="text-left" style={{ color: 'var(--color-text-dim)' }}>
+                  <th className="py-1.5 pr-3 font-mono font-normal">Coin</th>
+                  <th className="py-1.5 pr-3 font-mono font-normal">Ultimo scan</th>
+                  <th className="py-1.5 pr-3 font-mono font-normal">Setup</th>
+                  <th className="py-1.5 pr-3 font-mono font-normal">Stato</th>
+                  <th className="py-1.5 pr-3 font-mono font-normal">Segnale</th>
+                  <th className="py-1.5 font-mono font-normal">Hits</th>
                 </tr>
               </thead>
               <tbody>
                 {Object.entries(coinsStatus)
                   .sort((a, b) => String(a[0]).localeCompare(String(b[0])))
                   .map(([coin, info]) => (
-                    <tr key={coin} className="border-b border-white/[0.04] hover:bg-white/[0.02]">
-                      <td className="py-1.5 pr-3 font-mono text-white/80">{coin}</td>
-                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_scan_ms ?? null)}</td>
-                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_setup_ts ?? null)}</td>
-                      <td className="py-1.5 pr-3 font-mono text-white/50">{info.last_setup_state ?? '—'}</td>
-                      <td className="py-1.5 pr-3 font-mono text-white/40">{fmtTs(info.last_signal_ts ?? null)}</td>
-                      <td className="py-1.5 font-mono text-cyan-400/60">{info.scan_hits ?? 0}</td>
+                    <tr
+                      key={coin}
+                      style={{ borderBottom: '1px solid var(--color-text-faint)' }}
+                      className="transition-colors duration-200"
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td className="py-1.5 pr-3 font-mono" style={{ color: 'var(--color-text)' }}>{coin}</td>
+                      <td className="py-1.5 pr-3 font-mono" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(info.last_scan_ms ?? null)}</td>
+                      <td className="py-1.5 pr-3 font-mono" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(info.last_setup_ts ?? null)}</td>
+                      <td className="py-1.5 pr-3 font-mono" style={{ color: 'var(--color-text)' }}>{info.last_setup_state ?? '—'}</td>
+                      <td className="py-1.5 pr-3 font-mono" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(info.last_signal_ts ?? null)}</td>
+                      <td className="py-1.5 font-mono" style={{ color: 'var(--color-cyan)' }}>{info.scan_hits ?? 0}</td>
                     </tr>
                   ))}
               </tbody>
@@ -1206,36 +1313,45 @@ export default function TifidePage() {
         </div>
       )}
 
-      {/* ── Setups recenti ──────────────────────────────────────────── */}
+      {/* Setups recenti */}
       {recentSetups.length > 0 && (
-        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="cassandra-card cassandra-card-corners p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Setups recenti</span>
-            <span className="text-[10px] font-mono text-white/30">{recentSetups.length}</span>
+            <span className="section-tag">Setups recenti</span>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{recentSetups.length}</span>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full text-[11px]">
+            <table className="w-full font-mono text-[11px]">
               <thead>
-                <tr className="text-left text-white/30 border-b border-white/[0.05]">
-                  <th className="pb-1.5 font-medium">Coin</th>
-                  <th className="pb-1.5 font-medium">Side</th>
-                  <th className="pb-1.5 font-medium">Scenario</th>
-                  <th className="pb-1.5 font-medium">Classe</th>
-                  <th className="pb-1.5 font-medium">TF</th>
-                  <th className="pb-1.5 font-medium">Ricevuto</th>
+                <tr
+                  className="text-left"
+                  style={{ borderBottom: '1px solid var(--color-text-faint)', color: 'var(--color-text-dim)' }}
+                >
+                  <th className="pb-1.5 font-mono font-normal">Coin</th>
+                  <th className="pb-1.5 font-mono font-normal">Side</th>
+                  <th className="pb-1.5 font-mono font-normal">Scenario</th>
+                  <th className="pb-1.5 font-mono font-normal">Classe</th>
+                  <th className="pb-1.5 font-mono font-normal">TF</th>
+                  <th className="pb-1.5 font-mono font-normal">Ricevuto</th>
                 </tr>
               </thead>
               <tbody>
                 {recentSetups.map((s, i) => {
-                  const sideColor = s.side === 'LONG' ? '#86efac' : s.side === 'SHORT' ? '#fca5a5' : '#94a3b8';
+                  const sideColor = s.side === 'LONG' ? 'var(--color-long-bright)' : s.side === 'SHORT' ? 'var(--color-short-bright)' : 'var(--color-text-dim)';
                   return (
-                    <tr key={i} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
-                      <td className="py-1 pr-3 font-mono text-white/80">{s.coin}</td>
+                    <tr
+                      key={i}
+                      style={{ borderBottom: '1px solid var(--color-text-faint)' }}
+                      className="transition-colors duration-200"
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td className="py-1 pr-3 font-mono" style={{ color: 'var(--color-text)' }}>{s.coin}</td>
                       <td className="py-1 pr-3 font-mono text-[10px]" style={{ color: sideColor }}>{s.side}</td>
-                      <td className="py-1 pr-3 font-mono text-white/55 max-w-[140px] truncate" title={s.scenario}>{s.scenario || '—'}</td>
-                      <td className="py-1 pr-3 font-mono text-white/45">{s.classe || '—'}</td>
-                      <td className="py-1 pr-3 font-mono text-cyan-400/60">{s.tf || '—'}</td>
-                      <td className="py-1 font-mono text-white/30">{fmtTs(s.ts_recv_ms || s.ts_ms)}</td>
+                      <td className="py-1 pr-3 font-mono max-w-[140px] truncate" style={{ color: 'var(--color-text-dim)' }} title={s.scenario}>{s.scenario || '—'}</td>
+                      <td className="py-1 pr-3 font-mono" style={{ color: 'var(--color-text-dim)' }}>{s.classe || '—'}</td>
+                      <td className="py-1 pr-3 font-mono" style={{ color: 'var(--color-cyan)' }}>{s.tf || '—'}</td>
+                      <td className="py-1 font-mono" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(s.ts_recv_ms || s.ts_ms)}</td>
                     </tr>
                   );
                 })}
@@ -1245,45 +1361,60 @@ export default function TifidePage() {
         </div>
       )}
 
-      {/* ── Signals + Trades ────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+      {/* Signals + Trades */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         {/* Signals */}
-        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="cassandra-card cassandra-card-corners p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Segnali recenti</span>
-            <span className="text-[10px] font-mono text-white/30">{signalsView.length}</span>
+            <span className="section-tag">Segnali recenti</span>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{signalsView.length}</span>
           </div>
           <div className="space-y-2 max-h-[520px] overflow-auto pr-1">
             {signalsView.length === 0 ? (
-              <div className="text-xs text-white/30 py-4 text-center">—</div>
+              <div className="font-mono text-[11px] py-4 text-center" style={{ color: 'var(--color-text-dim)' }}>—</div>
             ) : signalsView.map((s, idx) => {
               const displayTf = signalDisplayTf(s);
               const displayComponents = signalDisplayComponents(s);
-              const sideColor = s.side === 'LONG' ? '#86efac' : s.side === 'SHORT' ? '#fca5a5' : '#94a3b8';
+              const sideColor = s.side === 'LONG' ? 'var(--color-long-bright)' : s.side === 'SHORT' ? 'var(--color-short-bright)' : 'var(--color-text-dim)';
               return (
-                <div key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
-                  className="rounded-xl border border-white/[0.06] px-3 py-2.5 bg-white/[0.01]">
+                <div
+                  key={`${s.coin}-${s.scenario}-${s.timestamp_ms}-${idx}`}
+                  className="cassandra-card p-2"
+                >
                   <div className="flex items-center justify-between gap-2 mb-1">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-xs text-white/90">{s.coin}</span>
-                      <span className="text-[10px] px-1.5 py-0.5 rounded font-medium" style={{ color: sideColor, background: `${sideColor}18` }}>{s.side}</span>
+                      <span className="font-mono text-[12px]" style={{ color: 'var(--color-text)' }}>{s.coin}</span>
+                      <span
+                        className="font-mono text-[10px] px-1.5 py-0.5"
+                        style={{ color: sideColor, border: `1px solid ${sideColor}` }}
+                      >
+                        {s.side}
+                      </span>
                     </div>
-                    <span className="text-[10px] font-mono text-white/30">{fmtTs(s.timestamp_ms)}</span>
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(s.timestamp_ms)}</span>
                   </div>
-                  <div className="text-[11px] text-white/50 font-mono">
+                  <div className="font-mono text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                     {s.scenario} · {s.classe}
                     {displayTf ? ` · ${displayTf}` : ''}
                     {typeof s.trigger_price === 'number' ? ` · px ${s.trigger_price}` : ''}
                   </div>
                   {displayComponents.length > 0 && (
-                    <div className="text-[10px] text-white/35 font-mono mt-0.5">{displayComponents.join(' + ')}</div>
+                    <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
+                      {displayComponents.join(' + ')}
+                    </div>
                   )}
                   {s.third?.token && (
-                    <div className="mt-1.5 inline-flex items-center gap-1.5 rounded-lg border px-2 py-0.5 text-[10px] font-mono"
-                      style={{ background: 'rgba(6,182,212,0.08)', borderColor: 'rgba(6,182,212,0.25)', color: '#67e8f9' }}>
+                    <div
+                      className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[10px] px-2 py-0.5"
+                      style={{
+                        background: 'rgba(10,191,188,0.06)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-cyan)',
+                      }}
+                    >
                       THIRD: {s.third.token}
                       {typeof s.third.strength === 'number' && (
-                        <span className="opacity-60">({s.third.strength.toFixed(2)})</span>
+                        <span style={{ color: 'var(--color-text-dim)' }}>({s.third.strength.toFixed(2)})</span>
                       )}
                     </div>
                   )}
@@ -1294,20 +1425,20 @@ export default function TifidePage() {
         </div>
 
         {/* Trades */}
-        <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
+        <div className="cassandra-card cassandra-card-corners p-4">
           <div className="flex items-center justify-between mb-3">
-            <span className="text-xs font-medium text-white/50 uppercase tracking-wider">Trade recenti</span>
-            <span className="text-[10px] font-mono text-white/30">{tradesView.length}</span>
+            <span className="section-tag">Trade recenti</span>
+            <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{tradesView.length}</span>
           </div>
           <div className="space-y-2 max-h-[520px] overflow-auto pr-1">
             {tradesView.length === 0 ? (
-              <div className="text-xs text-white/30 py-4 text-center">—</div>
+              <div className="font-mono text-[11px] py-4 text-center" style={{ color: 'var(--color-text-dim)' }}>—</div>
             ) : tradesView.map((t, idx) => {
               const tradeTf = t?.tf_exec ?? t?.timeframe ?? t?.meta?.tf_exec ?? t?.meta?.timeframe ?? '—';
               return (
-                <div key={`trade-${idx}`} className="rounded-xl border border-white/[0.06] px-3 py-2 bg-white/[0.01]">
-                  <div className="text-[10px] text-white/40 font-mono mb-1">tf: {tradeTf}</div>
-                  <pre className="text-[10px] font-mono whitespace-pre-wrap text-white/55 leading-relaxed">
+                <div key={`trade-${idx}`} className="cassandra-card p-2">
+                  <div className="font-mono text-[10px] mb-1" style={{ color: 'var(--color-text-dim)' }}>tf: {tradeTf}</div>
+                  <pre className="font-mono text-[10px] whitespace-pre-wrap leading-relaxed" style={{ color: 'var(--color-text-dim)' }}>
                     {JSON.stringify(t, null, 2)}
                   </pre>
                 </div>
@@ -1317,29 +1448,47 @@ export default function TifidePage() {
         </div>
       </div>
 
-      {/* ── Trade Statistics ────────────────────────────────────────── */}
+      {/* Trade Statistics */}
       {(tradeStats.byScenario.length > 0 || tradeStats.byCoin.length > 0) && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
           {/* Per scenario */}
           {tradeStats.byScenario.length > 0 && (
-            <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
-              <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Stats per scenario</div>
-              <table className="w-full text-[11px]">
+            <div className="cassandra-card cassandra-card-corners p-4">
+              <div className="section-tag mb-3">Stats per scenario</div>
+              <table className="w-full font-mono text-[11px]">
                 <thead>
-                  <tr className="text-left text-white/30 border-b border-white/[0.05]">
-                    <th className="pb-1.5 font-medium">Scenario</th>
-                    <th className="pb-1.5 font-medium text-right">Trade</th>
-                    <th className="pb-1.5 font-medium text-right">WR%</th>
-                    <th className="pb-1.5 font-medium text-right">PF</th>
+                  <tr
+                    className="text-left"
+                    style={{ borderBottom: '1px solid var(--color-text-faint)', color: 'var(--color-text-dim)' }}
+                  >
+                    <th className="pb-1.5 section-tag">Scenario</th>
+                    <th className="pb-1.5 section-tag text-right">Trade</th>
+                    <th className="pb-1.5 section-tag text-right">WR%</th>
+                    <th className="pb-1.5 section-tag text-right">PF</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tradeStats.byScenario.map(([k, v]) => (
-                    <tr key={k} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
-                      <td className="py-1 pr-2 font-mono text-white/55 text-[10px] max-w-[140px] truncate" title={k}>{k}</td>
-                      <td className="py-1 text-right font-mono text-white/70">{v.count}</td>
-                      <td className="py-1 text-right font-mono" style={{ color: v.wr >= 50 ? '#86efac' : '#fca5a5' }}>{v.wr}%</td>
-                      <td className="py-1 text-right font-mono text-cyan-300/70">{v.pf != null ? v.pf.toFixed(2) : '—'}</td>
+                    <tr
+                      key={k}
+                      style={{ borderBottom: '1px solid var(--color-text-faint)' }}
+                      className="transition-colors duration-200"
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td
+                        className="py-1 pr-2 font-mono text-[10px] max-w-[140px] truncate"
+                        style={{ color: 'var(--color-text-dim)' }}
+                        title={k}
+                      >{k}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: 'var(--color-text)' }}>{v.count}</td>
+                      <td
+                        className="py-1 text-right font-mono"
+                        style={{ color: v.wr >= 50 ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}
+                      >{v.wr}%</td>
+                      <td className="py-1 text-right font-mono" style={{ color: 'var(--color-cyan)' }}>
+                        {v.pf != null ? v.pf.toFixed(2) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1349,24 +1498,38 @@ export default function TifidePage() {
 
           {/* Per coin */}
           {tradeStats.byCoin.length > 0 && (
-            <div className="rounded-2xl border border-white/[0.07] p-4" style={{ backdropFilter: 'blur(16px)', WebkitBackdropFilter: 'blur(16px)', background: 'rgba(255,255,255,0.02)' }}>
-              <div className="text-xs font-medium text-white/50 uppercase tracking-wider mb-3">Stats per coin</div>
-              <table className="w-full text-[11px]">
+            <div className="cassandra-card cassandra-card-corners p-4">
+              <div className="section-tag mb-3">Stats per coin</div>
+              <table className="w-full font-mono text-[11px]">
                 <thead>
-                  <tr className="text-left text-white/30 border-b border-white/[0.05]">
-                    <th className="pb-1.5 font-medium">Coin</th>
-                    <th className="pb-1.5 font-medium text-right">Trade</th>
-                    <th className="pb-1.5 font-medium text-right">WR%</th>
-                    <th className="pb-1.5 font-medium text-right">PF</th>
+                  <tr
+                    className="text-left"
+                    style={{ borderBottom: '1px solid var(--color-text-faint)', color: 'var(--color-text-dim)' }}
+                  >
+                    <th className="pb-1.5 section-tag">Coin</th>
+                    <th className="pb-1.5 section-tag text-right">Trade</th>
+                    <th className="pb-1.5 section-tag text-right">WR%</th>
+                    <th className="pb-1.5 section-tag text-right">PF</th>
                   </tr>
                 </thead>
                 <tbody>
                   {tradeStats.byCoin.map(([k, v]) => (
-                    <tr key={k} className="border-b border-white/[0.03] hover:bg-white/[0.01]">
-                      <td className="py-1 pr-2 font-mono text-white/70">{k}</td>
-                      <td className="py-1 text-right font-mono text-white/70">{v.count}</td>
-                      <td className="py-1 text-right font-mono" style={{ color: v.wr >= 50 ? '#86efac' : '#fca5a5' }}>{v.wr}%</td>
-                      <td className="py-1 text-right font-mono text-cyan-300/70">{v.pf != null ? v.pf.toFixed(2) : '—'}</td>
+                    <tr
+                      key={k}
+                      style={{ borderBottom: '1px solid var(--color-text-faint)' }}
+                      className="transition-colors duration-200"
+                      onMouseEnter={e => (e.currentTarget.style.background = 'rgba(201,168,76,0.02)')}
+                      onMouseLeave={e => (e.currentTarget.style.background = 'transparent')}
+                    >
+                      <td className="py-1 pr-2 font-mono" style={{ color: 'var(--color-text)' }}>{k}</td>
+                      <td className="py-1 text-right font-mono" style={{ color: 'var(--color-text)' }}>{v.count}</td>
+                      <td
+                        className="py-1 text-right font-mono"
+                        style={{ color: v.wr >= 50 ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}
+                      >{v.wr}%</td>
+                      <td className="py-1 text-right font-mono" style={{ color: 'var(--color-cyan)' }}>
+                        {v.pf != null ? v.pf.toFixed(2) : '—'}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
@@ -1376,12 +1539,22 @@ export default function TifidePage() {
         </div>
       )}
 
-      {/* ── Debug ───────────────────────────────────────────────────── */}
-      <details className="rounded-2xl border border-white/[0.06] p-4" style={{ background: 'rgba(0,0,0,0.3)' }}>
-        <summary className="cursor-pointer text-[11px] text-white/25 hover:text-white/50 transition-colors select-none">
+      {/* Debug */}
+      <details
+        className="cassandra-card p-4 cursor-pointer"
+      >
+        <summary
+          className="font-mono text-[11px] transition-colors duration-200 select-none"
+          style={{ color: 'var(--color-text-dim)' }}
+          onMouseEnter={e => ((e.target as HTMLElement).style.color = 'var(--color-text)')}
+          onMouseLeave={e => ((e.target as HTMLElement).style.color = 'var(--color-text-dim)')}
+        >
           Raw status (debug)
         </summary>
-        <pre className="mt-3 text-[10px] font-mono whitespace-pre-wrap text-white/40 leading-relaxed">
+        <pre
+          className="mt-3 font-mono text-[10px] whitespace-pre-wrap leading-relaxed"
+          style={{ color: 'var(--color-text-dim)' }}
+        >
           {JSON.stringify(status, null, 2)}
         </pre>
       </details>

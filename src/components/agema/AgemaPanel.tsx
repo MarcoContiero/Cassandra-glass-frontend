@@ -2,9 +2,6 @@
 
 import * as React from 'react';
 import { useMemo, useState } from 'react';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Badge } from '@/components/ui/badge';
 
 type CiclicaWindow = {
   direction?: 'LONG' | 'SHORT' | string;
@@ -30,18 +27,18 @@ type StrategiaAIItem = {
   dist_bps?: number | null;
   explanation?: string;
   tags?: string[];
-  ciclica_window?: CiclicaWindow; // 👈 nuovo: arriva già dentro strategia_ai
+  ciclica_window?: CiclicaWindow;
 };
 
 type AgemaRow = {
   coin: string;                 // "LINKUSDT"
   price?: number | null;
-  score?: number | null;        // punteggio “classifica”
+  score?: number | null;        // punteggio "classifica"
   direction?: 'LONG' | 'SHORT' | string;
-  ciclica_label?: string | null;      // facoltativo (se lo metti nel BE)
-  reentry_label?: string | null;      // facoltativo
-  eta_reentry_hours?: number | null;  // facoltativo (se lo metti nel BE)
-  best?: StrategiaAIItem[];           // top 3 entrate (o più)
+  ciclica_label?: string | null;
+  reentry_label?: string | null;
+  eta_reentry_hours?: number | null;
+  best?: StrategiaAIItem[];
 };
 
 type AgemaResponse = {
@@ -78,7 +75,7 @@ export default function AgemaPanel() {
 
   // filtri
   const [minScore, setMinScore] = useState<number>(60);
-  const [maxHours, setMaxHours] = useState<number>(48); // “valide entro tot ore”
+  const [maxHours, setMaxHours] = useState<number>(48);
   const [dir, setDir] = useState<'ALL' | 'LONG' | 'SHORT'>('ALL');
 
   async function fetchAgema() {
@@ -108,8 +105,6 @@ export default function AgemaPanel() {
   const rows = useMemo(() => {
     const base = data?.rows ?? [];
 
-    // filtro temporale “vero” anche se il BE non lo fa ancora:
-    // usa ciclica_window.countdown_bars + tf_ciclo dentro ogni strategia_ai.
     const filtered = base.filter((row) => {
       const sc = Number(row.score ?? -1);
       if (Number.isFinite(minScore) && sc < minScore) return false;
@@ -119,7 +114,6 @@ export default function AgemaPanel() {
         if (!hasDir) return false;
       }
 
-      // maxHours: filtra solo se esistono ETA valide; se ciclica_window manca → passa
       if (Number.isFinite(maxHours) && maxHours > 0) {
         const etas = (row.best ?? [])
           .map((s) => {
@@ -134,7 +128,6 @@ export default function AgemaPanel() {
       return true;
     });
 
-    // ordinamento: score desc, poi distanza entry (se presente) asc
     return filtered.sort((a, b) => {
       const sa = Number(a.score ?? -1);
       const sb = Number(b.score ?? -1);
@@ -146,143 +139,202 @@ export default function AgemaPanel() {
     });
   }, [data, minScore, maxHours, dir]);
 
-  const glassInput = "rounded-lg border border-white/[0.10] bg-white/[0.04] text-xs px-2 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30";
-
   return (
-    <div
-      className="rounded-2xl border border-white/[0.08] text-white"
-      style={{
-        backdropFilter: 'blur(20px)',
-        WebkitBackdropFilter: 'blur(20px)',
-        background: 'rgba(255,255,255,0.03)',
-      }}
-    >
-      {/* Header */}
-      <div className="px-6 pt-5 pb-4 border-b border-white/[0.06]">
-        <div className="flex items-center gap-3 mb-1">
-          <span className="text-cyan-400/60">❋</span>
-          <span className="font-semibold text-white/90">Agema — Classifica operativa</span>
+    <div className="cassandra-card cassandra-card-corners" style={{ padding: '24px 24px 20px' }}>
+      <span className="cassandra-panel-header">AGEMA</span>
+
+      {/* Filter toolbar */}
+      <div
+        className="flex flex-wrap items-center gap-3 mb-5"
+        style={{ borderBottom: '1px solid var(--color-border-dim)', paddingBottom: '16px' }}
+      >
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-dim)]">
+            Min score
+          </span>
+          <input
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[11px] tracking-[0.1em] rounded-none focus:border-[var(--color-gold-dim)] focus:outline-none px-3 py-1.5 w-20"
+            type="number"
+            value={minScore}
+            onChange={(e) => setMinScore(Number(e.target.value))}
+          />
         </div>
-        <p className="text-xs text-white/35 mb-4">
-          Coin con setup utili (ciclica + strategia AI) entro una finestra temporale.
-        </p>
 
-        <div className="flex flex-wrap items-center gap-2 text-xs">
-          <div className="flex items-center gap-1.5">
-            <span className="text-white/40">Min score</span>
-            <input className={`${glassInput} w-20`} type="number" value={minScore} onChange={(e) => setMinScore(Number(e.target.value))} />
-          </div>
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-dim)]">
+            Entro (ore)
+          </span>
+          <input
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[11px] tracking-[0.1em] rounded-none focus:border-[var(--color-gold-dim)] focus:outline-none px-3 py-1.5 w-20"
+            type="number"
+            value={maxHours}
+            onChange={(e) => setMaxHours(Number(e.target.value))}
+          />
+        </div>
 
-          <div className="flex items-center gap-1.5">
-            <span className="text-white/40">Entro (ore)</span>
-            <input className={`${glassInput} w-20`} type="number" value={maxHours} onChange={(e) => setMaxHours(Number(e.target.value))} />
-          </div>
-
-          <div className="flex items-center gap-1.5">
-            <span className="text-white/40">Dir.</span>
-            <select
-              className="rounded-lg border border-white/[0.10] bg-[#0a0e1a] text-xs px-2 py-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
-              value={dir}
-              onChange={(e) => setDir(e.target.value as any)}
-            >
-              <option value="ALL">Tutte</option>
-              <option value="LONG">LONG</option>
-              <option value="SHORT">SHORT</option>
-            </select>
-          </div>
-
-          <button
-            onClick={fetchAgema}
-            disabled={loading}
-            className="flex items-center gap-1.5 rounded-lg px-4 py-1.5 text-xs font-medium transition-all duration-200 disabled:opacity-40"
-            style={{
-              background: 'linear-gradient(135deg, rgba(6,182,212,0.20) 0%, rgba(99,102,241,0.14) 100%)',
-              border: '1px solid rgba(6,182,212,0.35)',
-              color: '#67e8f9',
-            }}
+        <div className="flex items-center gap-2">
+          <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-dim)]">
+            Dir.
+          </span>
+          <select
+            className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.2em] uppercase rounded-none focus:border-[var(--color-gold-dim)] focus:outline-none px-3 py-1.5"
+            value={dir}
+            onChange={(e) => setDir(e.target.value as any)}
           >
-            {loading ? '⟳ Carico…' : '▶ Aggiorna'}
-          </button>
-
-          {data?.updated_at && (
-            <span className="ml-auto text-white/30 font-mono">{data.updated_at}</span>
-          )}
-          {error && <div className="text-red-400 text-xs">{error}</div>}
+            <option value="ALL">TUTTE</option>
+            <option value="LONG">LONG</option>
+            <option value="SHORT">SHORT</option>
+          </select>
         </div>
+
+        <button
+          onClick={fetchAgema}
+          disabled={loading}
+          className="bg-[var(--color-cyan)] text-[var(--color-void)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none px-4 py-1.5 transition-colors duration-200 hover:opacity-80 disabled:opacity-40"
+        >
+          {loading ? 'CARICO...' : 'AGGIORNA'}
+        </button>
+
+        {data?.updated_at && (
+          <span className="ml-auto font-mono text-[10px] text-[var(--color-text-dim)]">
+            {data.updated_at}
+          </span>
+        )}
+
+        {error && (
+          <div
+            className="font-mono text-[10px] text-[var(--color-short-bright)] px-3 py-1.5"
+            style={{ border: '1px solid rgba(168,61,61,0.3)' }}
+          >
+            {error}
+          </div>
+        )}
       </div>
 
       {/* Content */}
-      <div className="px-6 py-4 text-xs">
+      <div>
         {!data && !error && (
-          <div className="text-white/35 py-6 text-center">Premi Aggiorna per caricare la classifica.</div>
+          <div className="font-mono text-[11px] text-[var(--color-text-dim)] text-center py-12 tracking-[0.2em]">
+            PREMI AGGIORNA PER CARICARE LA CLASSIFICA
+          </div>
         )}
 
         {rows.length > 0 && (
-          <div className="flex flex-col gap-2.5">
+          <div className="flex flex-col">
             {rows.map((row) => {
               const best = (row.best ?? []).slice(0, 3);
-              const dirColor = row.direction === 'LONG' ? '#86efac' : row.direction === 'SHORT' ? '#fca5a5' : '#94a3b8';
               return (
                 <div
                   key={row.coin}
-                  className="rounded-xl border border-white/[0.07] bg-white/[0.02] px-4 py-3"
+                  className="px-0 py-3 transition-colors duration-200 hover:bg-[rgba(201,168,76,0.02)]"
+                  style={{ borderBottom: '1px solid var(--color-text-faint)' }}
                 >
-                  <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="font-semibold text-sm text-white/90 font-mono">{row.coin}</span>
+                  {/* Row header */}
+                  <div className="flex flex-wrap items-center gap-3 mb-3">
+                    <span
+                      className="text-[14px]"
+                      style={{ fontFamily: 'var(--font-cinzel, Cinzel, serif)', color: 'var(--color-gold)' }}
+                    >
+                      {row.coin}
+                    </span>
 
-                    {row.direction && (
-                      <span
-                        className="text-[10px] px-2 py-0.5 rounded-full border font-medium"
-                        style={{ color: dirColor, borderColor: `${dirColor}55`, background: `${dirColor}12` }}
-                      >
-                        {row.direction}
-                      </span>
+                    {row.direction === 'LONG' && <span className="bias-long">{row.direction}</span>}
+                    {row.direction === 'SHORT' && <span className="bias-short">{row.direction}</span>}
+                    {row.direction && row.direction !== 'LONG' && row.direction !== 'SHORT' && (
+                      <span className="bias-neutral">{row.direction}</span>
                     )}
 
-                    <span className="text-[10px] px-2 py-0.5 rounded-full border border-cyan-400/25 text-cyan-300/70 bg-cyan-400/[0.07]">
+                    <span className="font-mono text-[11px] text-[var(--color-gold)]">
                       score {fmt(row.score, 0)}
                     </span>
 
-                    <span className="text-[10px] text-white/35 font-mono">
+                    <span className="font-mono text-[12px] text-[var(--color-text)]">
                       {fmt(row.price, 6)}
                     </span>
 
                     {row.reentry_label && (
-                      <span className="text-[10px] text-white/40 border border-white/[0.08] px-2 py-0.5 rounded-full">
+                      <span
+                        className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
+                        style={{ border: '1px solid var(--color-border)' }}
+                      >
                         {row.reentry_label}
                       </span>
                     )}
                     {Number.isFinite(row.eta_reentry_hours as number) && (
-                      <span className="text-[10px] text-white/40 border border-white/[0.08] px-2 py-0.5 rounded-full">
+                      <span
+                        className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
+                        style={{ border: '1px solid var(--color-border)' }}
+                      >
                         ETA {fmt(row.eta_reentry_hours, 0)}h
                       </span>
                     )}
                   </div>
 
+                  {/* Strategy sub-cards */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                     {best.map((s, i) => {
                       const cw = s.ciclica_window;
                       const etaH = cw ? barsToHours(cw.countdown_bars, cw.tf_ciclo) : null;
-                      const sDir = s.direction === 'LONG' ? '#86efac' : s.direction === 'SHORT' ? '#fca5a5' : '#94a3b8';
                       return (
-                        <div key={i} className="rounded-lg border border-white/[0.06] bg-black/20 px-3 py-2 space-y-1">
-                          <div className="flex items-center gap-1.5 flex-wrap">
-                            <span className="text-[10px] px-1.5 py-0.5 rounded border border-white/[0.10] text-white/50">
+                        <div
+                          key={i}
+                          className="px-3 py-2"
+                          style={{
+                            background: 'var(--color-surface)',
+                            border: '1px solid var(--color-border-dim)',
+                          }}
+                        >
+                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                            <span
+                              className="font-mono text-[10px] tracking-[0.1em] text-[var(--color-text-dim)] px-1.5 py-0.5"
+                              style={{ border: '1px solid var(--color-border)' }}
+                            >
                               {s.tf}
                             </span>
-                            <span className="text-[10px]" style={{ color: sDir }}>{s.direction}</span>
-                            <span className="text-[10px] text-cyan-300/60">sc {fmt(s.score, 0)}</span>
+
+                            {s.direction === 'LONG' && <span className="bias-long">{s.direction}</span>}
+                            {s.direction === 'SHORT' && <span className="bias-short">{s.direction}</span>}
+                            {s.direction && s.direction !== 'LONG' && s.direction !== 'SHORT' && (
+                              <span className="bias-neutral">{s.direction}</span>
+                            )}
+
+                            <span className="font-mono text-[11px] text-[var(--color-gold)]">
+                              sc {fmt(s.score, 0)}
+                            </span>
+
                             {etaH !== null && (
-                              <span className="text-[10px] text-white/35">≤{fmt(etaH, 0)}h</span>
+                              <span className="font-mono text-[11px] text-[var(--color-text-dim)]">
+                                &le;{fmt(etaH, 0)}h
+                              </span>
                             )}
                           </div>
-                          <div className="font-mono tabular-nums text-[10px] text-white/70">
+
+                          <div className="font-mono text-[11px] text-[var(--color-text)] tabular-nums mb-1">
                             entry {fmt(s.entry, 6)}
-                            {Number.isFinite(s.tp1_price as number) && <> · tp1 {fmt(s.tp1_price, 6)}</>}
-                            {Number.isFinite(s.tp2_price as number) && <> · tp2 {fmt(s.tp2_price, 6)}</>}
                           </div>
-                          {cw?.label && <div className="text-[10px] text-white/40">{cw.label}</div>}
-                          {s.explanation && <div className="text-[10px] text-white/35 line-clamp-2">{s.explanation}</div>}
+
+                          <div className="font-mono text-[11px] text-[var(--color-text-dim)] tabular-nums">
+                            {Number.isFinite(s.tp1_price as number) && (
+                              <span>tp1 {fmt(s.tp1_price, 6)}</span>
+                            )}
+                            {Number.isFinite(s.tp1_price as number) && Number.isFinite(s.tp2_price as number) && (
+                              <span> &middot; </span>
+                            )}
+                            {Number.isFinite(s.tp2_price as number) && (
+                              <span>tp2 {fmt(s.tp2_price, 6)}</span>
+                            )}
+                          </div>
+
+                          {cw?.label && (
+                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1">
+                              {cw.label}
+                            </div>
+                          )}
+                          {s.explanation && (
+                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1 line-clamp-2">
+                              {s.explanation}
+                            </div>
+                          )}
                         </div>
                       );
                     })}
@@ -294,7 +346,9 @@ export default function AgemaPanel() {
         )}
 
         {data && rows.length === 0 && !error && (
-          <div className="text-white/35 py-6 text-center">Nessun risultato con i filtri attuali.</div>
+          <div className="font-mono text-[11px] text-[var(--color-text-dim)] text-center py-12 tracking-[0.2em]">
+            NESSUN RISULTATO CON I FILTRI ATTUALI
+          </div>
         )}
       </div>
     </div>

@@ -17,11 +17,12 @@ const DialogOverlay = React.forwardRef<
   <DialogPrimitive.Overlay
     ref={ref}
     className={cn(
-      "fixed inset-0 z-50 bg-black/75 backdrop-blur-[1px]",
+      "fixed inset-0 z-50 backdrop-blur-[2px]",
       "data-[state=open]:animate-in data-[state=closed]:animate-out",
       "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
       className
     )}
+    style={{ background: 'rgba(2,2,14,0.85)' }}
     {...props}
   />
 ));
@@ -36,17 +37,20 @@ const DialogContent = React.forwardRef<
     <DialogPrimitive.Content
       ref={ref}
       className={cn(
-        // CARD CENTRATA (non full-screen!) — lascia spazio “fuori” per il click-outside
         "fixed left-1/2 top-1/2 z-60 -translate-x-1/2 -translate-y-1/2",
-        // dimensioni di default: ampie ma contenute
         "w-[96vw] md:w-[92vw] max-w-[1400px]",
-        // estetica base (puoi sovrascriverla dall’esterno)
-        "rounded-2xl bg-zinc-900 p-0 text-white shadow-lg outline-none focus:outline-none",
-        // animazioni
+        "p-0 outline-none focus:outline-none",
         "data-[state=open]:animate-in data-[state=closed]:animate-out",
         "data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0",
         className
       )}
+      style={{
+        background: 'var(--color-overlay)',
+        border: '1px solid var(--color-border)',
+        borderRadius: 0,
+        color: 'var(--color-text)',
+        boxShadow: '0 8px 48px rgba(0,0,0,0.7)',
+      }}
       {...props}
     />
   </DialogPortal>

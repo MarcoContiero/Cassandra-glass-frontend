@@ -67,13 +67,13 @@ function quickExtractEntries(result: any): any[] {
     ['strategia_ai', 'entries'],
     ['strategia_ai', 'candidati'],
     ['strategia_ai', 'segnali'],
-    // 👉 nuovi percorsi diretti per setup di tipo levels / liquidity
+    // nuovi percorsi diretti per setup di tipo levels / liquidity
     ['strategia_ai', 'levels'],
     ['strategia_ai', 'liquidity'],
 
     ['risposte', 'strategia_ai', 'entries'],
     ['risposte', 'strategia_ai', 'candidati'],
-    // 👉 anche nel ramo "risposte"
+    // anche nel ramo "risposte"
     ['risposte', 'strategia_ai', 'levels'],
     ['risposte', 'strategia_ai', 'liquidity'],
 
@@ -228,7 +228,7 @@ function flattenEntries(results: any): any[] {
     if (Array.isArray(v)) out.push(...v);
     else if (v && Array.isArray(v.items)) out.push(...v.items);
     else if (v && Array.isArray(v.list)) out.push(...v.list);
-    // 👉 nuovi: supporto esplicito per livelli e liquidità
+    // nuovi: supporto esplicito per livelli e liquidita
     else if (v && Array.isArray(v.levels)) out.push(...v.levels);
     else if (v && Array.isArray(v.liquidity)) out.push(...v.liquidity);
   });
@@ -275,7 +275,7 @@ export default function ArgonautaPanel() {
     const tags = raw.tags ?? raw.labels ?? raw.flags;
     if (Array.isArray(tags) && tags.map(String).some(t => t.toUpperCase() === 'AI')) return true;
 
-    // stringa “AI” dentro ad un badge
+    // stringa "AI" dentro ad un badge
     const badge = String(raw.badge_text ?? raw.badgeLabel ?? '').toUpperCase();
     if (badge.includes('AI')) return true;
 
@@ -291,7 +291,6 @@ export default function ArgonautaPanel() {
   const fmtTime = (t: number | null) => (!t ? '—' : new Date(t).toLocaleTimeString());
 
   /* ------------------------------ SCAN LOGIC ------------------------------ */
-  //const [tfsSelected, setTfsSelected] = useState<string[]>(['1m', '3m', '5m', '15m', '30m', '1h', '2h', '3h', '4h', '6h', '8h', '12h', '1d', '2d', '3d', '1w', '1M']);
 
   const [alertPct, setAlertPct] = useState<number>(0.20); // es. 0.20% default
   const TF_OPTIONS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d", "1w", "1M"] as const;
@@ -305,7 +304,7 @@ export default function ArgonautaPanel() {
       if (last && Date.now() - last < cooldownMin * 60 * 1000) return;
 
       try {
-        // 👉 usa i TF selezionati dall’UI
+        // usa i TF selezionati dall'UI
         const light = await fetchLightAnalysis(sym, tfsSelected);
 
         // suggerimenti Cassandra-style (4 card: 2 bias, 1 opposta, 1 forte)
@@ -340,7 +339,6 @@ export default function ArgonautaPanel() {
         console.error('[Argonauta] fetch error', sym, e);
       }
     },
-    // 👇 aggiungi tfsSelected alle dipendenze
     [bySymbol, cooldownMin, tfsSelected],
   );
 
@@ -422,16 +420,46 @@ export default function ArgonautaPanel() {
   /* --------------------------------- UI ---------------------------------- */
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" style={{ fontFamily: 'var(--font-mono)' }}>
+
       {/* Header */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-white/90">
-          🧭 Argonauta — Entrate vicine valide
+        <h2
+          style={{
+            fontFamily: 'var(--font-display)',
+            color: 'var(--color-gold)',
+            fontSize: '15px',
+            letterSpacing: '0.2em',
+            textTransform: 'uppercase',
+          }}
+        >
+          Argonauta — Entrate vicine valide
         </h2>
         <ArgonautaLegendButton>
-          <span className="text-xs text-white/80">
-            <span className="inline-flex items-center gap-1">
-              <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
+          <span
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '10px',
+              color: 'var(--color-text-dim)',
+              letterSpacing: '0.15em',
+            }}
+          >
+            <span className="inline-flex items-center gap-2">
+              <span
+                style={{
+                  display: 'inline-flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  border: '1px solid var(--color-long-bright)',
+                  background: 'var(--color-long-faint)',
+                  padding: '1px 6px',
+                  fontSize: '9px',
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  color: 'var(--color-long-bright)',
+                }}
+              >
                 AI
               </span>
               <span>= confermato da Cassandra</span>
@@ -439,93 +467,201 @@ export default function ArgonautaPanel() {
           </span>
         </ArgonautaLegendButton>
       </div>
+
       {/* Controls */}
       <div className="grid grid-cols-1 sm:grid-cols-5 gap-4">
+
         {/* Frequenza */}
         <div>
-          <label className="mb-1 block text-xs text-white/60">Frequenza (min)</label>
-          <div className="relative">
-            <input
-              type="number"
-              min={1}
-              value={freqMin}
-              onChange={(e) =>
-                setFreqMin(Number((e.target as HTMLInputElement).value || 1))
-              }
-              disabled={started}
-              className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40 pr-10"
-            />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white/40">
-              ⏱
-            </span>
-          </div>
+          <label
+            className="mb-1 block"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            Frequenza (min)
+          </label>
+          <input
+            type="number"
+            min={1}
+            value={freqMin}
+            onChange={(e) =>
+              setFreqMin(Number((e.target as HTMLInputElement).value || 1))
+            }
+            disabled={started}
+            style={{
+              width: '100%',
+              background: 'var(--color-deep)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text)',
+              outline: 'none',
+            }}
+          />
         </div>
 
         {/* Cooldown */}
         <div>
-          <label className="mb-1 block text-xs text-white/60">Cooldown per simbolo (min)</label>
-          <div className="relative">
-            <input
-              type="number"
-              min={0}
-              value={cooldownMin}
-              onChange={(e) =>
-                setCooldownMin(Number((e.target as HTMLInputElement).value || 0))
-              }
-              disabled={started}
-              className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40"
-            />
-            <span className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-white/40">
-              🧊
-            </span>
-          </div>
+          <label
+            className="mb-1 block"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            Cooldown simbolo (min)
+          </label>
+          <input
+            type="number"
+            min={0}
+            value={cooldownMin}
+            onChange={(e) =>
+              setCooldownMin(Number((e.target as HTMLInputElement).value || 0))
+            }
+            disabled={started}
+            style={{
+              width: '100%',
+              background: 'var(--color-deep)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text)',
+              outline: 'none',
+            }}
+          />
         </div>
 
         {/* Watchlist */}
         <div>
-          <label className="mb-1 block text-xs text-white/60">Watchlist (comma)</label>
+          <label
+            className="mb-1 block"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            Watchlist (comma)
+          </label>
           <input
             type="text"
             value={watchlistRaw}
             onChange={(e) => setWatchlistRaw((e.target as HTMLInputElement).value)}
             disabled={started}
-            className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40"
+            style={{
+              width: '100%',
+              background: 'var(--color-deep)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text)',
+              outline: 'none',
+            }}
           />
         </div>
 
         {/* Soglia alert */}
         <div>
-          <label className="mb-1 block text-xs text-white/60">Soglia prezzo alert %</label>
+          <label
+            className="mb-1 block"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            Soglia alert %
+          </label>
           <input
             type="number"
             min={0}
             step={0.01}
             value={alertPct}
             onChange={(e) => setAlertPct(Number(e.target.value))}
-            className="w-full rounded-md border border-white/20 bg-transparent px-3 py-2 text-sm text-white placeholder:text-white/40"
             placeholder="0.20"
+            style={{
+              width: '100%',
+              background: 'var(--color-deep)',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: '12px',
+              fontFamily: 'var(--font-mono)',
+              color: 'var(--color-text)',
+              outline: 'none',
+            }}
           />
         </div>
 
         {/* Solo AI */}
         <div>
-          <label className="mb-1 block text-xs text-white/60">Filtro</label>
+          <label
+            className="mb-1 block"
+            style={{
+              fontFamily: 'var(--font-mono)',
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+            }}
+          >
+            Filtro
+          </label>
           <button
             onClick={() => setOnlyAI(v => !v)}
-            className={`w-full rounded-md border px-3 py-2 text-sm transition ${onlyAI
-                ? "bg-emerald-400/10 border-emerald-400/40 text-emerald-200"
-                : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
-              }`}
             aria-pressed={onlyAI}
+            style={{
+              width: '100%',
+              background: onlyAI ? 'var(--color-long-faint)' : 'transparent',
+              border: onlyAI ? '1px solid var(--color-long-bright)' : '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 10px',
+              fontSize: '10px',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.2em',
+              textTransform: 'uppercase',
+              color: onlyAI ? 'var(--color-long-bright)' : 'var(--color-text-dim)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
           >
-            {onlyAI ? "✅ Solo risultati AI" : "Tutti i risultati"}
+            {onlyAI ? 'Solo AI' : 'Tutti'}
           </button>
         </div>
       </div>
 
       {/* Timeframe selector */}
-      <div className="mt-1">
-        <div className="text-sm text-white/60 mb-1">Timeframe</div>
+      <div>
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '9px',
+            letterSpacing: '0.3em',
+            textTransform: 'uppercase',
+            color: 'var(--color-text-dim)',
+            marginBottom: '8px',
+          }}
+        >
+          Timeframe
+        </div>
         <div className="flex flex-wrap gap-2">
           {TF_OPTIONS.map((tf) => {
             const active = tfsSelected.includes(tf);
@@ -533,11 +669,20 @@ export default function ArgonautaPanel() {
               <button
                 key={tf}
                 onClick={() => toggleTf(tf)}
-                className={`px-3 py-1.5 rounded-md border text-sm transition ${active
-                  ? "bg-white/15 border-white/30 text-white"
-                  : "bg-white/5 border-white/10 text-white/80 hover:bg-white/10"
-                  }`}
                 aria-pressed={active}
+                style={{
+                  background: active ? 'var(--color-gold-faint)' : 'transparent',
+                  border: active ? '1px solid var(--color-gold-dim)' : '1px solid var(--color-border-dim)',
+                  borderRadius: 0,
+                  padding: '4px 10px',
+                  fontSize: '10px',
+                  fontFamily: 'var(--font-mono)',
+                  letterSpacing: '0.2em',
+                  textTransform: 'uppercase',
+                  color: active ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                  cursor: 'pointer',
+                  transition: 'all 0.15s',
+                }}
               >
                 {tf.toUpperCase()}
               </button>
@@ -547,42 +692,108 @@ export default function ArgonautaPanel() {
       </div>
 
       {/* Start / Stop + info */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center gap-4">
         {!started ? (
-          <Button variant="default" onClick={handleStart}>
+          <button
+            onClick={handleStart}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 20px',
+              fontSize: '10px',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.25em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-gold)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-gold-dim)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-dim)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border)';
+            }}
+          >
             Start
-          </Button>
+          </button>
         ) : (
-          <Button variant="secondary" onClick={handleStop}>
+          <button
+            onClick={handleStop}
+            style={{
+              background: 'transparent',
+              border: '1px solid var(--color-border)',
+              borderRadius: 0,
+              padding: '6px 20px',
+              fontSize: '10px',
+              fontFamily: 'var(--font-mono)',
+              letterSpacing: '0.25em',
+              textTransform: 'uppercase',
+              color: 'var(--color-text-dim)',
+              cursor: 'pointer',
+              transition: 'all 0.15s',
+            }}
+            onMouseEnter={e => {
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-gold)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-gold-dim)';
+            }}
+            onMouseLeave={e => {
+              (e.currentTarget as HTMLButtonElement).style.color = 'var(--color-text-dim)';
+              (e.currentTarget as HTMLButtonElement).style.borderColor = 'var(--color-border)';
+            }}
+          >
             Stop
-          </Button>
+          </button>
         )}
-        <div className="text-sm text-white/60">
-          Ultima scansione:{" "}
-          <span className="text-white/80">{fmtTime(stats.lastScanAt)}</span>
-          <span className="mx-2">•</span>
-          Stato:{" "}
-          <span className={started ? "text-emerald-300" : "text-white/60"}>
-            {started ? "attivo" : "fermo"}
+        <div
+          style={{
+            fontFamily: 'var(--font-mono)',
+            fontSize: '10px',
+            color: 'var(--color-text-dim)',
+            letterSpacing: '0.1em',
+          }}
+        >
+          Ultima scansione:{' '}
+          <span style={{ color: 'var(--color-text)' }}>{fmtTime(stats.lastScanAt)}</span>
+          <span style={{ margin: '0 8px', color: 'var(--color-border-focus)' }}>|</span>
+          Stato:{' '}
+          <span style={{ color: started ? 'var(--color-long-bright)' : 'var(--color-text-dim)' }}>
+            {started ? 'ATTIVO' : 'FERMO'}
           </span>
         </div>
       </div>
 
       {/* Riepilogo distanze */}
       {summaryRows.length ? (
-        <div className="rounded-xl border border-white/10 bg-white/5 p-4">
-          <div className="text-sm font-semibold mb-2">
-            Riepilogo — distanza dall’entry più vicina
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead className="text-white/60">
-                <tr className="text-left">
-                  <th className="py-1 pr-4">COIN</th>
-                  <th className="py-1 pr-4">DIREZIONE</th>
-                  <th className="py-1 pr-4">% MANCANTE</th>
-                  <th className="py-1 pr-4">PREZZO ATTUALE</th>
-                  <th className="py-1">PREZZO ENTRY</th>
+        <div
+          className="cassandra-card cassandra-card-corners relative"
+          style={{ padding: '20px' }}
+        >
+          <span className="cassandra-panel-header">Distanza entry piu vicina</span>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+              <thead>
+                <tr>
+                  {['Coin', 'Dir', '% Mancante', 'Prezzo Attuale', 'Entry'].map((h) => (
+                    <th
+                      key={h}
+                      style={{
+                        padding: '4px 16px 4px 0',
+                        fontFamily: 'var(--font-mono)',
+                        fontSize: '9px',
+                        letterSpacing: '0.3em',
+                        textTransform: 'uppercase',
+                        color: 'var(--color-text-dim)',
+                        textAlign: 'left',
+                        borderBottom: '1px solid var(--color-border-dim)',
+                      }}
+                    >
+                      {h}
+                    </th>
+                  ))}
                 </tr>
               </thead>
               <tbody>
@@ -590,12 +801,58 @@ export default function ArgonautaPanel() {
                   .slice()
                   .sort((a, b) => Number(a.pct) - Number(b.pct))
                   .map((r) => (
-                    <tr key={r.symbol} className="border-t border-white/10">
-                      <td className="py-1 pr-4">{r.symbol}</td>
-                      <td className="py-1 pr-4">{r.dir}</td>
-                      <td className="py-1 pr-4">{r.pct}%</td>
-                      <td className="py-1 pr-4">{r.current}</td>
-                      <td className="py-1">{r.entry}</td>
+                    <tr
+                      key={r.symbol}
+                      style={{ borderBottom: '1px solid var(--color-border-dim)' }}
+                    >
+                      <td
+                        style={{
+                          padding: '6px 16px 6px 0',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '11px',
+                          color: 'var(--color-gold)',
+                          letterSpacing: '0.1em',
+                        }}
+                      >
+                        {r.symbol}
+                      </td>
+                      <td style={{ padding: '6px 16px 6px 0' }}>
+                        <span
+                          className={r.dir === 'LONG' ? 'bias-long' : r.dir === 'SHORT' ? 'bias-short' : 'bias-neutral'}
+                        >
+                          {r.dir}
+                        </span>
+                      </td>
+                      <td
+                        style={{
+                          padding: '6px 16px 6px 0',
+                          fontFamily: 'var(--font-mono)',
+                          fontSize: '11px',
+                          color: 'var(--color-text)',
+                        }}
+                      >
+                        {r.pct}%
+                      </td>
+                      <td
+                        style={{
+                          padding: '6px 16px 6px 0',
+                          fontFamily: 'var(--font-display)',
+                          fontSize: '13px',
+                          color: 'var(--color-gold)',
+                        }}
+                      >
+                        {r.current}
+                      </td>
+                      <td
+                        style={{
+                          padding: '6px 0',
+                          fontFamily: 'var(--font-display)',
+                          fontSize: '13px',
+                          color: 'var(--color-gold)',
+                        }}
+                      >
+                        {r.entry}
+                      </td>
                     </tr>
                   ))}
               </tbody>
@@ -609,10 +866,12 @@ export default function ArgonautaPanel() {
         {symbols.map((sym) => {
           const data = bySymbol[sym];
           return (
-            <div key={sym} className="rounded-2xl border border-white/10 p-4 bg-white/5">
-              <div className="mb-2 flex items-center justify-between">
-                <div className="text-sm font-semibold">{sym}</div>
-              </div>
+            <div
+              key={sym}
+              className="cassandra-card cassandra-card-corners relative"
+              style={{ padding: '20px' }}
+            >
+              <span className="cassandra-panel-header">{sym}</span>
 
               {data ? (
                 <ArgonautaEntriesList
@@ -624,8 +883,18 @@ export default function ArgonautaPanel() {
                   onlyAI={onlyAI}
                 />
               ) : (
-                <div className="rounded-xl border border-white/10 p-4 text-sm text-white/50">
-                  Nessun dato (ancora).
+                <div
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '11px',
+                    color: 'var(--color-text-dim)',
+                    textAlign: 'center',
+                    padding: '64px 0',
+                    letterSpacing: '0.2em',
+                    textTransform: 'uppercase',
+                  }}
+                >
+                  Nessun dato
                 </div>
               )}
             </div>
@@ -634,4 +903,4 @@ export default function ArgonautaPanel() {
       </div>
     </div>
   );
-} 
+}

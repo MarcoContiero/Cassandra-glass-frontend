@@ -7,6 +7,30 @@ type OHLC = { time: number; open: number; high: number; low: number; close: numb
 type TrendlinesPayload = { uptrend: any[]; downtrend: any[] };
 type ChartData = { ohlcv: OHLC[]; trendlines: TrendlinesPayload };
 
+const BYBIT_INTERVAL: Record<string, string> = {
+  '1m': '1', '3m': '3', '5m': '5', '15m': '15', '30m': '30',
+  '1h': '60', '2h': '120', '4h': '240', '6h': '360', '12h': '720',
+  '1d': 'D', '1w': 'W',
+};
+
+async function fetchBybit(symbol: string, tf: string, bars: number): Promise<OHLC[]> {
+  const interval = BYBIT_INTERVAL[tf] ?? tf;
+  const sym = symbol.replace(/USDT$/i, '').toUpperCase() + 'USDT';
+  const url = `https://api.bybit.com/v5/market/kline?category=spot&symbol=${sym}&interval=${interval}&limit=${bars}`;
+  const res = await fetch(url, { cache: 'no-store' });
+  if (!res.ok) throw new Error(`Bybit ${res.status}`);
+  const json = await res.json();
+  return ((json?.result?.list ?? []) as any[][])
+    .map(r => ({
+      time: Math.floor(Number(r[0]) / 1000),
+      open: Number(r[1]),
+      high: Number(r[2]),
+      low: Number(r[3]),
+      close: Number(r[4]),
+    }))
+    .reverse();
+}
+
 export default function GraficoOverlay({
   symbol = 'BTC',
   timeframes = ['15m', '1h', '4h', '1d'],
@@ -18,8 +42,6 @@ export default function GraficoOverlay({
   const [activeTf, setActiveTf] = useState(tfs[0]);
   const [cache, setCache] = useState<Record<string, ChartData | null>>({});
   const [loading, setLoading] = useState(false);
-
-  const coin = symbol.replace(/USDT$/i, '').toLowerCase();
 
   useEffect(() => {
     setActiveTf(tfs[0]);
@@ -33,19 +55,12 @@ export default function GraficoOverlay({
     let alive = true;
     setLoading(true);
 
-    fetch(
-      `/api/chart?coin=${encodeURIComponent(coin)}&timeframe=${encodeURIComponent(activeTf)}&bars=300`,
-      { cache: 'no-store' },
-    )
-      .then(r => r.json())
-      .then((j: any) => {
+    fetchBybit(symbol, activeTf, 300)
+      .then(ohlcv => {
         if (!alive) return;
         setCache(prev => ({
           ...prev,
-          [activeTf]: {
-            ohlcv: Array.isArray(j?.ohlcv) ? j.ohlcv : [],
-            trendlines: j?.trendlines ?? { uptrend: [], downtrend: [] },
-          },
+          [activeTf]: { ohlcv, trendlines: { uptrend: [], downtrend: [] } },
         }));
         setLoading(false);
       })
@@ -56,13 +71,11 @@ export default function GraficoOverlay({
       });
 
     return () => { alive = false; };
-  }, [activeTf, coin, cache]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTf, symbol, cache]);
 
   const data = cache[activeTf];
   const hasData = data != null && Array.isArray(data.ohlcv) && data.ohlcv.length > 0;
-
-  const nUp   = data?.trendlines?.uptrend?.length   ?? 0;
-  const nDown = data?.trendlines?.downtrend?.length ?? 0;
 
   return (
     <div className="flex flex-col gap-3">
@@ -103,27 +116,6 @@ export default function GraficoOverlay({
           </div>
         )}
       </div>
-
-      {/* Legend */}
-      {hasData && (
-        <div className="flex items-center gap-5 text-[11px] text-white/40 px-1 flex-wrap">
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-[2px] bg-[#26a69a] rounded" />
-            Supporto attivo
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-[2px] bg-[#ef5350] rounded" />
-            Resistenza attiva
-          </span>
-          <span className="flex items-center gap-1.5">
-            <span className="inline-block w-5 h-[1px] border-t border-dotted border-white/25" />
-            Storica
-          </span>
-          <span className="ml-auto font-mono text-white/25">
-            {nUp}↑ · {nDown}↓ trendline
-          </span>
-        </div>
-      )}
     </div>
   );
 }

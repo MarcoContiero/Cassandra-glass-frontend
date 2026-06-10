@@ -169,27 +169,28 @@ function HourlyHeatmap({ wr, n }: { wr: HourlyWr; n: { [h: string]: number } }) 
   const maxN   = Math.max(...hours.map(h => n[h] ?? 0), 1);
   return (
     <div>
-      <div className="text-[10px] text-white/40 mb-1.5 uppercase tracking-wider">WR% per ora UTC</div>
+      <span className="section-tag mb-2">WR% per ora UTC</span>
       <div className="flex gap-0.5">
         {hours.map(h => {
           const wrVal = wr[h];
           const nVal  = n[h] ?? 0;
           const opacity = Math.max(0.15, nVal / maxN);
-          let bg = 'rgba(255,255,255,0.08)';
+          let bg = 'rgba(201,168,76,0.08)';
           if (wrVal != null) {
-            if (wrVal >= 60)  bg = `rgba(52,211,153,${opacity})`;
-            else if (wrVal >= 55) bg = `rgba(234,179,8,${opacity})`;
-            else if (wrVal >= 50) bg = `rgba(251,146,60,${opacity * 0.8})`;
-            else               bg = `rgba(248,113,113,${opacity})`;
+            if (wrVal >= 65)       bg = `rgba(61,168,102,${0.7 * opacity})`;
+            else if (wrVal >= 55)  bg = `rgba(61,168,102,${0.4 * opacity})`;
+            else if (wrVal >= 45)  bg = `rgba(201,168,76,${0.3 * opacity})`;
+            else                   bg = `rgba(168,61,61,${0.5 * opacity})`;
           }
           return (
             <div key={h} title={`${h}:00 UTC — WR: ${wrVal != null ? wrVal.toFixed(1) + '%' : '—'} (n=${nVal})`}
-              className="flex-1 rounded-sm cursor-default"
-              style={{ height: 18, background: bg }} />
+              className="flex-1 cursor-default"
+              style={{ height: 20, background: bg }} />
           );
         })}
       </div>
-      <div className="flex justify-between text-[9px] text-white/20 mt-0.5 font-mono">
+      <div className="flex justify-between mt-0.5"
+        style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)' }}>
         <span>0h</span><span>6h</span><span>12h</span><span>18h</span><span>23h</span>
       </div>
     </div>
@@ -200,25 +201,25 @@ function DowHeatmap({ profile }: { profile: DowProfile }) {
   const maxN = Math.max(...Object.values(profile).map(d => d.n), 1);
   return (
     <div>
-      <div className="text-[10px] text-white/40 mb-1.5 uppercase tracking-wider">WR% per giorno</div>
+      <span className="section-tag mb-2">WR% per giorno</span>
       <div className="flex gap-1">
         {DOW_LABELS.map((label, i) => {
           const d       = profile[i];
           const nVal    = d?.n ?? 0;
           const wrVal   = d?.wr;
           const opacity = Math.max(0.15, nVal / maxN);
-          let bg = 'rgba(255,255,255,0.06)';
+          let bg = 'rgba(201,168,76,0.06)';
           if (wrVal != null) {
-            if (wrVal >= 60)       bg = `rgba(52,211,153,${opacity})`;
-            else if (wrVal >= 55)  bg = `rgba(234,179,8,${opacity})`;
-            else if (wrVal >= 50)  bg = `rgba(251,146,60,${opacity * 0.8})`;
-            else                   bg = `rgba(248,113,113,${opacity})`;
+            if (wrVal >= 65)       bg = `rgba(61,168,102,${0.7 * opacity})`;
+            else if (wrVal >= 55)  bg = `rgba(61,168,102,${0.4 * opacity})`;
+            else if (wrVal >= 45)  bg = `rgba(201,168,76,${0.3 * opacity})`;
+            else                   bg = `rgba(168,61,61,${0.5 * opacity})`;
           }
           return (
             <div key={i} className="flex-1 flex flex-col items-center gap-1"
               title={`${label} — WR: ${wrVal != null ? wrVal.toFixed(1) + '%' : '—'} (n=${nVal})`}>
-              <div className="w-full rounded-sm" style={{ height: 28, background: bg }} />
-              <span className="text-[9px] text-white/30 font-mono">{label}</span>
+              <div className="w-full" style={{ height: 28, background: bg }} />
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>{label}</span>
             </div>
           );
         })}
@@ -230,15 +231,45 @@ function DowHeatmap({ profile }: { profile: DowProfile }) {
 function SideBar({ profile }: { profile: SideProfile }) {
   return (
     <div className="flex gap-3">
-      {Object.entries(profile).map(([side, s]) => (
-        <div key={side} className="flex-1 rounded-lg p-2.5"
-          style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-          <div className="text-[10px] text-white/40 mb-1">{side}</div>
-          <div className={`text-sm font-mono font-semibold ${wrColor(s.wr)}`}>{wr(s.wr)}</div>
-          <div className="text-[10px] text-white/50 font-mono">PF {fmt(s.pf)}</div>
-          <div className="text-[10px] text-white/30">n={s.n}</div>
-        </div>
-      ))}
+      {Object.entries(profile).map(([side, s]) => {
+        const isLong  = side.toLowerCase() === 'long';
+        const isShort = side.toLowerCase() === 'short';
+        const headerColor = isLong
+          ? 'var(--color-long-bright)'
+          : isShort
+            ? 'var(--color-short-bright)'
+            : 'var(--color-text-dim)';
+        const wrValueColor = s.wr >= 57
+          ? 'var(--color-long-bright)'
+          : s.wr >= 53
+            ? 'var(--color-gold)'
+            : 'var(--color-short-bright)';
+        return (
+          <div key={side} className="flex-1 p-2.5"
+            style={{
+              background: isLong ? 'rgba(45,122,79,0.12)' : isShort ? 'rgba(122,45,45,0.12)' : 'rgba(201,168,76,0.08)',
+              borderLeft: `1px solid var(--color-text-faint)`,
+            }}>
+            <div className="mb-1 uppercase tracking-widest"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: headerColor }}>
+              {side}
+            </div>
+            <div style={{
+              fontFamily: 'var(--font-display)',
+              fontSize: 28,
+              fontWeight: 300,
+              color: wrValueColor,
+              lineHeight: 1,
+            }}>{wr(s.wr)}</div>
+            <div className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+              PF {fmt(s.pf)}
+            </div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+              n={s.n}
+            </div>
+          </div>
+        );
+      })}
     </div>
   );
 }
@@ -247,9 +278,9 @@ function ScenarioTable({ profile }: { profile: ScenarioProfile }) {
   const rows = Object.entries(profile).sort((a, b) => b[1].n - a[1].n);
   return (
     <div className="overflow-auto max-h-48">
-      <table className="w-full text-[11px] font-mono border-collapse">
+      <table className="w-full border-collapse" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
         <thead>
-          <tr className="text-white/30 text-[10px] uppercase">
+          <tr className="uppercase" style={{ fontSize: 10, color: 'var(--color-text-dim)' }}>
             <th className="text-left pb-1 font-normal">Scenario</th>
             <th className="text-right pb-1 font-normal">n</th>
             <th className="text-right pb-1 font-normal">WR%</th>
@@ -259,12 +290,13 @@ function ScenarioTable({ profile }: { profile: ScenarioProfile }) {
         </thead>
         <tbody>
           {rows.map(([scen, s]) => (
-            <tr key={scen} className="border-t border-white/5 hover:bg-white/[0.02]">
-              <td className="py-0.5 pr-2 text-white/60 truncate max-w-[220px]">{scen}</td>
-              <td className="text-right text-white/40">{s.n}</td>
+            <tr key={scen} style={{ borderTop: '1px solid var(--color-border-dim)' }}>
+              <td className="py-0.5 pr-2 truncate max-w-[220px]" style={{ color: 'var(--color-text)' }}>{scen}</td>
+              <td className="text-right" style={{ color: 'var(--color-text-dim)' }}>{s.n}</td>
               <td className={`text-right ${wrColor(s.wr)}`}>{wr(s.wr)}</td>
               <td className={`text-right ${pfColor(s.pf)}`}>{fmt(s.pf)}</td>
-              <td className={`text-right ${s.avg_pnl >= 0 ? 'text-emerald-400' : 'text-red-400'}`}>
+              <td className="text-right"
+                style={{ color: s.avg_pnl >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}>
                 {s.avg_pnl.toFixed(3)}%
               </td>
             </tr>
@@ -277,18 +309,17 @@ function ScenarioTable({ profile }: { profile: ScenarioProfile }) {
 
 function InfoRow({ label, value, cls }: { label: string; value: string; cls?: string }) {
   return (
-    <div className="flex justify-between text-[11px] font-mono">
-      <span className="text-white/40">{label}</span>
-      <span className={cls ?? 'text-white/70'}>{value}</span>
+    <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+      <span style={{ color: 'var(--color-text-dim)' }}>{label}</span>
+      <span className={cls} style={!cls ? { color: 'var(--color-text)' } : undefined}>{value}</span>
     </div>
   );
 }
 
 function Section({ title, children }: { title: string; children: React.ReactNode }) {
   return (
-    <div className="rounded-xl p-3"
-      style={{ background: 'rgba(255,255,255,0.03)', border: '1px solid rgba(255,255,255,0.06)' }}>
-      <div className="text-[10px] text-white/30 uppercase mb-2 tracking-wider">{title}</div>
+    <div className="cassandra-card p-3">
+      {title && <span className="section-tag mb-2">{title}</span>}
       {children}
     </div>
   );
@@ -303,35 +334,52 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
   return (
     <div
       className="fixed inset-0 z-50 flex items-start justify-center pt-8 pb-6 px-4 overflow-auto"
-      style={{ background: 'rgba(4,8,18,0.88)', backdropFilter: 'blur(12px)' }}
+      style={{ background: 'rgba(2,2,14,0.92)', backdropFilter: 'blur(12px)' }}
       onClick={onClose}
     >
       <div
-        className="relative w-full max-w-3xl rounded-2xl p-6 space-y-4"
-        style={{ background: 'rgba(10,16,32,0.97)', border: '1px solid rgba(255,255,255,0.10)', boxShadow: '0 0 60px rgba(6,182,212,0.08)' }}
+        className="relative w-full max-w-3xl cassandra-card p-6 space-y-4"
+        style={{ boxShadow: '0 0 60px rgba(201,168,76,0.06)' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-2xl font-bold text-cyan-300 font-mono">{genome.coin}</span>
-            <span className="ml-3 text-white/40 text-sm">genoma 2y</span>
+            <span style={{
+              fontFamily: 'var(--font-decorative)',
+              fontSize: 28,
+              color: 'var(--color-gold)',
+              fontWeight: 300,
+            }}>{genome.coin}</span>
+            <span className="ml-3 uppercase tracking-widest"
+              style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+              genoma 2y
+            </span>
           </div>
-          <button onClick={onClose} className="text-white/30 hover:text-white text-xl leading-none">✕</button>
+          <button onClick={onClose}
+            className="transition-all"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--color-text-dim)', background: 'transparent', border: 'none', cursor: 'pointer', lineHeight: 1 }}>
+            ✕
+          </button>
         </div>
 
         {/* KPI row */}
         <div className="grid grid-cols-4 gap-3">
           {[
-            { label: 'Trades',       value: genome.n_trades.toLocaleString(),                  cls: 'text-white/80' },
-            { label: 'Win Rate',     value: wr(genome.win_rate),                               cls: wrColor(genome.win_rate) },
-            { label: 'Profit Factor',value: fmt(genome.profit_factor),                         cls: pfColor(genome.profit_factor) },
-            { label: 'Avg PnL',      value: `${(genome.avg_pnl_pct * 100).toFixed(3)}%`,       cls: genome.avg_pnl_pct >= 0 ? 'text-emerald-400' : 'text-red-400' },
+            { label: 'TRADES',        value: genome.n_trades.toLocaleString(),            positive: true  },
+            { label: 'WIN RATE',      value: wr(genome.win_rate),                         positive: genome.win_rate >= 53 },
+            { label: 'PROFIT FACTOR', value: fmt(genome.profit_factor),                   positive: (genome.profit_factor ?? 0) >= 1.0 },
+            { label: 'AVG PNL',       value: `${(genome.avg_pnl_pct * 100).toFixed(3)}%`, positive: genome.avg_pnl_pct >= 0 },
           ].map(k => (
-            <div key={k.label} className="rounded-xl p-3 text-center"
-              style={{ background: 'rgba(255,255,255,0.04)', border: '1px solid rgba(255,255,255,0.07)' }}>
-              <div className="text-[10px] text-white/30 uppercase tracking-wider mb-1">{k.label}</div>
-              <div className={`text-lg font-mono font-semibold ${k.cls}`}>{k.value}</div>
+            <div key={k.label} className="cassandra-card cassandra-card-corners p-4 text-center">
+              <span className="section-tag mb-2">{k.label}</span>
+              <div style={{
+                fontFamily: 'var(--font-display)',
+                fontSize: 32,
+                fontWeight: 300,
+                color: k.positive ? 'var(--color-gold)' : 'var(--color-short-bright)',
+                lineHeight: 1,
+              }}>{k.value}</div>
             </div>
           ))}
         </div>
@@ -340,19 +388,23 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
         {genome.market_profile && Object.keys(genome.market_profile).length > 0 && (
           <div className="grid grid-cols-3 gap-3">
             <Section title="Prezzo medio">
-              <div className="text-base font-mono font-semibold text-white/80">
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text)' }}>
                 ${fmtPrice(genome.market_profile.avg_price_usd)}
               </div>
             </Section>
             <Section title="Volume giornaliero">
-              <div className="text-base font-mono font-semibold text-white/80">
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text)' }}>
                 ${fmtVol(genome.market_profile.avg_daily_volume_usdc)}
               </div>
             </Section>
             <Section title="Drawdown tipico 4h">
-              <div className={`text-base font-mono font-semibold ${
-                (genome.market_profile.typical_drawdown_4h_pct ?? 0) > 2 ? 'text-orange-400' : 'text-white/80'
-              }`}>
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: 14,
+                color: (genome.market_profile.typical_drawdown_4h_pct ?? 0) > 2
+                  ? 'var(--color-short-bright)'
+                  : 'var(--color-text)',
+              }}>
                 {genome.market_profile.typical_drawdown_4h_pct != null
                   ? `${genome.market_profile.typical_drawdown_4h_pct.toFixed(2)}%`
                   : '—'}
@@ -363,7 +415,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
 
         {/* Volatility + Nervosismo */}
         <div className="grid grid-cols-2 gap-3">
-          <Section title="Volatilità">
+          <Section title="Volatilita">
             {genome.volatility && Object.keys(genome.volatility).length > 0 ? (
               <div className="space-y-0.5">
                 <InfoRow label="avg 1m"  value={`${genome.volatility.avg_range_pct_1m?.toFixed(3)}%`} />
@@ -372,7 +424,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
                 <InfoRow label="avg 5m"  value={`${genome.volatility.avg_range_pct_5m?.toFixed(3)}%`} />
                 <InfoRow label="p75 5m"  value={`${genome.volatility.p75_range_pct_5m?.toFixed(3)}%`} />
               </div>
-            ) : <span className="text-white/20 text-xs">—</span>}
+            ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
 
           <Section title="Nervosismo">
@@ -380,16 +432,16 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
               <div className="space-y-0.5">
                 <InfoRow label="spike rate 1m"
                   value={genome.nervousness.spike_rate_1m != null ? `${genome.nervousness.spike_rate_1m.toFixed(2)}%` : '—'}
-                  cls={(genome.nervousness.spike_rate_1m ?? 0) > 5 ? 'text-orange-400' : 'text-white/70'} />
+                  cls={(genome.nervousness.spike_rate_1m ?? 0) > 5 ? 'text-orange-400' : undefined} />
                 <InfoRow label="p99 range 1m"
                   value={genome.nervousness.p99_range_pct_1m != null ? `${genome.nervousness.p99_range_pct_1m.toFixed(3)}%` : '—'} />
                 {genome.nervousness.autocorr_lag1 != null && (() => {
                   const al = autocorrLabel(genome.nervousness.autocorr_lag1!);
                   return (
-                    <div className="flex justify-between text-[11px] font-mono">
-                      <span className="text-white/40">autocorr lag-1</span>
+                    <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                      <span style={{ color: 'var(--color-text-dim)' }}>autocorr lag-1</span>
                       <span>
-                        <span className="text-white/70 mr-1">{genome.nervousness.autocorr_lag1.toFixed(3)}</span>
+                        <span className="mr-1" style={{ color: 'var(--color-text)' }}>{genome.nervousness.autocorr_lag1.toFixed(3)}</span>
                         <span className={`text-[10px] ${al.color}`}>{al.label}</span>
                       </span>
                     </div>
@@ -397,18 +449,19 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
                 })()}
                 <InfoRow label="volume CV"
                   value={genome.nervousness.volume_cv != null ? genome.nervousness.volume_cv.toFixed(2) : '—'}
-                  cls={(genome.nervousness.volume_cv ?? 0) > 3 ? 'text-orange-400' : 'text-white/70'} />
+                  cls={(genome.nervousness.volume_cv ?? 0) > 3 ? 'text-orange-400' : undefined} />
                 {hurst != null && (
-                  <div className="flex justify-between text-[11px] font-mono pt-0.5 border-t border-white/5 mt-0.5">
-                    <span className="text-white/40">Hurst exp</span>
+                  <div className="flex justify-between pt-0.5 mt-0.5"
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: 11, borderTop: '1px solid var(--color-border-dim)' }}>
+                    <span style={{ color: 'var(--color-text-dim)' }}>Hurst exp</span>
                     <span>
-                      <span className="text-white/70 mr-1">{hurst.toFixed(3)}</span>
+                      <span className="mr-1" style={{ color: 'var(--color-text)' }}>{hurst.toFixed(3)}</span>
                       <span className={`text-[10px] ${hurstInfo?.color}`}>{hurstInfo?.label}</span>
                     </span>
                   </div>
                 )}
               </div>
-            ) : <span className="text-white/20 text-xs">—</span>}
+            ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
         </div>
 
@@ -417,37 +470,62 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
           <Section title="BTC Correlazione">
             {genome.btc_correlation && genome.btc_correlation.corr_1m != null ? (
               <div className="space-y-0.5">
-                <InfoRow label="corr 1m" value={genome.btc_correlation.corr_1m.toFixed(3)}  cls={corrColor(genome.btc_correlation.corr_1m)} />
+                <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
+                  <span style={{ color: 'var(--color-text-dim)' }}>corr 1m</span>
+                  <span style={{ color: (genome.btc_correlation.corr_1m ?? 0) >= 0 ? 'var(--color-gold)' : 'var(--color-short-bright)' }}>
+                    {genome.btc_correlation.corr_1m.toFixed(3)}
+                  </span>
+                </div>
                 <InfoRow label="beta 1m" value={genome.btc_correlation.beta_1m?.toFixed(3) ?? '—'} />
-                {genome.btc_correlation.corr_5m != null &&
-                  <InfoRow label="corr 5m" value={genome.btc_correlation.corr_5m.toFixed(3)} cls={corrColor(genome.btc_correlation.corr_5m)} />}
-                {genome.btc_correlation.corr_1h != null &&
-                  <InfoRow label="corr 1h" value={genome.btc_correlation.corr_1h.toFixed(3)} cls={corrColor(genome.btc_correlation.corr_1h)} />}
+                {genome.btc_correlation.corr_5m != null && (
+                  <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
+                    <span style={{ color: 'var(--color-text-dim)' }}>corr 5m</span>
+                    <span style={{ color: (genome.btc_correlation.corr_5m ?? 0) >= 0 ? 'var(--color-gold)' : 'var(--color-short-bright)' }}>
+                      {genome.btc_correlation.corr_5m.toFixed(3)}
+                    </span>
+                  </div>
+                )}
+                {genome.btc_correlation.corr_1h != null && (
+                  <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
+                    <span style={{ color: 'var(--color-text-dim)' }}>corr 1h</span>
+                    <span style={{ color: (genome.btc_correlation.corr_1h ?? 0) >= 0 ? 'var(--color-gold)' : 'var(--color-short-bright)' }}>
+                      {genome.btc_correlation.corr_1h.toFixed(3)}
+                    </span>
+                  </div>
+                )}
                 {/* Lag correlation */}
                 {(genome.btc_correlation.lag_m1 != null || genome.btc_correlation.lag_p1 != null) && (
-                  <div className="pt-0.5 mt-0.5 border-t border-white/5 space-y-0.5">
-                    <div className="text-[9px] text-white/25 uppercase tracking-wider mb-0.5">Lag (coin leads ← | BTC leads →)</div>
+                  <div className="pt-0.5 mt-0.5 space-y-0.5" style={{ borderTop: '1px solid var(--color-border-dim)' }}>
+                    <div className="uppercase tracking-wider"
+                      style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 2 }}>
+                      Lag (coin leads | BTC leads)
+                    </div>
                     {genome.btc_correlation.lag_m2 != null &&
-                      <InfoRow label="coin +2" value={genome.btc_correlation.lag_m2.toFixed(3)} cls={corrColor(genome.btc_correlation.lag_m2)} />}
+                      <InfoRow label="coin +2" value={genome.btc_correlation.lag_m2.toFixed(3)} />}
                     {genome.btc_correlation.lag_m1 != null &&
-                      <InfoRow label="coin +1" value={genome.btc_correlation.lag_m1.toFixed(3)} cls={corrColor(genome.btc_correlation.lag_m1)} />}
+                      <InfoRow label="coin +1" value={genome.btc_correlation.lag_m1.toFixed(3)} />}
                     {genome.btc_correlation.lag_p1 != null &&
-                      <InfoRow label="BTC +1"  value={genome.btc_correlation.lag_p1.toFixed(3)} cls={corrColor(genome.btc_correlation.lag_p1)} />}
+                      <InfoRow label="BTC +1"  value={genome.btc_correlation.lag_p1.toFixed(3)} />}
                     {genome.btc_correlation.lag_p2 != null &&
-                      <InfoRow label="BTC +2"  value={genome.btc_correlation.lag_p2.toFixed(3)} cls={corrColor(genome.btc_correlation.lag_p2)} />}
+                      <InfoRow label="BTC +2"  value={genome.btc_correlation.lag_p2.toFixed(3)} />}
                   </div>
                 )}
               </div>
-            ) : <span className="text-white/20 text-xs">—</span>}
+            ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
 
           <Section title="ETH Correlazione">
             {genome.eth_correlation && genome.eth_correlation.corr_1m != null ? (
               <div className="space-y-0.5">
-                <InfoRow label="corr 1m" value={genome.eth_correlation.corr_1m.toFixed(3)} cls={corrColor(genome.eth_correlation.corr_1m)} />
+                <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
+                  <span style={{ color: 'var(--color-text-dim)' }}>corr 1m</span>
+                  <span style={{ color: (genome.eth_correlation.corr_1m ?? 0) >= 0 ? 'var(--color-gold)' : 'var(--color-short-bright)' }}>
+                    {genome.eth_correlation.corr_1m.toFixed(3)}
+                  </span>
+                </div>
                 <InfoRow label="beta 1m" value={genome.eth_correlation.beta_1m?.toFixed(3) ?? '—'} />
               </div>
-            ) : <span className="text-white/20 text-xs">—</span>}
+            ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
         </div>
 
@@ -456,24 +534,39 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
           <Section title="Sessioni di trading">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {([
-                { key: 'asia',    label: 'Asia',    sub: '0–8h UTC',   color: '#67e8f9' },
-                { key: 'europe',  label: 'Europa',  sub: '8–16h UTC',  color: '#a78bfa' },
-                { key: 'us',      label: 'US',      sub: '16–24h UTC', color: '#86efac' },
-                { key: 'weekend', label: 'Weekend', sub: 'sab + dom',  color: '#fbbf24' },
+                { key: 'asia',    label: 'Asia',    sub: '0-8h UTC',   color: 'var(--color-cyan)' },
+                { key: 'europe',  label: 'Europa',  sub: '8-16h UTC',  color: '#a78bfa' },
+                { key: 'us',      label: 'US',      sub: '16-24h UTC', color: 'var(--color-long-bright)' },
+                { key: 'weekend', label: 'Weekend', sub: 'sab + dom',  color: 'var(--color-gold)' },
               ] as const).map(({ key, label, sub, color }) => {
                 const s = genome.session_profile?.[key];
+                const wrVal = s?.wr;
+                const wrValColor = wrVal != null
+                  ? wrVal >= 57
+                    ? 'var(--color-long-bright)'
+                    : wrVal >= 53
+                      ? 'var(--color-gold)'
+                      : 'var(--color-short-bright)'
+                  : 'var(--color-text-dim)';
                 return (
-                  <div key={key} className="rounded-lg p-2 text-center"
-                    style={{ background: 'rgba(255,255,255,0.03)', border: `1px solid ${color}22` }}>
-                    <div className="text-[10px] font-medium mb-0.5" style={{ color: `${color}cc` }}>{label}</div>
-                    <div className="text-[9px] text-white/25 mb-1.5">{sub}</div>
+                  <div key={key} className="cassandra-card p-2 text-center">
+                    <div className="mb-0.5" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color, fontWeight: 500 }}>{label}</div>
+                    <div className="mb-1.5" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>{sub}</div>
                     {s ? (
                       <>
-                        <div className={`text-sm font-mono font-semibold ${wrColor(s.wr)}`}>{wr(s.wr)}</div>
-                        <div className="text-[10px] text-white/40 font-mono">PF {fmt(s.pf)}</div>
-                        <div className="text-[9px] text-white/25 mt-0.5">n={s.n}</div>
+                        <div style={{
+                          fontFamily: 'var(--font-display)',
+                          fontSize: 28,
+                          fontWeight: 300,
+                          color: wrValColor,
+                          lineHeight: 1,
+                        }}>{wr(s.wr)}</div>
+                        <div className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
+                          PF {fmt(s.pf)}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 2 }}>n={s.n}</div>
                       </>
-                    ) : <span className="text-white/15 text-xs">—</span>}
+                    ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
                   </div>
                 );
               })}
@@ -509,7 +602,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
           </Section>
         )}
 
-        <div className="text-[10px] text-white/20 text-right">
+        <div className="text-right" style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
           built {genome.built_at?.replace('T', ' ').replace('Z', ' UTC')}
         </div>
       </div>
@@ -521,22 +614,45 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
 
 function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
   const pfOk = g.profit_factor != null && g.profit_factor >= 1.0;
+  const wrValueColor = g.win_rate >= 57
+    ? 'var(--color-long-bright)'
+    : g.win_rate >= 53
+      ? 'var(--color-gold)'
+      : 'var(--color-short-bright)';
   return (
     <button onClick={onClick}
-      className="text-left rounded-xl p-4 transition-all hover:scale-[1.02] active:scale-[0.98]"
+      className="cassandra-card cassandra-card-corners text-left p-4 transition-all hover:border-[var(--color-gold-dim)] w-full"
       style={{
-        background: 'rgba(255,255,255,0.03)',
-        border: '1px solid rgba(255,255,255,0.08)',
-        boxShadow: pfOk && g.win_rate >= 57 ? '0 0 20px rgba(52,211,153,0.05)' : undefined,
+        boxShadow: pfOk && g.win_rate >= 57 ? '0 0 20px rgba(61,168,102,0.06)' : undefined,
+        background: 'var(--color-deep)',
       }}>
       <div className="mb-3">
-        <span className="text-base font-bold text-white font-mono">{g.coin}</span>
+        <span style={{
+          fontFamily: 'var(--font-decorative)',
+          fontSize: 16,
+          color: 'var(--color-gold)',
+          fontWeight: 300,
+        }}>{g.coin}</span>
       </div>
-      <div className="grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] font-mono">
-        <div><span className="text-white/30">WR </span><span className={wrColor(g.win_rate)}>{wr(g.win_rate)}</span></div>
-        <div><span className="text-white/30">PF </span><span className={pfColor(g.profit_factor)}>{fmt(g.profit_factor)}</span></div>
-        <div><span className="text-white/30">n </span><span className="text-white/60">{g.n_trades.toLocaleString()}</span></div>
-        <div><span className="text-white/30">avg </span><span className={g.avg_pnl_pct >= 0 ? 'text-emerald-400' : 'text-red-400'}>{(g.avg_pnl_pct * 100).toFixed(3)}%</span></div>
+      <div className="grid grid-cols-2 gap-x-3 gap-y-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+        <div>
+          <span style={{ color: 'var(--color-text-dim)' }}>WR </span>
+          <span style={{ color: wrValueColor }}>{wr(g.win_rate)}</span>
+        </div>
+        <div>
+          <span style={{ color: 'var(--color-text-dim)' }}>PF </span>
+          <span className={pfColor(g.profit_factor)}>{fmt(g.profit_factor)}</span>
+        </div>
+        <div>
+          <span style={{ color: 'var(--color-text-dim)' }}>n </span>
+          <span style={{ color: 'var(--color-text)' }}>{g.n_trades.toLocaleString()}</span>
+        </div>
+        <div>
+          <span style={{ color: 'var(--color-text-dim)' }}>avg </span>
+          <span style={{ color: g.avg_pnl_pct >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}>
+            {(g.avg_pnl_pct * 100).toFixed(3)}%
+          </span>
+        </div>
       </div>
     </button>
   );
@@ -602,63 +718,77 @@ export default function DnaPanel() {
   }
 
   const sortBtns: { key: SortKey; label: string }[] = [
-    { key: 'win_rate',      label: 'WR%'   },
-    { key: 'profit_factor', label: 'PF'    },
+    { key: 'win_rate',      label: 'WR%'    },
+    { key: 'profit_factor', label: 'PF'     },
     { key: 'avg_pnl_pct',  label: 'avgPnL' },
-    { key: 'n_trades',     label: 'Trade'  },
-    { key: 'coin',         label: 'A–Z'   },
+    { key: 'n_trades',     label: 'Trade'   },
+    { key: 'coin',         label: 'A-Z'    },
   ];
 
   return (
     <div className="py-4">
       <div className="flex items-center justify-between mb-5 flex-wrap gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-white tracking-wide">DNA Coin</h2>
-          <p className="text-xs text-white/30 mt-0.5">Genoma 2y — {cache.length} coin · backtest storico</p>
+          <h2 style={{
+            fontFamily: 'var(--font-decorative)',
+            fontSize: 28,
+            color: 'var(--color-gold)',
+            fontWeight: 300,
+            margin: 0,
+          }}>DNA Coin</h2>
+          <p className="mt-0.5 uppercase tracking-[0.3em]"
+            style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+            Genoma 2y — {cache.length} coin · backtest storico
+          </p>
           {rebuildMsg && (
-            <p className="text-xs mt-1 text-cyan-300/70">{rebuildMsg}</p>
+            <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-cyan)' }}>
+              {rebuildMsg}
+            </p>
           )}
         </div>
         <div className="flex gap-1.5 flex-wrap items-center">
           <button
             onClick={triggerRebuild}
             disabled={rebuilding}
-            className="px-3 py-1 rounded-lg text-xs font-mono transition-all disabled:opacity-40"
-            style={{
-              background: 'rgba(6,182,212,0.10)',
-              border: '1px solid rgba(6,182,212,0.30)',
-              color: '#67e8f9',
-            }}
+            className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
           >
-            {rebuilding ? '⟳ Avvio…' : '⚙ Rebuild genome'}
+            {rebuilding ? 'Avvio...' : 'Rebuild genome'}
           </button>
           <button
             onClick={loadCache}
             disabled={loading}
-            className="px-3 py-1 rounded-lg text-xs font-mono transition-all disabled:opacity-40"
-            style={{
-              background: 'rgba(255,255,255,0.04)',
-              border: '1px solid rgba(255,255,255,0.10)',
-              color: 'rgba(255,255,255,0.50)',
-            }}
+            className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
           >
-            {loading ? '⟳' : '↺ Ricarica'}
+            {loading ? '...' : 'Ricarica'}
           </button>
           {sortBtns.map(b => (
             <button key={b.key} onClick={() => setSort(b.key)}
-              className={`px-2.5 py-1 rounded-lg text-xs font-mono transition-all ${
-                sort === b.key
-                  ? 'bg-cyan-500/20 text-cyan-300 border border-cyan-500/40'
-                  : 'text-white/40 hover:text-white/70 border border-transparent'
-              }`}>
+              className="bg-transparent font-mono text-[10px] tracking-[0.25em] uppercase rounded-none transition-all px-2.5 py-1.5"
+              style={{
+                border: sort === b.key
+                  ? '1px solid var(--color-gold-dim)'
+                  : '1px solid transparent',
+                color: sort === b.key
+                  ? 'var(--color-gold)'
+                  : 'var(--color-text-dim)',
+              }}>
               {b.label}
             </button>
           ))}
         </div>
       </div>
 
-      {loading && <div className="text-center text-white/30 py-20 text-sm">Carico genomi…</div>}
-      {error   && <div className="text-center text-red-400/70 py-20 text-sm">{error}</div>}
+      {loading && (
+        <div className="font-mono text-[11px] text-[var(--color-text-dim)] text-center py-16 tracking-[0.2em]">
+          Carico genomi...
+        </div>
+      )}
+      {error && (
+        <div className="font-mono text-[11px] text-center py-16 tracking-[0.2em]"
+          style={{ color: 'var(--color-short-bright)' }}>
+          {error}
+        </div>
+      )}
 
       {!loading && !error && (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">

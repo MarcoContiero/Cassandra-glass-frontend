@@ -5,5 +5,6 @@ import { proxyPOST } from '../../_utils/proxy';
 export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
-  return proxyPOST(req);
+  const { pathname, search } = req.nextUrl;
+  return proxyPOST(req, pathname + search);
 }

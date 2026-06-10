@@ -1,9 +1,6 @@
 "use client";
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Card, CardHeader, CardTitle, CardContent } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2 } from "lucide-react";
 
 type LookbackMode = "candles" | "minutes";
@@ -72,16 +69,16 @@ const PATTERN_OPTIONS: { value: PatternKey; label: string }[] = [
 
 // Mappa la direzione del pattern in una freccia visiva
 function getDirectionArrow(direction?: string): string {
-  if (!direction) return "·";
+  if (!direction) return "\xb7";
   const dir = direction.toUpperCase();
   if (dir === "BULL") return "↑";
   if (dir === "BEAR") return "↓";
-  return "·"; // per NEUTRAL o altri casi
+  return "\xb7"; // per NEUTRAL o altri casi
 }
 
 // PRESET ---------------------------------------------------------
 
-// Nota: usiamo PatternConfigKeyUI così possiamo includere anche ALL_OPTION_VALUE
+// Nota: usiamo PatternConfigKeyUI cosi' possiamo includere anche ALL_OPTION_VALUE
 const PRESET_INVERSIONE: PatternConfigKeyUI[] = [
   "morning_star",
   "evening_star",
@@ -340,7 +337,7 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
     }
   };
 
-  // Loop continuo mentre la pagina è aperta ------------------------
+  // Loop continuo mentre la pagina e' aperta ------------------------
   useEffect(() => {
     if (!autoLoop) return;
 
@@ -363,352 +360,548 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
     selectedTfs.length > 0 &&
     hasAtLeastOnePattern;
 
-  const glassInput = "w-full rounded-lg border border-white/[0.10] bg-white/[0.04] text-sm p-2 text-white placeholder:text-white/30 focus:outline-none focus:ring-2 focus:ring-cyan-400/30 focus:border-cyan-400/40 resize-none";
-  const glassInputSm = "w-24 rounded-lg border border-white/[0.10] bg-white/[0.04] text-xs p-1.5 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30";
-
   return (
-    <div className="w-full max-w-4xl mx-auto space-y-4 text-white">
+    <div className="w-full max-w-4xl mx-auto space-y-4" style={{ color: 'var(--color-text)', fontFamily: 'var(--font-mono)' }}>
+
       {/* ── Main card ──────────────────────────────────────────────── */}
-      <div
-        className="rounded-2xl border border-white/[0.08] space-y-6 p-6"
-        style={{
-          backdropFilter: 'blur(20px)',
-          WebkitBackdropFilter: 'blur(20px)',
-          background: 'rgba(255,255,255,0.03)',
-        }}
-      >
+      <div className="cassandra-card cassandra-card-corners space-y-0">
+
         {/* Header */}
-        <div className="flex items-center justify-between gap-2">
+        <div
+          className="flex items-center justify-between px-5 py-3"
+          style={{ borderBottom: '1px solid var(--color-border)' }}
+        >
           <div className="flex items-center gap-3">
-            <span className="text-cyan-400/60 text-lg">✦</span>
-            <span className="font-semibold text-white/90">Orione · Scanner di Pattern</span>
+            <span className="section-tag">Orione</span>
+            <span
+              className="font-mono text-[13px] tracking-[0.15em] uppercase"
+              style={{ color: 'var(--color-gold)', fontFamily: 'var(--font-display)' }}
+            >
+              Scanner di Pattern
+            </span>
           </div>
           <span
-            className="text-[11px] px-2.5 py-0.5 rounded-full border font-mono uppercase tracking-wider"
+            className="font-mono text-[9px] tracking-[0.4em] uppercase px-3 py-1 border"
             style={{
-              borderColor: 'rgba(6,182,212,0.35)',
-              color: 'rgba(103,232,249,0.8)',
-              background: 'rgba(6,182,212,0.07)',
+              borderColor: 'var(--color-border)',
+              color: 'var(--color-cyan)',
+              background: 'rgba(10,191,188,0.05)',
             }}
           >
-            Scanner
+            Real-time
           </span>
         </div>
 
-        {/* COIN */}
-        <section className="space-y-2">
-          <label className="text-xs text-white/50 uppercase tracking-wider">Universe · Coin da scansionare</label>
-          <textarea
-            className={glassInput}
-            rows={2}
-            placeholder="BTC, ETH, SOL, AVAX..."
-            value={coinsInput}
-            onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCoinsInput(e.target.value)}
-          />
-          <p className="text-xs text-white/35">Simboli separati da virgola. Orione li scansionerà ogni N minuti.</p>
-        </section>
+        <div className="px-5 py-5 space-y-6">
 
-        {/* TIMEFRAME */}
-        <section className="space-y-2">
-          <label className="text-xs text-white/50 uppercase tracking-wider">Timeframe</label>
-          <div className="flex flex-wrap gap-1.5">
-            {AVAILABLE_TFS.map((tf) => {
-              const active = selectedTfs.includes(tf);
-              return (
-                <button
-                  key={tf}
-                  type="button"
-                  className={['tf-pill', active ? 'tf-pill-active' : ''].join(' ')}
-                  onClick={() => toggleTf(tf)}
-                >
-                  {tf.toUpperCase()}
-                </button>
-              );
-            })}
-          </div>
-        </section>
+          {/* COIN */}
+          <section className="space-y-2">
+            <label className="section-tag block">Universe &middot; Coin da scansionare</label>
+            <textarea
+              className="w-full px-3 py-2 text-[11px] resize-none focus:outline-none focus:border-[var(--color-border-focus)]"
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-text)',
+                fontFamily: 'var(--font-mono)',
+                borderRadius: 0,
+              }}
+              rows={2}
+              placeholder="BTC, ETH, SOL, AVAX..."
+              value={coinsInput}
+              onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setCoinsInput(e.target.value)}
+            />
+            <p className="font-mono text-[10px] tracking-[0.1em]" style={{ color: 'var(--color-text-dim)' }}>
+              Simboli separati da virgola. Orione li scansionera' ogni N minuti.
+            </p>
+          </section>
 
-        {/* PRESET + PATTERN */}
-        <section className="space-y-3">
-          <div className="flex flex-wrap gap-2 items-center justify-between">
-            <label className="text-xs text-white/50 uppercase tracking-wider">Pattern / Condizioni</label>
-            <div className="flex flex-wrap gap-2">
-              {[
-                { label: 'Inversione', action: () => applyPreset(PRESET_INVERSIONE, false), color: 'rgba(251,191,36,0.6)' },
-                { label: 'EMA / Trend', action: () => applyPreset(PRESET_TREND, false), color: 'rgba(6,182,212,0.6)' },
-                { label: 'Completo', action: () => applyPreset(PRESET_COMPLETO, false), color: 'rgba(6,182,212,0.6)' },
-              ].map(({ label, action, color }) => (
-                <button
-                  key={label}
-                  type="button"
-                  onClick={action}
-                  className="text-xs px-3 py-1 rounded-lg border transition-all hover:bg-white/[0.05]"
-                  style={{ borderColor: color, color }}
-                >
-                  {label}
-                </button>
-              ))}
-              <button
-                type="button"
-                onClick={addPatternRow}
-                className="text-xs px-3 py-1 rounded-lg border border-cyan-400/40 text-cyan-400/80 transition-all hover:bg-cyan-400/[0.08] flex items-center gap-1"
-              >
-                <Plus className="w-3 h-3" /> Aggiungi
-              </button>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {patterns.map((p, idx) => (
-              <div
-                key={p.id}
-                className="flex flex-col sm:flex-row gap-2 sm:items-center rounded-xl p-3 border border-white/[0.06] bg-white/[0.02]"
-              >
-                <div className="flex-1">
-                  <label className="text-[11px] text-white/40 block mb-1">Pattern #{idx + 1}</label>
-                  <select
-                    className="w-full rounded-lg border border-white/[0.10] bg-[#0a0e1a] text-xs p-2 text-white focus:outline-none focus:ring-1 focus:ring-cyan-400/30"
-                    value={p.key || ""}
-                    onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
-                      updatePatternKey(p.id, e.target.value as PatternConfigKeyUI)
-                    }
+          {/* TIMEFRAME */}
+          <section className="space-y-2">
+            <label className="section-tag block">Timeframe</label>
+            <div className="flex flex-wrap gap-1.5">
+              {AVAILABLE_TFS.map((tf) => {
+                const active = selectedTfs.includes(tf);
+                return (
+                  <button
+                    key={tf}
+                    type="button"
+                    onClick={() => toggleTf(tf)}
+                    className="font-mono text-[9px] tracking-[0.25em] uppercase px-3 py-1.5 border transition-all"
+                    style={active ? {
+                      background: 'rgba(201,168,76,0.08)',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-gold)',
+                      borderRadius: 0,
+                    } : {
+                      background: 'transparent',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-dim)',
+                      borderRadius: 0,
+                    }}
                   >
-                    <option value="">Seleziona un pattern</option>
-                    <option value={ALL_OPTION_VALUE}>Tutti i pattern principali</option>
-                    {PATTERN_OPTIONS.map((opt) => (
-                      <option key={opt.value} value={opt.value}>{opt.label}</option>
-                    ))}
-                  </select>
-                </div>
+                    {tf.toUpperCase()}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
 
-                <div className="flex items-center gap-3 min-w-[190px]">
-                  <label className="flex items-center gap-2 text-xs text-white/60 cursor-pointer select-none">
-                    <input
-                      type="checkbox"
-                      className="accent-cyan-400"
-                      checked={p.required}
-                      onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                        updatePatternRequired(p.id, e.target.checked)
-                      }
-                    />
-                    Obbligatorio
-                  </label>
-
-                  {patterns.length > 1 && (
-                    <button
-                      type="button"
-                      className="text-red-400/70 hover:text-red-300 hover:bg-red-500/10 rounded p-1 transition-colors"
-                      onClick={() => removePatternRow(p.id)}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  )}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <input
-                    id="orione-only-combo"
-                    type="checkbox"
-                    className="accent-cyan-400 h-3.5 w-3.5"
-                    checked={onlyCombo}
-                    onChange={(e) => setOnlyCombo(e.target.checked)}
-                  />
-                  <label htmlFor="orione-only-combo" className="text-xs text-white/50 select-none cursor-pointer">
-                    Solo confluenza (COMBO)
-                  </label>
-                </div>
-              </div>
-            ))}
-          </div>
-
-          <p className="text-xs text-white/30">
-            Flag <span className="text-white/50">Obbligatorio</span> = il pattern deve essere presente.{' '}
-            <span className="text-white/50">Tutti i pattern</span> usa l&apos;intero set principale.
-          </p>
-        </section>
-
-        {/* LOOKBACK + FREQUENZA */}
-        <section className="grid gap-4 md:grid-cols-2">
-          <div className="space-y-2">
-            <label className="text-xs text-white/50 uppercase tracking-wider">Finestra di lookback</label>
-            <div className="flex gap-2">
-              {(['candles', 'minutes'] as LookbackMode[]).map((mode) => (
+          {/* PRESET + PATTERN */}
+          <section className="space-y-3">
+            <div className="flex flex-wrap gap-2 items-center justify-between">
+              <label className="section-tag">Pattern / Condizioni</label>
+              <div className="flex flex-wrap gap-2">
+                {[
+                  { label: 'Inversione', action: () => applyPreset(PRESET_INVERSIONE, false) },
+                  { label: 'EMA / Trend', action: () => applyPreset(PRESET_TREND, false) },
+                  { label: 'Completo', action: () => applyPreset(PRESET_COMPLETO, false) },
+                ].map(({ label, action }) => (
+                  <button
+                    key={label}
+                    type="button"
+                    onClick={action}
+                    className="font-mono text-[9px] tracking-[0.25em] uppercase px-3 py-1.5 border transition-all hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)]"
+                    style={{
+                      background: 'transparent',
+                      borderColor: 'var(--color-border)',
+                      color: 'var(--color-text-dim)',
+                      borderRadius: 0,
+                    }}
+                  >
+                    {label}
+                  </button>
+                ))}
                 <button
-                  key={mode}
                   type="button"
-                  className={['tf-pill text-xs', lookbackMode === mode ? 'tf-pill-active' : ''].join(' ')}
-                  onClick={() => setLookbackMode(mode)}
+                  onClick={addPatternRow}
+                  className="font-mono text-[9px] tracking-[0.25em] uppercase px-3 py-1.5 border transition-colors flex items-center gap-1.5"
+                  style={{
+                    background: 'var(--color-cyan)',
+                    borderColor: 'var(--color-cyan)',
+                    color: 'var(--color-void)',
+                    borderRadius: 0,
+                  }}
                 >
-                  {mode === 'candles' ? 'Per candele' : 'Per minuti'}
+                  <Plus className="w-3 h-3" />
+                  Aggiungi
                 </button>
+              </div>
+            </div>
+
+            <div className="space-y-2">
+              {patterns.map((p, idx) => (
+                <div
+                  key={p.id}
+                  className="flex flex-col sm:flex-row gap-2 sm:items-center p-3"
+                  style={{
+                    border: '1px solid var(--color-border-dim)',
+                    background: 'rgba(201,168,76,0.02)',
+                  }}
+                >
+                  <div className="flex-1">
+                    <label
+                      className="font-mono text-[9px] tracking-[0.3em] uppercase block mb-1.5"
+                      style={{ color: 'var(--color-text-dim)' }}
+                    >
+                      Pattern #{idx + 1}
+                    </label>
+                    <select
+                      className="w-full px-3 py-1.5 font-mono text-[11px] focus:outline-none"
+                      style={{
+                        background: 'var(--color-surface)',
+                        border: '1px solid var(--color-border)',
+                        color: 'var(--color-text)',
+                        fontFamily: 'var(--font-mono)',
+                        borderRadius: 0,
+                      }}
+                      value={p.key || ""}
+                      onChange={(e: React.ChangeEvent<HTMLSelectElement>) =>
+                        updatePatternKey(p.id, e.target.value as PatternConfigKeyUI)
+                      }
+                    >
+                      <option value="">Seleziona un pattern</option>
+                      <option value={ALL_OPTION_VALUE}>Tutti i pattern principali</option>
+                      {PATTERN_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      ))}
+                    </select>
+                  </div>
+
+                  <div className="flex items-center gap-3 min-w-[190px]">
+                    <label
+                      className="flex items-center gap-2 font-mono text-[10px] tracking-[0.1em] cursor-pointer select-none"
+                      style={{ color: 'var(--color-text-dim)' }}
+                    >
+                      <input
+                        type="checkbox"
+                        className="accent-[var(--color-cyan)]"
+                        checked={p.required}
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                          updatePatternRequired(p.id, e.target.checked)
+                        }
+                      />
+                      Obbligatorio
+                    </label>
+
+                    {patterns.length > 1 && (
+                      <button
+                        type="button"
+                        className="p-1 transition-colors hover:bg-red-500/10"
+                        style={{ color: 'rgba(248,113,113,0.7)', borderRadius: 0 }}
+                        onClick={() => removePatternRow(p.id)}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <input
+                      id="orione-only-combo"
+                      type="checkbox"
+                      className="accent-[var(--color-cyan)] h-3.5 w-3.5"
+                      checked={onlyCombo}
+                      onChange={(e) => setOnlyCombo(e.target.checked)}
+                    />
+                    <label
+                      htmlFor="orione-only-combo"
+                      className="font-mono text-[10px] tracking-[0.1em] cursor-pointer select-none"
+                      style={{ color: 'var(--color-text-dim)' }}
+                    >
+                      Solo confluenza (COMBO)
+                    </label>
+                  </div>
+                </div>
               ))}
             </div>
-            <div className="flex items-center gap-2 mt-1">
-              <input
-                type="number"
-                min={1}
-                className={glassInputSm}
-                value={lookbackMode === 'candles' ? lookbackCandles : lookbackMinutes}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
-                  const v = Number(e.target.value) || 1;
-                  lookbackMode === 'candles' ? setLookbackCandles(v) : setLookbackMinutes(v);
-                }}
-              />
-              <span className="text-xs text-white/40">
-                {lookbackMode === 'candles' ? 'candele' : 'minuti'}
-              </span>
+
+            <p className="font-mono text-[10px] tracking-[0.1em]" style={{ color: 'var(--color-text-dim)' }}>
+              Flag{' '}
+              <span style={{ color: 'var(--color-text)' }}>Obbligatorio</span>
+              {' '}= il pattern deve essere presente.{' '}
+              <span style={{ color: 'var(--color-text)' }}>Tutti i pattern</span>
+              {' '}usa l&apos;intero set principale.
+            </p>
+          </section>
+
+          {/* LOOKBACK + FREQUENZA */}
+          <section className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <label className="section-tag block">Finestra di lookback</label>
+              <div className="flex gap-2">
+                {(['candles', 'minutes'] as LookbackMode[]).map((mode) => {
+                  const active = lookbackMode === mode;
+                  return (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => setLookbackMode(mode)}
+                      className="font-mono text-[9px] tracking-[0.25em] uppercase px-3 py-1.5 border transition-all"
+                      style={active ? {
+                        background: 'rgba(201,168,76,0.08)',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-gold)',
+                        borderRadius: 0,
+                      } : {
+                        background: 'transparent',
+                        borderColor: 'var(--color-border)',
+                        color: 'var(--color-text-dim)',
+                        borderRadius: 0,
+                      }}
+                    >
+                      {mode === 'candles' ? 'Per candele' : 'Per minuti'}
+                    </button>
+                  );
+                })}
+              </div>
+              <div className="flex items-center gap-2 mt-1">
+                <input
+                  type="number"
+                  min={1}
+                  className="w-24 px-3 py-1.5 font-mono text-[11px] focus:outline-none"
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                    fontFamily: 'var(--font-mono)',
+                    borderRadius: 0,
+                  }}
+                  value={lookbackMode === 'candles' ? lookbackCandles : lookbackMinutes}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) => {
+                    const v = Number(e.target.value) || 1;
+                    lookbackMode === 'candles' ? setLookbackCandles(v) : setLookbackMinutes(v);
+                  }}
+                />
+                <span className="font-mono text-[10px] tracking-[0.1em]" style={{ color: 'var(--color-text-dim)' }}>
+                  {lookbackMode === 'candles' ? 'candele' : 'minuti'}
+                </span>
+              </div>
             </div>
-          </div>
 
-          <div className="space-y-2">
-            <label className="text-xs text-white/50 uppercase tracking-wider">Frequenza scansione</label>
-            <div className="flex items-center gap-2">
-              <input
-                type="number"
-                min={1}
-                className={glassInputSm}
-                value={scanIntervalMinutes}
-                onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
-                  setScanIntervalMinutes(Number(e.target.value) || 1)
-                }
-              />
-              <span className="text-xs text-white/40">minuti</span>
+            <div className="space-y-2">
+              <label className="section-tag block">Frequenza scansione</label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="number"
+                  min={1}
+                  className="w-24 px-3 py-1.5 font-mono text-[11px] focus:outline-none"
+                  style={{
+                    background: 'var(--color-surface)',
+                    border: '1px solid var(--color-border)',
+                    color: 'var(--color-text)',
+                    fontFamily: 'var(--font-mono)',
+                    borderRadius: 0,
+                  }}
+                  value={scanIntervalMinutes}
+                  onChange={(e: React.ChangeEvent<HTMLInputElement>) =>
+                    setScanIntervalMinutes(Number(e.target.value) || 1)
+                  }
+                />
+                <span className="font-mono text-[10px] tracking-[0.1em]" style={{ color: 'var(--color-text-dim)' }}>
+                  minuti
+                </span>
+              </div>
+              <label
+                className="flex items-center gap-2 font-mono text-[10px] tracking-[0.1em] mt-1 cursor-pointer select-none"
+                style={{ color: 'var(--color-text-dim)' }}
+              >
+                <input
+                  type="checkbox"
+                  className="accent-[var(--color-cyan)]"
+                  checked={autoLoop}
+                  onChange={(e) => setAutoLoop(e.target.checked)}
+                />
+                Ciclo continuo (auto-refresh)
+              </label>
             </div>
-            <label className="flex items-center gap-2 text-xs text-white/50 mt-1 cursor-pointer select-none">
-              <input
-                type="checkbox"
-                className="accent-cyan-400"
-                checked={autoLoop}
-                onChange={(e) => setAutoLoop(e.target.checked)}
-              />
-              Ciclo continuo (auto-refresh)
-            </label>
-          </div>
-        </section>
+          </section>
 
-        {/* ACTION BAR */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4 border-t border-white/[0.06]">
-          <div className="text-xs">
-            <span className="text-white/40">Stato: </span>
-            {canRun
-              ? <span className="text-cyan-300">pronto a partire</span>
-              : <span className="text-red-400/80">mancano coin, TF o almeno un pattern</span>
-            }
-          </div>
-
-          <button
-            type="button"
-            disabled={!canRun || loading}
-            onClick={handleSubmit}
-            className="flex items-center gap-2 rounded-xl px-6 py-2 text-sm font-semibold transition-all duration-200 disabled:opacity-40 disabled:cursor-not-allowed"
-            style={{
-              background: 'linear-gradient(135deg, rgba(6,182,212,0.22) 0%, rgba(99,102,241,0.16) 100%)',
-              border: '1px solid rgba(6,182,212,0.38)',
-              boxShadow: '0 0 16px rgba(6,182,212,0.14)',
-              color: '#67e8f9',
-            }}
+          {/* ACTION BAR */}
+          <div
+            className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-4"
+            style={{ borderTop: '1px solid var(--color-border)' }}
           >
-            <span className="text-xs">{loading ? '⟳' : '▶'}</span>
-            {loading ? 'Analisi in corso...' : 'Avvia scan'}
-          </button>
-        </div>
-
-        {/* RISULTATI */}
-        <section className="space-y-2">
-          {error && (
-            <div className="text-xs text-red-300 bg-red-900/20 border border-red-600/30 rounded-xl p-3">
-              {error}
+            <div className="font-mono text-[10px] tracking-[0.1em]">
+              <span style={{ color: 'var(--color-text-dim)' }}>Stato: </span>
+              {canRun
+                ? <span style={{ color: 'var(--color-cyan)' }}>pronto a partire</span>
+                : <span style={{ color: 'rgba(248,113,113,0.8)' }}>mancano coin, TF o almeno un pattern</span>
+              }
             </div>
-          )}
 
-          {results && !error && (
-            <div className="text-xs space-y-3">
-              {results.length === 0 ? (
-                <div className="text-white/40 py-4 text-center">Nessun setup trovato con i criteri selezionati.</div>
-              ) : (
-                <>
-                  <div className="text-white/50">
-                    Trovati <span className="text-cyan-300 font-semibold">{results.length}</span> setup.
+            <button
+              type="button"
+              disabled={!canRun || loading}
+              onClick={handleSubmit}
+              className="flex items-center gap-2 font-mono text-[10px] tracking-[0.25em] uppercase px-6 py-2 border transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{
+                background: 'var(--color-cyan)',
+                borderColor: 'var(--color-cyan)',
+                color: 'var(--color-void)',
+                borderRadius: 0,
+              }}
+            >
+              <span>{loading ? '⟳' : '▶'}</span>
+              {loading ? 'Analisi in corso...' : 'Avvia scan'}
+            </button>
+          </div>
+
+          {/* RISULTATI */}
+          <section className="space-y-2">
+            {error && (
+              <div
+                className="font-mono text-[10px] tracking-[0.1em] p-3"
+                style={{
+                  color: 'rgba(248,113,113,0.9)',
+                  background: 'rgba(153,27,27,0.15)',
+                  border: '1px solid rgba(248,113,113,0.25)',
+                }}
+              >
+                {error}
+              </div>
+            )}
+
+            {loading && !results && (
+              <div className="space-y-2 pt-2">
+                <div className="shimmer h-8 w-full" />
+                <div className="shimmer h-8 w-4/5" />
+                <div className="shimmer h-8 w-3/5" />
+              </div>
+            )}
+
+            {results && !error && (
+              <div className="space-y-3">
+                {results.length === 0 ? (
+                  <div
+                    className="font-mono text-[11px] tracking-[0.2em] text-center py-12"
+                    style={{ color: 'var(--color-text-dim)' }}
+                  >
+                    NESSUN SETUP TROVATO
                   </div>
-                  <div className="max-h-72 overflow-auto pr-1">
-                    {(() => {
-                      const up: OrioneSetup[] = [];
-                      const down: OrioneSetup[] = [];
-                      const neutral: OrioneSetup[] = [];
+                ) : (
+                  <>
+                    <div
+                      className="font-mono text-[10px] tracking-[0.15em] pt-1"
+                      style={{ color: 'var(--color-text-dim)' }}
+                    >
+                      Trovati{' '}
+                      <span style={{ color: 'var(--color-cyan)', fontWeight: 600 }}>
+                        {results.length}
+                      </span>
+                      {' '}setup.
+                    </div>
+                    <div className="max-h-72 overflow-auto pr-1">
+                      {(() => {
+                        const up: OrioneSetup[] = [];
+                        const down: OrioneSetup[] = [];
+                        const neutral: OrioneSetup[] = [];
 
-                      results.forEach((s: OrioneSetup) => {
-                        const directions = s.patterns_hit.map((p: OrionePatternHit) =>
-                          ((p.extra?.direction as string | undefined) ?? "").toUpperCase()
-                        );
-                        if (directions.includes("BULL")) up.push(s);
-                        else if (directions.includes("BEAR")) down.push(s);
-                        else neutral.push(s);
-                      });
+                        results.forEach((s: OrioneSetup) => {
+                          const directions = s.patterns_hit.map((p: OrionePatternHit) =>
+                            ((p.extra?.direction as string | undefined) ?? "").toUpperCase()
+                          );
+                          if (directions.includes("BULL")) up.push(s);
+                          else if (directions.includes("BEAR")) down.push(s);
+                          else neutral.push(s);
+                        });
 
-                      const renderBlock = (title: string, arr: OrioneSetup[], accent: string) => (
-                        <div className="space-y-1.5">
-                          <div className="text-[11px] font-semibold text-white/60 mb-2">{title}</div>
-                          {arr.length === 0 && (
-                            <div className="text-white/25 text-xs py-2">—</div>
-                          )}
-                          {arr.map((s: OrioneSetup, idx: number) => (
+                        const renderBlock = (title: string, arr: OrioneSetup[], colorVar: string) => (
+                          <div className="space-y-1.5">
                             <div
-                              key={`${s.coin}-${s.timeframe}-${idx}`}
-                              className="rounded-xl px-3 py-2 border border-white/[0.06] bg-white/[0.02]"
+                              className="font-mono text-[9px] tracking-[0.4em] uppercase mb-2"
+                              style={{ color: 'var(--color-text-dim)' }}
                             >
-                              <div className="flex items-center justify-between">
-                                <span className="font-mono font-semibold text-white/90 text-xs">
-                                  {s.coin} · {s.timeframe.toUpperCase()}
-                                </span>
-                                <span className="text-[10px] uppercase tracking-wide font-medium" style={{ color: accent }}>
-                                  {s.status}
-                                </span>
-                              </div>
-                              <div className="text-[10px] text-white/40 mt-0.5">
-                                {formatTimestamp(s.timestamp)} · #{s.candle_index} · {s.price != null ? s.price.toFixed(4) : '—'}
-                              </div>
-                              <div className="text-[10px] text-white/50 mt-0.5 flex flex-wrap gap-x-2">
-                                {s.patterns_hit.map((p: OrionePatternHit, i: number) => {
-                                  const extra = p.extra || {};
-                                  const dir = (extra.direction as string | undefined) ?? "";
-                                  const arrow = getDirectionArrow(dir);
-                                  const name = (extra.name as string | undefined) ?? p.key;
-                                  return (
-                                    <span key={`${p.key}-${i}`} className="inline-flex items-center gap-0.5">
-                                      <span className="font-bold">{arrow}</span>
-                                      <span>{name}</span>
-                                    </span>
-                                  );
-                                })}
-                              </div>
+                              {title}
                             </div>
-                          ))}
-                        </div>
-                      );
+                            {arr.length === 0 && (
+                              <div
+                                className="font-mono text-[10px] py-2"
+                                style={{ color: 'var(--color-text-faint)' }}
+                              >
+                                &mdash;
+                              </div>
+                            )}
+                            {arr.map((s: OrioneSetup, idx: number) => (
+                              <div
+                                key={`${s.coin}-${s.timeframe}-${idx}`}
+                                className="px-3 py-2 transition-colors"
+                                style={{
+                                  borderBottom: '1px solid var(--color-text-faint)',
+                                  cursor: 'default',
+                                }}
+                                onMouseEnter={(e) => {
+                                  (e.currentTarget as HTMLDivElement).style.background = 'rgba(201,168,76,0.02)';
+                                }}
+                                onMouseLeave={(e) => {
+                                  (e.currentTarget as HTMLDivElement).style.background = 'transparent';
+                                }}
+                              >
+                                {/* Row: timestamp | coin | TF | pattern | dir | score */}
+                                <div className="flex items-center gap-3 flex-wrap">
+                                  {/* timestamp */}
+                                  <span
+                                    className="font-mono text-[9px] tracking-[0.1em] tabular-nums"
+                                    style={{ color: 'var(--color-text-dim)', minWidth: '120px' }}
+                                  >
+                                    {formatTimestamp(s.timestamp)}
+                                  </span>
+                                  {/* coin */}
+                                  <span
+                                    className="font-mono text-[13px]"
+                                    style={{ color: 'var(--color-gold)', fontFamily: 'var(--font-display)' }}
+                                  >
+                                    {s.coin}
+                                  </span>
+                                  {/* TF badge */}
+                                  <span
+                                    className="font-mono text-[9px] border px-2 py-0.5"
+                                    style={{
+                                      borderColor: 'var(--color-border-dim)',
+                                      color: 'var(--color-text-dim)',
+                                    }}
+                                  >
+                                    {s.timeframe.toUpperCase()}
+                                  </span>
+                                  {/* patterns */}
+                                  <span className="font-mono text-[10px] flex flex-wrap gap-x-2" style={{ color: 'var(--color-text-dim)', flex: 1 }}>
+                                    {s.patterns_hit.map((p: OrionePatternHit, i: number) => {
+                                      const extra = p.extra || {};
+                                      const dir = (extra.direction as string | undefined) ?? "";
+                                      const arrow = getDirectionArrow(dir);
+                                      const name = (extra.name as string | undefined) ?? p.key;
+                                      return (
+                                        <span key={`${p.key}-${i}`} className="inline-flex items-center gap-0.5">
+                                          <span style={{ fontWeight: 700 }}>{arrow}</span>
+                                          <span>{name}</span>
+                                        </span>
+                                      );
+                                    })}
+                                  </span>
+                                  {/* dir badge */}
+                                  <span
+                                    className="font-mono text-[9px] tracking-[0.2em] uppercase px-2 py-0.5 border"
+                                    style={{
+                                      color: colorVar === 'long' ? 'var(--color-long-bright)' : colorVar === 'short' ? 'var(--color-short-bright)' : 'var(--color-text-dim)',
+                                      borderColor: colorVar === 'long' ? 'rgba(61,168,102,0.25)' : colorVar === 'short' ? 'rgba(168,61,61,0.25)' : 'var(--color-border-dim)',
+                                      background: colorVar === 'long' ? 'rgba(61,168,102,0.06)' : colorVar === 'short' ? 'rgba(168,61,61,0.06)' : 'transparent',
+                                    }}
+                                  >
+                                    {s.status}
+                                  </span>
+                                  {/* score */}
+                                  <span
+                                    className="font-mono text-[11px] tabular-nums"
+                                    style={{ color: 'var(--color-gold)' }}
+                                  >
+                                    #{s.candle_index}
+                                    {s.price != null ? ` · ${s.price.toFixed(4)}` : ''}
+                                  </span>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        );
 
-                      return (
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                          {renderBlock('↑ UP', up, '#86efac')}
-                          {renderBlock('↓ DOWN', down, '#fca5a5')}
-                          {renderBlock('· NEUTRAL', neutral, '#94a3b8')}
-                        </div>
-                      );
-                    })()}
-                  </div>
-                </>
-              )}
-            </div>
-          )}
+                        return (
+                          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            {renderBlock('↑ UP', up, 'long')}
+                            {renderBlock('↓ DOWN', down, 'short')}
+                            {renderBlock('\xb7 NEUTRAL', neutral, 'neutral')}
+                          </div>
+                        );
+                      })()}
+                    </div>
+                  </>
+                )}
+              </div>
+            )}
 
-          {debugResponse && (
-            <details className="text-[10px] text-white/30">
-              <summary className="cursor-pointer hover:text-white/50 transition-colors">Debug JSON Orione</summary>
-              <pre className="mt-2 p-3 rounded-xl bg-black/40 border border-white/[0.06] overflow-auto max-h-64 text-white/40">
-                {JSON.stringify(debugResponse, null, 2)}
-              </pre>
-            </details>
-          )}
-        </section>
+            {debugResponse && (
+              <details className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
+                <summary
+                  className="cursor-pointer transition-colors"
+                  style={{ color: 'var(--color-text-dim)' }}
+                >
+                  Debug JSON Orione
+                </summary>
+                <pre
+                  className="mt-2 p-3 overflow-auto max-h-64"
+                  style={{
+                    background: 'var(--color-deep)',
+                    border: '1px solid var(--color-border-dim)',
+                    color: 'var(--color-text-dim)',
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '10px',
+                  }}
+                >
+                  {JSON.stringify(debugResponse, null, 2)}
+                </pre>
+              </details>
+            )}
+          </section>
+
+        </div>
       </div>
     </div>
   );

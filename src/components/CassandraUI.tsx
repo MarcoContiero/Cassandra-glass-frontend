@@ -7,7 +7,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import ChartPreview from "@/components/ChartPreview";
-import type { AnalisiLightResponse } from "@/types/analisiLight";  // ⬅️ AGGIUNGI QUESTA
+import type { AnalisiLightResponse } from "@/types/analisiLight";  // AGGIUNGI QUESTA
 
 // Overlays
 import SupportiResistenzeOverlay from './overlays/SupportiResistenzeOverlay';
@@ -27,7 +27,7 @@ import AlertOverlay from './overlays/AlertOverlay';
 import ScenariPrevistiOverlay from "@/components/overlays/ScenariPrevistiOverlay";
 import { buildCiclicaViewModel, buildFollowerWithCrossSync } from "@/lib/ciclica/ciclicaViewModel";
 import { CiclicaOverlay } from "@/components/ciclica/CiclicaOverlay";
-import { mockCiclica } from "@/lib/ciclica/mockCiclica"; // 👈 nuovo
+import { mockCiclica } from "@/lib/ciclica/mockCiclica";
 
 
 // UI
@@ -50,7 +50,7 @@ type OverlayKey =
   | 'grafico'
   | 'comparativa_full'
   | 'scenari_previsti'
-  | 'ciclica' // 👈 NEW
+  | 'ciclica'
   | null;
 
 const TF_PRESET = [
@@ -105,12 +105,12 @@ function downloadJson(data: unknown, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-/** bridge sopra/sotto ↔ above/below  */
+/** bridge sopra/sotto above/below  */
 function normalizeLiquidity(result: any): { above: any[]; below: any[] } {
   const cand =
     result?.liquidity ??
     result?.livelli_liquidita ??
-    result?.livelli_liquidità ??
+    result?.livelli_liquidita ??
     result?.liquidity_levels ??
     result?.liquidity_by_tf ??
     result?.pool_liquidita ??
@@ -289,7 +289,7 @@ export default function CassandraUI() {
       const q = new URLSearchParams();
       q.set('coin', coin);
       q.set('tipo', 'riepilogo_totale');
-      q.set("programma", "cassandra");     // <-- forza la pipeline con i builders
+      q.set("programma", "cassandra");     // forza la pipeline con i builders
       q.set("scenari_min_rr", "1.4");
       q.set("scenari_min_score", "50");
       q.set("scenari_max_move_pct", "0.6");
@@ -297,7 +297,7 @@ export default function CassandraUI() {
 
       if (selected.length) {
         selected.forEach(tf => q.append('timeframes', tf)); // per getAll lato API route
-        q.set('timeframes_csv', selected.join(','));        // “cintura + bretelle”
+        q.set('timeframes_csv', selected.join(','));        // "cintura + bretelle"
       }
 
       if (compareBTC) q.set('compare_btc', '1');
@@ -380,7 +380,7 @@ export default function CassandraUI() {
       (overlayData as any)?.liquidity ?? (result as any)?.liquidity ?? result
     );
 
-    // PATCH: calcola le middles dal payload già normalizzato
+    // PATCH: calcola le middles dal payload gia normalizzato
     const middles = buildMiddles({ ...(result ?? {}), liquidity: liqNorm })
 
     return {
@@ -395,7 +395,7 @@ export default function CassandraUI() {
         : sr.resistenze,
       liquidity: liqNorm,
       entries,
-      middles,              // ← aggiunto
+      middles,              // aggiunto
       strategia_ai: (overlayData as any)?.strategia_ai ?? (result as any)?.strategia_ai,
       longshort: (overlayData as any)?.longshort ?? (result as any)?.longshort,
       alerts: (overlayData as any)?.alerts ?? (result as any)?.alerts ?? [],
@@ -433,13 +433,13 @@ export default function CassandraUI() {
     box: "Box",
     middles: "Middles",
     supporti: "Supporti/Resistenze",
-    liquidita: "Livelli di liquidità",
+    liquidita: "Livelli di liquidita",
     scenari: "Scenari attivi",
     ciclica: "Analisi ciclica",
     grafico: "Grafico + Trendline",
   };
 
-  // ✅ niente indicizzazione con null
+  // niente indicizzazione con null
   const a11yTitle =
     overlayTitle ||
     (overlayKey ? overlayLabelByKey[overlayKey] : undefined) ||
@@ -455,53 +455,44 @@ export default function CassandraUI() {
 
         return (
           <div className="p-4">
-            <div className="mb-3 font-semibold">Vista completa — {compSymbol}</div>
+            <div
+              className="mb-4 font-mono text-[11px] tracking-[0.4em] uppercase"
+              style={{ color: 'var(--color-text-dim)' }}
+            >
+              Vista completa — {compSymbol}
+            </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('longshort', `Long o Short? — ${compSymbol}`, compResult)}>
-                🧭 Quadro Long o Short?
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('entrate', `Entrate — ${compSymbol}`, compResult)}>
-                🎯 Entrate Mid-term
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('supporti', `Supporti/Resistenze — ${compSymbol}`, compResult)}>
-                🛡️ Supporti/Resistenze
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('scenari', `Scenari attivi — ${compSymbol}`, compResult)}>
-                🧩 Scenari attivi
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('riepilogo', `Riepilogo totale — ${compSymbol}`, compResult)}>
-                📊 Riepilogo totale
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('trigger_map', `Mappa dei Trigger — ${compSymbol}`, compResult)}>
-                🗺️ Mappa dei Trigger
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('momentum_gauge', `Termometro d'Impulso — ${compSymbol}`, compResult)}>
-                🌡️ Termometro d'Impulso
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('strategia_ai', `Strategia AI — ${compSymbol}`, compResult)}>
-                🧪 Strategia AI
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('liquidita', `Livelli di liquidità — ${compSymbol}`, compResult)}>
-                💧 Livelli di liquidità
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('box', `Box — ${compSymbol}`, { symbol: compSymbol, timeframes })}>
-                📦 Box
-              </button>
-              <button className="rounded-lg px-4 py-3 bg-white/5 hover:bg-white/10 text-left"
-                onClick={() => openOverlay('spiegazione', `Spiegazione — ${compSymbol}`, compResult)}>
-                🧠 Spiegazione
-              </button>
+              {[
+                { key: 'longshort' as OverlayKey, label: 'Quadro Long o Short?' },
+                { key: 'entrate' as OverlayKey, label: 'Entrate Mid-term' },
+                { key: 'supporti' as OverlayKey, label: 'Supporti/Resistenze' },
+                { key: 'scenari' as OverlayKey, label: 'Scenari attivi' },
+                { key: 'riepilogo' as OverlayKey, label: 'Riepilogo totale' },
+                { key: 'trigger_map' as OverlayKey, label: 'Mappa dei Trigger' },
+                { key: 'momentum_gauge' as OverlayKey, label: "Termometro d'Impulso" },
+                { key: 'strategia_ai' as OverlayKey, label: 'Strategia AI' },
+                { key: 'liquidita' as OverlayKey, label: 'Livelli di liquidita' },
+                { key: 'box' as OverlayKey, label: 'Box' },
+                { key: 'spiegazione' as OverlayKey, label: 'Spiegazione' },
+              ].map(({ key, label }) => (
+                <button
+                  key={key}
+                  className="cassandra-card text-left px-4 py-3 font-mono text-[11px] tracking-[0.2em] transition-colors duration-200"
+                  style={{ color: 'var(--color-text-dim)' }}
+                  onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-gold)')}
+                  onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
+                  onClick={() => {
+                    if (key === 'box') {
+                      openOverlay('box', `Box — ${compSymbol}`, { symbol: compSymbol, timeframes });
+                    } else {
+                      openOverlay(key, `${label} — ${compSymbol}`, compResult);
+                    }
+                  }}
+                >
+                  {label}
+                </button>
+              ))}
             </div>
           </div>
         );
@@ -603,13 +594,13 @@ export default function CassandraUI() {
   }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes, ciclicaVm]);
 
   const CARDS = [
-    { key: 'longshort'   as OverlayKey, icon: '⟠', label: 'Long o Short?',       desc: 'Quadro direzionale multi-TF' },
+    { key: 'longshort'   as OverlayKey, icon: '➠', label: 'Long o Short?',       desc: 'Quadro direzionale multi-TF' },
     { key: 'supporti'    as OverlayKey, icon: '⬡', label: 'Supporti / Resistenze', desc: 'Livelli chiave di prezzo' },
     { key: 'scenari'     as OverlayKey, icon: '◈', label: 'Scenari attivi',         desc: 'Setup e contesti operativi' },
     { key: 'riepilogo'   as OverlayKey, icon: '◉', label: 'Riepilogo totale',       desc: 'Score e sintesi aggregata' },
     { key: 'alert'       as OverlayKey, icon: '◎', label: 'Alert',                  desc: 'Segnali e notifiche attive' },
     { key: 'strategia_ai'as OverlayKey, icon: '✦', label: 'Strategia AI',           desc: 'Setup generati da Cassandra' },
-    { key: 'liquidita'   as OverlayKey, icon: '◌', label: 'Liquidità',              desc: 'Pool e livelli di liquidità' },
+    { key: 'liquidita'   as OverlayKey, icon: '◌', label: 'Liquidita',              desc: 'Pool e livelli di liquidita' },
     { key: 'spiegazione' as OverlayKey, icon: '◍', label: 'Pregresso',              desc: 'Da dove veniamo' },
     { key: 'ciclica'     as OverlayKey, icon: '◐', label: 'Analisi ciclica',        desc: 'Fasi e finestre temporali' },
     { key: 'entrate'     as OverlayKey, icon: '⊕', label: 'Setup in costruzione',   desc: 'Entrate valide correnti' },
@@ -617,70 +608,82 @@ export default function CassandraUI() {
   ] as const;
 
   return (
-    <div className="w-full text-white">
+    <div className="w-full" style={{ color: 'var(--color-text)' }}>
       <div className="flex flex-col flex-1 max-w-5xl mx-auto">
 
-        {/* ── Controls bar ────────────────────────────────────────── */}
-        <div
-          className="mb-5 flex flex-wrap gap-2 items-center rounded-2xl px-4 py-3 border border-white/[0.07]"
-          style={{
-            backdropFilter: 'blur(16px)',
-            WebkitBackdropFilter: 'blur(16px)',
-            background: 'rgba(255,255,255,0.03)',
-          }}
-        >
+        {/* Controls bar */}
+        <div className="cassandra-card p-4 mb-6 flex flex-wrap gap-3 items-center">
+
           {/* Symbol input */}
-          <label className="text-xs text-white/40 uppercase tracking-wider">Symbol</label>
-          <input
-            className="glass-input w-24"
-            value={symbol}
-            onChange={(e) => setSymbol(e.target.value)}
-            placeholder="ETH"
-          />
+          <div className="flex flex-col gap-1">
+            <label
+              className="font-mono text-[9px] tracking-[0.4em] uppercase"
+              style={{ color: 'var(--color-text-dim)' }}
+            >
+              Symbol
+            </label>
+            <input
+              className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[11px] tracking-[0.1em] rounded-none focus:outline-none focus:border-[var(--color-border-focus)] px-3 py-1.5 w-24"
+              value={symbol}
+              onChange={(e) => setSymbol(e.target.value)}
+              placeholder="ETH"
+            />
+          </div>
 
           {/* TF pills */}
-          <span className="text-xs text-white/40 uppercase tracking-wider ml-1">TF</span>
-          <div className="flex flex-wrap gap-1">
-            {TF_PRESET.map((tf) => {
-              const active = timeframes.includes(tf);
-              return (
-                <button
-                  key={tf}
-                  className={['tf-pill', active ? 'tf-pill-active' : ''].join(' ')}
-                  onClick={() =>
-                    setTimeframes((prev) =>
-                      prev.includes(tf) ? prev.filter((x) => x !== tf) : [...prev, tf]
-                    )
-                  }
-                >
-                  {tf}
-                </button>
-              );
-            })}
+          <div className="flex flex-col gap-1">
+            <span
+              className="font-mono text-[9px] tracking-[0.4em] uppercase"
+              style={{ color: 'var(--color-text-dim)' }}
+            >
+              TF
+            </span>
+            <div className="flex flex-wrap gap-1">
+              {TF_PRESET.map((tf) => {
+                const active = timeframes.includes(tf);
+                return (
+                  <button
+                    key={tf}
+                    className={
+                      active
+                        ? 'bg-[rgba(201,168,76,0.08)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[10px] tracking-[0.2em] uppercase rounded-none px-2 py-0.5 transition-colors duration-200'
+                        : 'bg-transparent border border-transparent text-[var(--color-text-dim)] hover:text-[var(--color-gold)] hover:border-[var(--color-border-dim)] font-mono text-[10px] tracking-[0.2em] uppercase rounded-none px-2 py-0.5 transition-colors duration-200'
+                    }
+                    onClick={() =>
+                      setTimeframes((prev) =>
+                        prev.includes(tf) ? prev.filter((x) => x !== tf) : [...prev, tf]
+                      )
+                    }
+                  >
+                    {tf}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Compare checkboxes */}
-          <div className="flex items-center gap-3 ml-1">
-            <label className="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer select-none">
+          <div className="flex items-center gap-3">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none font-mono text-[10px] tracking-[0.2em]" style={{ color: 'var(--color-text-dim)' }}>
               <input
                 type="checkbox"
-                className="accent-cyan-400 rounded"
+                className="accent-[var(--color-gold)]"
                 checked={compareBTC}
                 onChange={(e) => setCompareBTC(e.target.checked)}
               />
               Comparativa BTC
             </label>
-            <label className="flex items-center gap-1.5 text-xs text-white/60 cursor-pointer select-none">
+            <label className="flex items-center gap-1.5 cursor-pointer select-none font-mono text-[10px] tracking-[0.2em]" style={{ color: 'var(--color-text-dim)' }}>
               <input
                 type="checkbox"
-                className="accent-cyan-400 rounded"
+                className="accent-[var(--color-gold)]"
                 checked={compareAlt}
                 onChange={(e) => setCompareAlt(e.target.checked)}
               />
               Altra coin
               {compareAlt && (
                 <input
-                  className="glass-input ml-1 w-20 text-xs py-0.5"
+                  className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[11px] tracking-[0.1em] rounded-none focus:outline-none focus:border-[var(--color-border-focus)] ml-1 w-20 px-2 py-0.5"
                   value={altCoin}
                   onChange={(e) => setAltCoin(e.target.value)}
                   placeholder="SOL"
@@ -689,36 +692,31 @@ export default function CassandraUI() {
             </label>
           </div>
 
-          {/* Applica button */}
+          {/* Analizza button */}
           <button
             onClick={() => fetchAnalisi()}
-            className="ml-auto flex items-center gap-2 rounded-lg px-4 py-1.5 text-sm font-medium transition-all duration-200"
-            style={{
-              background: 'linear-gradient(135deg, rgba(6,182,212,0.20) 0%, rgba(99,102,241,0.15) 100%)',
-              border: '1px solid rgba(6,182,212,0.35)',
-              boxShadow: '0 0 12px rgba(6,182,212,0.12)',
-              color: '#67e8f9',
-            }}
+            className="ml-auto bg-[var(--color-gold)] text-[var(--color-void)] font-mono text-[10px] tracking-[0.3em] uppercase rounded-none hover:bg-[var(--color-gold-bright)] transition-colors duration-200 px-5 py-1.5"
           >
-            <span className="text-xs">▶</span> Analizza
+            Analizza
           </button>
-
-          {error && (
-            <div className="ml-2 text-red-400 text-xs bg-red-400/10 border border-red-400/20 rounded-lg px-3 py-1">
-              {error}
-            </div>
-          )}
         </div>
+
+        {/* Error banner */}
+        {error && (
+          <div className="cassandra-card p-3 mb-4 border-l-2 border-[var(--color-short-bright)] text-[var(--color-short-bright)] font-mono text-[11px]">
+            {error}
+          </div>
+        )}
 
         {/* Prezzo attuale */}
         {Number.isFinite(prezzo as number) && (
-          <div className="mb-4 flex items-center gap-3">
-            <span className="text-xs text-white/40 uppercase tracking-wider">{symbol.toUpperCase()}</span>
+          <div className="mb-6 flex items-center gap-3">
+            <span className="section-tag">{symbol.toUpperCase()}</span>
             <span
-              className="px-3 py-1 rounded-lg font-mono tabular-nums text-sm text-cyan-300"
               style={{
-                background: 'rgba(6,182,212,0.08)',
-                border: '1px solid rgba(6,182,212,0.20)',
+                fontFamily: 'var(--font-display)',
+                fontSize: '20px',
+                color: 'var(--color-gold)',
               }}
             >
               {(prezzo as number).toLocaleString('it-IT', { maximumFractionDigits: 8 })}
@@ -726,29 +724,60 @@ export default function CassandraUI() {
           </div>
         )}
 
-        {/* ── Cards grid ─────────────────────────────────────────── */}
-        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-2.5 pb-4">
-          {CARDS.map(({ key, icon, label, desc }) => (
-            <button
-              key={key}
-              className="glass-card text-left px-4 py-3.5 flex flex-col gap-1"
-              onClick={() => openOverlay(key, label, result)}
-            >
-              <div className="flex items-center gap-2">
-                <span className="text-cyan-400/70 text-base leading-none">{icon}</span>
-                <span className="text-sm font-medium text-white/90">{label}</span>
-              </div>
-              <span className="text-xs text-white/35 leading-tight">{desc}</span>
-            </button>
-          ))}
+        {/* Cards grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
+          {CARDS.map(({ key, icon, label, desc }) => {
+            const isActive = overlayKey === key;
+            return (
+              <button
+                key={key}
+                className="cassandra-card cassandra-card-corners text-left p-4 flex flex-col gap-1 transition-colors duration-200"
+                style={
+                  isActive
+                    ? { background: 'rgba(201,168,76,0.06)', borderColor: 'var(--color-border)' }
+                    : undefined
+                }
+                onMouseEnter={e => {
+                  if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.04)';
+                }}
+                onMouseLeave={e => {
+                  if (!isActive) (e.currentTarget as HTMLElement).style.background = '';
+                }}
+                onClick={() => openOverlay(key, label, result)}
+              >
+                <span
+                  className="text-base leading-none"
+                  style={{ color: 'var(--color-gold-dim)' }}
+                >
+                  {icon}
+                </span>
+                <span
+                  style={{
+                    fontFamily: 'var(--font-display)',
+                    fontSize: '12px',
+                    color: 'var(--color-gold)',
+                    fontWeight: 400,
+                  }}
+                >
+                  {label}
+                </span>
+                <span
+                  className="font-mono text-[10px] leading-tight"
+                  style={{ color: 'var(--color-text-dim)' }}
+                >
+                  {desc}
+                </span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* ── Analisi comparativa ─────────────────────────────────── */}
+        {/* Analisi comparativa */}
         {result?.comparative && (
           <div className="mt-5">
-            <div className="flex items-center gap-2 mb-3">
-              <span className="text-xs text-white/40 uppercase tracking-wider">Analisi comparativa</span>
-              <div className="flex-1 h-px bg-white/[0.06]" />
+            <div className="flex items-center gap-3 mb-3">
+              <span className="section-tag">Analisi comparativa</span>
+              <div className="flex-1 h-px" style={{ background: 'var(--color-border-dim)' }} />
             </div>
             <div className="grid gap-2">
               {Object.entries(result.comparative).map(([sym, comp]: any) => {
@@ -759,7 +788,7 @@ export default function CassandraUI() {
                 return (
                   <div key={sym} className="flex items-center gap-2">
                     <button
-                      className="glass-card flex-1 px-4 py-2.5 text-left text-sm"
+                      className="cassandra-card flex-1 px-4 py-2.5 text-left font-mono text-[11px] tracking-[0.1em] transition-colors duration-200"
                       onClick={() =>
                         openOverlay('comparativa_full', `${sym} — Cross-coin view`, {
                           symbol: sym,
@@ -767,20 +796,23 @@ export default function CassandraUI() {
                         })
                       }
                     >
-                      <span className="text-white/80 font-mono">{sym}</span>
-                      <span className="mx-2 text-white/30">·</span>
-                      <span className="text-white/60">{comp?.direction}</span>
-                      <span className="mx-1 text-white/30">·</span>
-                      <span className="text-cyan-400/80">{comp?.score} pt.</span>
-                      <span className="mx-1 text-white/30">·</span>
-                      <span className={comp?.delta > 0 ? 'text-emerald-400' : 'text-red-400'}>
-                        Δ {deltaTxt}
+                      <span style={{ color: 'var(--color-text)' }}>{sym}</span>
+                      <span className="mx-2" style={{ color: 'var(--color-text-dim)' }}>·</span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>{comp?.direction}</span>
+                      <span className="mx-1" style={{ color: 'var(--color-text-dim)' }}>·</span>
+                      <span style={{ color: 'var(--color-cyan)' }}>{comp?.score} pt.</span>
+                      <span className="mx-1" style={{ color: 'var(--color-text-dim)' }}>·</span>
+                      <span style={{ color: comp?.delta > 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}>
+                        D {deltaTxt}
                       </span>
                     </button>
 
                     <button
-                      className="glass-card px-3 py-2.5 text-white/50 hover:text-cyan-300 transition-colors"
+                      className="cassandra-card px-3 py-2.5 font-mono text-[11px] transition-colors duration-200"
+                      style={{ color: 'var(--color-text-dim)' }}
                       title="Analisi ciclica comparativa"
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-cyan)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
                       onClick={(e) => {
                         e.stopPropagation();
                         const followerRaw = (comp?.analysis as any)?.ciclica ?? null;
@@ -799,8 +831,11 @@ export default function CassandraUI() {
                     </button>
 
                     <button
-                      className="glass-card px-3 py-2.5 text-white/50 hover:text-cyan-300 transition-colors"
+                      className="cassandra-card px-3 py-2.5 font-mono text-[11px] transition-colors duration-200"
+                      style={{ color: 'var(--color-text-dim)' }}
                       title="Apri Cassandra per questa coin"
+                      onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-cyan)')}
+                      onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
                       onClick={(e) => {
                         e.stopPropagation();
                         const tfParam = encodeURIComponent(timeframes.join(','));
@@ -816,38 +851,58 @@ export default function CassandraUI() {
           </div>
         )}
 
-        {/* ── Debug ───────────────────────────────────────────────── */}
+        {/* Debug */}
         <div className="mt-6">
           <details className="group">
-            <summary className="cursor-pointer text-[11px] text-white/25 hover:text-white/50 transition-colors select-none">
-              ⚠ Disclaimer — uso amatoriale, nessun consiglio finanziario
+            <summary
+              className="cursor-pointer font-mono text-[11px] tracking-[0.2em] transition-colors duration-200 select-none"
+              style={{ color: 'var(--color-text-faint)' }}
+              onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
+              onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-faint)')}
+            >
+              Disclaimer — uso amatoriale, nessun consiglio finanziario
             </summary>
             {result ? (
               <div
-                className="mt-2 rounded-xl p-3 text-xs border border-white/[0.06]"
-                style={{ background: 'rgba(0,0,0,0.35)' }}
+                className="cassandra-card mt-2 p-3"
               >
                 <div className="mb-2 flex items-center justify-between">
-                  <span className="text-[10px] uppercase tracking-wide text-white/30">JSON debug</span>
+                  <span
+                    className="font-mono text-[10px] uppercase tracking-[0.3em]"
+                    style={{ color: 'var(--color-text-dim)' }}
+                  >
+                    JSON debug
+                  </span>
                   <button
                     type="button"
                     onClick={() => downloadJson(result, 'cassandra_debug.json')}
-                    className="rounded border border-white/10 px-2 py-0.5 text-[10px] uppercase tracking-wide text-white/40 hover:bg-white/5"
+                    className="cassandra-card px-2 py-0.5 font-mono text-[10px] uppercase tracking-[0.2em] transition-colors duration-200"
+                    style={{ color: 'var(--color-text-dim)' }}
+                    onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-gold)')}
+                    onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
                   >
                     Scarica .json
                   </button>
                 </div>
-                <pre className="max-h-[400px] overflow-auto whitespace-pre font-mono text-xs text-white/50">
+                <pre
+                  className="max-h-[400px] overflow-auto whitespace-pre font-mono text-[11px]"
+                  style={{ color: 'var(--color-text-dim)' }}
+                >
                   {JSON.stringify(result, null, 2)}
                 </pre>
               </div>
             ) : (
-              <p className="mt-2 text-xs text-white/30">Nessun dato (result = null).</p>
+              <p
+                className="mt-2 font-mono text-[11px]"
+                style={{ color: 'var(--color-text-dim)' }}
+              >
+                Nessun dato (result = null).
+              </p>
             )}
           </details>
         </div>
 
-        {/* ── Dialog overlay ──────────────────────────────────────── */}
+        {/* Dialog overlay */}
         <Dialog
           open={Boolean(overlayKey) || Boolean(showMiddles)}
           onOpenChange={(v: boolean) => { if (!v) closeOverlay(); }}
@@ -857,13 +912,11 @@ export default function CassandraUI() {
             <DialogDescription className="sr-only">Dettagli overlay</DialogDescription>
             <div className="w-[96vw] max-w-[1200px] max-h-[90vh]">
               <div
-                className="rounded-2xl px-6 py-5 overflow-y-auto"
+                className="px-6 py-5 overflow-y-auto"
                 style={{
-                  backdropFilter: 'blur(24px)',
-                  WebkitBackdropFilter: 'blur(24px)',
-                  background: 'rgba(10, 14, 26, 0.92)',
-                  border: '1px solid rgba(255,255,255,0.08)',
-                  boxShadow: '0 24px 60px rgba(0,0,0,0.6), 0 0 0 1px rgba(6,182,212,0.05)',
+                  background: 'var(--color-deep)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 0,
                 }}
               >
                 {overlayNode}

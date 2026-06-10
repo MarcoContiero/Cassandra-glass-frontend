@@ -1,9 +1,10 @@
-// src/app/api/chart/route.ts   ← PRIMA chiamava Bybit: ora proxi anche questo
+// src/app/api/chart/route.ts
 import type { NextRequest } from 'next/server';
 import { proxyGET } from '../_utils/proxy';
 
 export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
-  return proxyGET(req);
+  const { pathname, search } = req.nextUrl;
+  return proxyGET(req, pathname + search);
 }
