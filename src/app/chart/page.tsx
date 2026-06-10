@@ -90,37 +90,71 @@ function ChartInner() {
   }, [base, coin, timeframes]);
 
   return (
-    <main className="min-h-screen bg-black text-gray-200">
-      <div className="mx-auto max-w-6xl px-4 py-4">
-        <div className="mb-4 flex items-center justify-between">
-          <h1 className="text-lg font-semibold">
-            Grafici {coin.toUpperCase()} • {timeframes.join(', ')}
+    <main style={{ minHeight: '100vh', background: '#02020e', color: '#c8c8e8' }}>
+      <div style={{ maxWidth: '1400px', margin: '0 auto', padding: '16px 20px' }}>
+
+        {/* Header */}
+        <div style={{ marginBottom: '20px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', borderBottom: '1px solid rgba(201,168,76,0.08)', paddingBottom: '12px' }}>
+          <h1 style={{ fontFamily: "'Cinzel', serif", fontSize: '15px', letterSpacing: '0.15em', color: '#c9a84c', fontWeight: 400 }}>
+            {coin.toUpperCase()} <span style={{ color: '#5a5a8a' }}>·</span> {timeframes.join(' · ')}
           </h1>
           <button
             onClick={() => router.push('/')}
-            className="rounded px-3 py-1.5 bg-zinc-800 hover:bg-zinc-700"
+            style={{
+              background: 'transparent',
+              border: '1px solid #1a1a3a',
+              color: '#5a5a8a',
+              fontFamily: "'JetBrains Mono', monospace",
+              fontSize: '9px',
+              letterSpacing: '0.3em',
+              textTransform: 'uppercase',
+              padding: '6px 14px',
+              cursor: 'pointer',
+            }}
+            onMouseEnter={e => {
+              (e.target as HTMLElement).style.borderColor = 'rgba(201,168,76,0.4)';
+              (e.target as HTMLElement).style.color = '#c9a84c';
+            }}
+            onMouseLeave={e => {
+              (e.target as HTMLElement).style.borderColor = '#1a1a3a';
+              (e.target as HTMLElement).style.color = '#5a5a8a';
+            }}
           >
-            ⟵ Torna alla home
+            ← Home
           </button>
         </div>
 
         {loading ? (
-          <div className="py-16 text-center text-sm text-zinc-400">Caricamento grafici…</div>
+          <div style={{ padding: '64px 0', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '11px', color: '#5a5a8a', letterSpacing: '0.2em' }}>
+            CARICAMENTO…
+          </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {timeframes.map((tf) => {
               const d = dataByTf[tf];
               const ok = d && Array.isArray(d.ohlcv) && d.ohlcv.length > 0;
               return (
-                <div key={tf} className="rounded-xl bg-zinc-900 p-4 ring-1 ring-zinc-800">
-                  <div className="mb-2 font-medium">{tf}</div>
+                <div key={tf} style={{ background: '#06060f', border: '1px solid rgba(201,168,76,0.12)' }}>
+                  {/* Panel header */}
+                  <div style={{ padding: '8px 12px', borderBottom: '1px solid rgba(201,168,76,0.08)', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                    <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', letterSpacing: '0.25em', color: '#c9a84c', textTransform: 'uppercase' }}>
+                      {tf}
+                    </span>
+                    {ok && (
+                      <span style={{ fontFamily: "'JetBrains Mono', monospace", fontSize: '9px', color: '#5a5a8a' }}>
+                        {d!.ohlcv.length} bars
+                      </span>
+                    )}
+                  </div>
                   {ok ? (
                     <ChartWithTrendlines
                       data={{ ohlcv: d!.ohlcv, trendlines: d!.trendlines ?? { uptrend: [], downtrend: [] } }}
                       height={360}
                     />
                   ) : (
-                    <div className="text-sm text-zinc-400">Nessun dato</div>
+                    <div style={{ padding: '48px 16px', textAlign: 'center', fontFamily: "'JetBrains Mono', monospace", fontSize: '10px', color: '#5a5a8a', letterSpacing: '0.2em' }}>
+                      NO DATA
+                    </div>
                   )}
                 </div>
               );

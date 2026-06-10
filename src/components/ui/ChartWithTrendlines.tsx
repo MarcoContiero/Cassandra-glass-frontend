@@ -14,6 +14,7 @@ import {
   type LineData,
   type UTCTimestamp,
 } from 'lightweight-charts';
+import { CT, candleTheme, trendlineStyle } from '@/lib/chartTheme';
 
 type OHLC = { time: number; open: number; high: number; low: number; close: number; volume?: number };
 type Trendline = { x1: number; y1: number; x2: number; y2: number; kind: 'up' | 'down'; active: boolean };
@@ -65,32 +66,48 @@ export default function ChartWithTrendlines({
 
     const chart = createChart(ref.current, {
       height,
-      layout: { background: { type: ColorType.Solid, color: 'transparent' }, textColor: '#e5e7eb' },
-      rightPriceScale: { borderVisible: false },
-      timeScale: { borderVisible: false, secondsVisible: false },
-      grid: { vertLines: { visible: false }, horzLines: { visible: true } },
-      crosshair: { mode: 1 },
+      layout: {
+        background: { type: ColorType.Solid, color: CT.void },
+        textColor: CT.textDim,
+        fontFamily: CT.fontMono,
+      },
+      grid: {
+        vertLines: { color: CT.grid },
+        horzLines: { color: CT.grid },
+      },
+      crosshair: {
+        vertLine: { color: CT.crosshair, style: LineStyle.Dashed, width: 1 },
+        horzLine: { color: CT.crosshair, style: LineStyle.Dashed, width: 1 },
+      },
+      rightPriceScale: { borderColor: CT.panelBorder },
+      timeScale: { borderColor: CT.panelBorder, secondsVisible: false },
+      watermark: {
+        visible: true,
+        fontSize: 72,
+        horzAlign: 'center',
+        vertAlign: 'center',
+        color: 'rgba(201,168,76,0.04)',
+        text: 'CASSANDRA',
+        fontFamily: "'Cinzel Decorative', serif",
+      },
     });
 
     const candleSeries = chart.addSeries(CandlestickSeries, {
       priceLineVisible: false,
-      upColor: '#26a69a',
-      downColor: '#ef5350',
-      borderUpColor: '#26a69a',
-      borderDownColor: '#ef5350',
-      wickUpColor: '#26a69a',
-      wickDownColor: '#ef5350',
+      ...candleTheme,
     }) as ISeriesApi<'Candlestick'>;
 
     candleSeries.setData(candleData);
 
     const lineSeries: ISeriesApi<'Line'>[] = [];
     for (const l of lines) {
+      const theme = trendlineStyle(l.kind, l.active);
       const s = chart.addSeries(LineSeries, {
         priceLineVisible: false,
-        lineWidth: l.active ? 2 : 1,
-        lineStyle: l.active ? LineStyle.Solid : LineStyle.Dotted,
-        color: l.kind === 'up' ? (l.active ? '#26a69a' : '#7fbfba') : (l.active ? '#ef5350' : '#f29aa0'),
+        lastValueVisible: false,
+        color: theme.color,
+        lineWidth: theme.lineWidth,
+        lineStyle: theme.lineStyle,
       }) as ISeriesApi<'Line'>;
       s.setData(l.points);
       lineSeries.push(s);
@@ -111,5 +128,15 @@ export default function ChartWithTrendlines({
     };
   }, [candleData, lines, height]);
 
-  return <div ref={ref} style={{ width: '100%', height }} />;
+  return (
+    <div
+      ref={ref}
+      style={{
+        width: '100%',
+        height,
+        background: CT.void,
+        border: `1px solid ${CT.panelBorder}`,
+      }}
+    />
+  );
 }
