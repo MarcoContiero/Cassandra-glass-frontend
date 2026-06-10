@@ -368,15 +368,7 @@ function dedupSignals(items: SignalItem[]): SignalItem[] {
   );
 }
 
-// ── BTC trend + trade stats types ────────────────────────────────────────────
-type BtcTrend = {
-  direction: string | null;
-  guardrailColor: string | null;
-  guardrailScore: number | null;
-  faseAttuale: string | null;
-  loading: boolean;
-  error: boolean;
-};
+// ── Trade stats types ────────────────────────────────────────────────────────
 
 type TradeStat = { count: number; wins: number; wr: number; pf: number | null };
 
@@ -451,43 +443,12 @@ export default function TifidePage() {
 
   const [recentSetups, setRecentSetups] = useState<NonNullable<TifideStatus['recent_setups']>>([]);
 
-  const [btcTrend, setBtcTrend] = useState<BtcTrend>({
-    direction: null, guardrailColor: null, guardrailScore: null, faseAttuale: null, loading: false, error: false,
-  });
-
   function toggleGroup(id: CounterGroupId) {
     setOpenGroups(prev => {
       const next = new Set(prev);
       next.has(id) ? next.delete(id) : next.add(id);
       return next;
     });
-  }
-
-  async function fetchBtcTrend() {
-    setBtcTrend(prev => ({ ...prev, loading: true, error: false }));
-    try {
-      const q = new URLSearchParams();
-      q.set('coin', 'BTCUSDT');
-      q.set('timeframes', '1d');
-      q.set('programma', 'cassandra');
-      q.set('tipo', 'riepilogo_totale');
-      const r = await fetch(`/api/analisi_light?${q.toString()}`, { cache: 'no-store' });
-      if (!r.ok) throw new Error(String(r.status));
-      const json = await r.json();
-      const cic = json?.ciclica ?? {};
-      const rp = cic?.reentry_path ?? {};
-      const badges = cic?.guida_umano?.badges ?? {};
-      setBtcTrend({
-        direction: rp?.direzione_reentry ?? badges?.reentry_direction ?? null,
-        guardrailColor: badges?.guardrail_color ?? null,
-        guardrailScore: badges?.guardrail_score ?? null,
-        faseAttuale: rp?.fase_attuale ?? null,
-        loading: false,
-        error: false,
-      });
-    } catch {
-      setBtcTrend(prev => ({ ...prev, loading: false, error: true }));
-    }
   }
 
   const esRef = useRef<EventSource | null>(null);
@@ -665,13 +626,6 @@ export default function TifidePage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  useEffect(() => {
-    fetchBtcTrend();
-    const id = setInterval(fetchBtcTrend, 5 * 60 * 1000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
-
   const summary = useMemo(() => {
     const st = status?.status ?? "—";
     const wl = status?.watchlist_count ?? 0;
@@ -699,6 +653,7 @@ export default function TifidePage() {
       }).filter(Boolean).join(' + ');
 
     for (const t of tradesView) {
+      if (String(t?.event ?? '').toUpperCase() !== 'CLOSE') continue;
       const coin = String(t?.coin ?? t?.coin_key ?? t?.meta?.coin ?? t?.meta?.coin_key ?? '?');
       const rawScenario = String(t?.scenario ?? t?.meta?.scenario ?? '?');
       const scenario = rawScenario !== '?' ? normScenario(rawScenario) : '?';
