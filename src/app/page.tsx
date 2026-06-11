@@ -45,7 +45,7 @@ const STATS = [
 
 const TIERS = [
   {
-    name: 'Orione', sub: 'Segnali & Pattern', price: 149, featured: false,
+    name: 'Orione', sub: 'Segnali & Pattern', price: 39, featured: false,
     features: [
       { on: true,  text: 'Scanner pattern real-time su 30+ coins' },
       { on: true,  text: 'Bias MTF su tutti i timeframe' },
@@ -55,10 +55,10 @@ const TIERS = [
       { on: false, text: 'DNA Coin (Le Tre Moire)' },
       { on: false, text: 'Radar ciclico Agema' },
     ],
-    cta: 'Inizia con Orione',
+    cta: 'Prova gratis 14 giorni',
   },
   {
-    name: 'Argonauta', sub: 'Suite Completa', price: 399, featured: true,
+    name: 'Argonauta', sub: 'Suite Completa', price: 89, featured: true,
     features: [
       { on: true, text: 'Tutto di Orione incluso' },
       { on: true, text: 'Setup AI con entry/TP/SL/R:R' },
@@ -67,10 +67,10 @@ const TIERS = [
       { on: true, text: 'Performance per sessione USA/EU/ASIA' },
       { on: false, text: 'Radar ciclico Agema' },
     ],
-    cta: 'Inizia con Argonauta',
+    cta: 'Prova gratis 14 giorni',
   },
   {
-    name: 'Agema', sub: 'Elite · Ciclica', price: 599, featured: false,
+    name: 'Agema', sub: 'Elite · Ciclica', price: 129, featured: false,
     features: [
       { on: true, text: 'Tutto di Argonauta incluso' },
       { on: true, text: 'Radar ciclico su tutte le coins' },
@@ -79,7 +79,7 @@ const TIERS = [
       { on: true, text: 'Accesso anticipato nuove features' },
       { on: true, text: 'Supporto prioritario' },
     ],
-    cta: "Entra nell'Agema",
+    cta: 'Prova gratis 14 giorni',
   },
 ];
 
@@ -372,6 +372,28 @@ export default function HomePage() {
           </div>
         </RevealOnScroll>
 
+        {/* Banner prova gratuita */}
+        <RevealOnScroll delay={100}>
+          <div style={{ maxWidth: '1100px', margin: '0 auto 32px', border: '1px solid var(--color-border-cyan)', background: 'var(--color-cyan-faint)', padding: '20px 32px', display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px' }}>
+            <div>
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.4em', textTransform: 'uppercase', color: 'var(--color-cyan)', display: 'block', marginBottom: '6px' }}>
+                Prova gratuita
+              </span>
+              <span style={{ fontFamily: 'var(--font-display)', fontSize: '15px', color: 'var(--color-text)', fontWeight: 300 }}>
+                14 giorni su Argonauta completo — senza carta di credito
+              </span>
+            </div>
+            <button
+              onClick={() => router.push('/app')}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'var(--color-cyan)', color: 'var(--color-void)', border: 'none', padding: '12px 28px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 200ms ease' }}
+              onMouseEnter={e => { (e.currentTarget).style.background = 'var(--color-cyan-bright)'; }}
+              onMouseLeave={e => { (e.currentTarget).style.background = 'var(--color-cyan)'; }}
+            >
+              Inizia gratis
+            </button>
+          </div>
+        </RevealOnScroll>
+
         <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '20px', alignItems: 'start' }}>
           {TIERS.map((tier, i) => (
             <RevealOnScroll key={tier.name} delay={i * 120}>
@@ -379,6 +401,14 @@ export default function HomePage() {
                 className="cassandra-card cassandra-card-corners"
                 style={{ padding: '40px 32px', position: 'relative', background: tier.featured ? 'var(--color-surface)' : 'var(--color-deep)' }}
               >
+                {/* Founding member badge — tutti i tier */}
+                <div style={{ marginBottom: '16px', display: 'inline-flex', alignItems: 'center', gap: '6px', border: '1px solid var(--color-gold-dim)', background: 'var(--color-gold-faint)', padding: '3px 10px' }}>
+                  <span style={{ color: 'var(--color-gold)', fontSize: '8px' }}>✦</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-gold-dim)' }}>
+                    Founding member · prezzo bloccato per sempre · primi 100
+                  </span>
+                </div>
+
                 {tier.featured && (
                   <div
                     className="btn-cassandra"
@@ -452,8 +482,8 @@ export default function HomePage() {
         <span style={{ fontFamily: 'var(--font-decorative)', fontSize: '12px', fontWeight: 300, color: 'var(--color-gold-dim)', letterSpacing: '0.2em' }}>
           CASSANDRA
         </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-faint)', letterSpacing: '0.2em' }}>
-          © 2026 · Uso amatoriale · Nessun consiglio finanziario
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-faint)', letterSpacing: '0.1em', maxWidth: '600px', textAlign: 'right', lineHeight: 1.6 }}>
+          © 2026 · Le analisi sono fornite a scopo informativo e non costituiscono consulenza finanziaria
         </span>
       </footer>
     </div>
