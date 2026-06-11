@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useMemo, useState } from 'react';
+import { ThemeToggle } from './ThemeToggle';
 import CassandraUI from './CassandraUI';
 import ArgonautaPanel from './ArgonautaPanel';
 import OrionePanel from './orione/OrionePanel';
@@ -115,17 +116,18 @@ export default function ProgramsHub() {
             })}
           </nav>
 
-          {/* Live indicator */}
+          {/* Theme toggle + live indicator */}
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
-              paddingLeft: '20px',
+              gap: '12px',
+              paddingLeft: '16px',
               marginLeft: 'auto',
               borderLeft: '1px solid var(--color-border-dim)',
             }}
           >
+            <ThemeToggle />
             <span
               style={{
                 width: '6px',

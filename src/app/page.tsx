@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import dynamic from 'next/dynamic';
 import { RevealOnScroll } from '@/components/RevealOnScroll';
+import { ThemeToggle } from '@/components/ThemeToggle';
 
 const HeroPlanetarium = dynamic(() => import('@/components/HeroPlanetarium'), { ssr: false });
 
@@ -139,6 +140,8 @@ function HomeNav() {
             {label}
           </a>
         ))}
+
+        <ThemeToggle />
 
         {/* TODO: auth gate */}
         <button

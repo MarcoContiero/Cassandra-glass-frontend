@@ -51,6 +51,34 @@
   --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
 }
 
+/* ── Light mode override ── */
+[data-theme="light"] {
+  --color-void:        #f8f6f0;
+  --color-deep:        #f0ede4;
+  --color-surface:     #e8e4d8;
+  --color-overlay:     #ede9df;
+  --color-gold:        #8a6020;
+  --color-gold-bright: #a07828;
+  --color-gold-dim:    #c4a870;
+  --color-gold-faint:  rgba(138,96,32,0.08);
+  --color-cyan:        #0a7a78;
+  --color-cyan-bright: #0d9694;
+  --color-cyan-dim:    #065c5a;
+  --color-cyan-faint:  rgba(10,122,120,0.08);
+  --color-long-bright: #2d6e42;
+  --color-long-faint:  rgba(45,110,66,0.12);
+  --color-short-bright:#8a2a2a;
+  --color-short-faint: rgba(138,42,42,0.12);
+  --color-neutral:     #7a7a9a;
+  --color-text:        #1a1a2e;
+  --color-text-dim:    #6a6a8a;
+  --color-text-faint:  #d0ccbc;
+  --color-border:      rgba(138,96,32,0.2);
+  --color-border-dim:  rgba(138,96,32,0.1);
+  --color-border-cyan: rgba(10,122,120,0.2);
+  --color-border-focus:rgba(138,96,32,0.5);
+}
+
 /* ── Base ── */
 html {
   background: var(--color-void);
