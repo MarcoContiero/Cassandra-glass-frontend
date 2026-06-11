@@ -113,9 +113,9 @@ function HomeNav() {
         left: 0,
         right: 0,
         zIndex: 50,
-        borderBottom: scrolled ? '1px solid var(--color-border-dim)' : '1px solid transparent',
-        backdropFilter: scrolled ? 'blur(12px)' : 'none',
-        background: scrolled ? 'rgba(2,2,14,0.92)' : 'transparent',
+        borderBottom: scrolled ? '1px solid var(--color-gold-dim)' : '1px solid transparent',
+        backdropFilter: scrolled ? 'none' : 'none',
+        background: scrolled ? 'var(--color-gold)' : 'transparent',
         transition: 'all 300ms ease',
         padding: '0 32px',
         height: '60px',
@@ -133,9 +133,9 @@ function HomeNav() {
           <a
             key={label}
             href={`#${label.toLowerCase()}`}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--color-text-dim)', textDecoration: 'none', transition: 'color 200ms ease' }}
-            onMouseEnter={e => { (e.target as HTMLElement).style.color = 'var(--color-gold)'; }}
-            onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--color-text-dim)'; }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: scrolled ? 'rgba(2,2,14,0.55)' : 'var(--color-text-dim)', textDecoration: 'none', transition: 'color 200ms ease' }}
+            onMouseEnter={e => { (e.target as HTMLElement).style.color = scrolled ? 'var(--color-void)' : 'var(--color-gold)'; }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.color = scrolled ? 'rgba(2,2,14,0.55)' : 'var(--color-text-dim)'; }}
           >
             {label}
           </a>

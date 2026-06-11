@@ -26,8 +26,8 @@ export function ThemeToggle() {
       title={theme === 'dark' ? 'Passa al tema chiaro' : 'Passa al tema scuro'}
       style={{
         background: 'transparent',
-        border: '1px solid var(--color-border)',
-        color: 'var(--color-text-dim)',
+        border: '1px solid rgba(2,2,14,0.25)',
+        color: 'rgba(2,2,14,0.55)',
         fontFamily: 'var(--font-mono)',
         fontSize: '11px',
         width: '32px',
@@ -40,12 +40,12 @@ export function ThemeToggle() {
         flexShrink: 0,
       }}
       onMouseEnter={e => {
-        (e.currentTarget).style.color = 'var(--color-gold)';
-        (e.currentTarget).style.borderColor = 'var(--color-gold-dim)';
+        (e.currentTarget).style.color = 'var(--color-void)';
+        (e.currentTarget).style.borderColor = 'rgba(2,2,14,0.5)';
       }}
       onMouseLeave={e => {
-        (e.currentTarget).style.color = 'var(--color-text-dim)';
-        (e.currentTarget).style.borderColor = 'var(--color-border)';
+        (e.currentTarget).style.color = 'rgba(2,2,14,0.55)';
+        (e.currentTarget).style.borderColor = 'rgba(2,2,14,0.25)';
       }}
     >
       {theme === 'dark' ? '◑' : '◐'}

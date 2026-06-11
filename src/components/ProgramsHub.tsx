@@ -52,9 +52,8 @@ export default function ProgramsHub() {
           position: 'sticky',
           top: 0,
           zIndex: 40,
-          borderBottom: '1px solid var(--color-border-dim)',
-          backdropFilter: 'blur(8px)',
-          background: 'rgba(2,2,14,0.92)',
+          borderBottom: '1px solid var(--color-gold-dim)',
+          background: 'var(--color-gold)',
         }}
       >
         <div
@@ -64,7 +63,6 @@ export default function ProgramsHub() {
             padding: '0 20px',
             display: 'flex',
             alignItems: 'stretch',
-            position: 'relative',
           }}
         >
           {/* Logo */}
@@ -74,7 +72,7 @@ export default function ProgramsHub() {
               alignItems: 'center',
               paddingRight: '24px',
               marginRight: '8px',
-              borderRight: '1px solid var(--color-border-dim)',
+              borderRight: '1px solid rgba(2,2,14,0.15)',
             }}
           >
             <span
@@ -83,7 +81,7 @@ export default function ProgramsHub() {
                 fontSize: '13px',
                 fontWeight: 300,
                 letterSpacing: '0.2em',
-                color: 'var(--color-gold)',
+                color: 'var(--color-void)',
                 whiteSpace: 'nowrap',
               }}
             >
@@ -108,7 +106,36 @@ export default function ProgramsHub() {
                 <button
                   key={app.key}
                   onClick={() => setActiveApp(app.key)}
-                  className={isActive ? 'nav-tab nav-tab-active' : 'nav-tab'}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '10px',
+                    fontWeight: isActive ? 400 : 300,
+                    letterSpacing: '0.25em',
+                    textTransform: 'uppercase',
+                    color: isActive ? 'var(--color-void)' : 'rgba(2,2,14,0.5)',
+                    padding: '0 16px',
+                    border: 'none',
+                    borderBottom: isActive ? '2px solid var(--color-void)' : '2px solid transparent',
+                    background: isActive ? 'rgba(2,2,14,0.1)' : 'transparent',
+                    cursor: 'pointer',
+                    transition: 'color 200ms ease, background 200ms ease',
+                    whiteSpace: 'nowrap',
+                    alignSelf: 'stretch',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={e => {
+                    if (!isActive) {
+                      (e.currentTarget).style.color = 'var(--color-void)';
+                      (e.currentTarget).style.background = 'rgba(2,2,14,0.06)';
+                    }
+                  }}
+                  onMouseLeave={e => {
+                    if (!isActive) {
+                      (e.currentTarget).style.color = 'rgba(2,2,14,0.5)';
+                      (e.currentTarget).style.background = 'transparent';
+                    }
+                  }}
                 >
                   {app.label}
                 </button>
@@ -124,7 +151,7 @@ export default function ProgramsHub() {
               gap: '12px',
               paddingLeft: '16px',
               marginLeft: 'auto',
-              borderLeft: '1px solid var(--color-border-dim)',
+              borderLeft: '1px solid rgba(2,2,14,0.15)',
             }}
           >
             <ThemeToggle />
@@ -133,7 +160,8 @@ export default function ProgramsHub() {
                 width: '6px',
                 height: '6px',
                 borderRadius: '50%',
-                background: 'var(--color-long-bright)',
+                background: 'var(--color-void)',
+                opacity: 0.6,
                 animation: 'cassandraPulse 2s ease-in-out infinite',
                 flexShrink: 0,
               }}
@@ -143,7 +171,7 @@ export default function ProgramsHub() {
                 fontFamily: 'var(--font-mono)',
                 fontSize: '9px',
                 letterSpacing: '0.3em',
-                color: 'var(--color-text-dim)',
+                color: 'rgba(2,2,14,0.5)',
                 textTransform: 'uppercase',
               }}
             >
