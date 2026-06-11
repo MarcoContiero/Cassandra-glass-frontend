@@ -78,6 +78,30 @@ interface MarketProfile {
 
 interface HourlyWr { [hour: string]: number }
 
+interface GravitaSide {
+  avg_max_dist_pct: number;
+  p75_max_dist_pct: number;
+  avg_bars: number;
+  p50_bars: number;
+  n: number;
+}
+
+interface Ema200PullTf {
+  above?: GravitaSide;
+  below?: GravitaSide;
+}
+
+interface BbReturnTf {
+  ema9?:   GravitaSide;
+  ema21?:  GravitaSide;
+  ema50?:  GravitaSide;
+  ema100?: GravitaSide;
+  ema200?: GravitaSide;
+}
+
+interface Ema200Pull { [tf: string]: Ema200PullTf }
+interface BbReturn   { [tf: string]: BbReturnTf   }
+
 interface GenomeFull extends GenomeSummary {
   scenario_profile: ScenarioProfile;
   hourly_wr: HourlyWr;
@@ -93,6 +117,8 @@ interface GenomeFull extends GenomeSummary {
   dow_profile?: DowProfile;
   hurst_exp?: number | null;
   market_profile?: MarketProfile;
+  ema200_pull?: Ema200Pull;
+  bb_return?: BbReturn;
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -325,6 +351,170 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ── Gravità Section ──────────────────────────────────────────────────────────
+
+const GRAVITY_TFS = ['15m', '1h', '4h', '1d'] as const;
+type GravityTf = typeof GRAVITY_TFS[number];
+
+const EMA_COLORS: Record<string, string> = {
+  ema9: '#e8c96a', ema21: '#0abfbc', ema50: '#9a6abf', ema100: '#6ab5bf', ema200: '#bf4a4a',
+};
+
+function GravitaBar({ val, max, color }: { val: number; max: number; color: string }) {
+  const pct = max > 0 ? Math.min(100, (val / max) * 100) : 0;
+  return (
+    <div className="relative h-1 rounded-full overflow-hidden" style={{ background: 'rgba(255,255,255,0.06)' }}>
+      <div className="absolute inset-y-0 left-0 rounded-full" style={{ width: `${pct}%`, background: color, opacity: 0.6 }} />
+    </div>
+  );
+}
+
+function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
+  const [tf, setTf] = React.useState<GravityTf>('1h');
+
+  const hasPull = pull && Object.keys(pull).length > 0;
+  const hasBb   = bb   && Object.keys(bb).length   > 0;
+  if (!hasPull && !hasBb) return null;
+
+  const pullTf = pull?.[tf];
+  const bbTf   = bb?.[tf];
+
+  // Scala visiva: max dist tra i 4 TF per normalizzare la barra
+  const allPullDists = pull
+    ? Object.values(pull).flatMap(t => [t.above?.avg_max_dist_pct ?? 0, t.below?.avg_max_dist_pct ?? 0])
+    : [];
+  const maxPullDist = Math.max(...allPullDists, 1);
+
+  const allBbDists = bb
+    ? Object.values(bb).flatMap(t =>
+        (['ema9', 'ema21', 'ema50', 'ema100', 'ema200'] as const).map(k => t[k]?.avg_max_dist_pct ?? 0)
+      )
+    : [];
+  const maxBbDist = Math.max(...allBbDists, 0.5);
+
+  return (
+    <div className="cassandra-card p-3 space-y-3">
+      <div className="flex items-center justify-between">
+        <span className="section-tag">Gravità</span>
+        <div className="flex gap-1">
+          {GRAVITY_TFS.map(t => (
+            <button key={t} onClick={() => setTf(t)}
+              className="px-2 py-0.5 text-[10px] font-mono rounded-sm transition-all"
+              style={{
+                background:  tf === t ? 'rgba(201,168,76,0.12)' : 'transparent',
+                color:       tf === t ? 'var(--color-gold)'     : 'var(--color-text-dim)',
+                border:      tf === t ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+
+        {/* ── EMA200 Calamita ── */}
+        <div className="space-y-2.5">
+          <div className="uppercase tracking-wider" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+            EMA200 Calamita
+          </div>
+          {pullTf ? (
+            <>
+              {(['above', 'below'] as const).map(side => {
+                const d = pullTf[side];
+                if (!d) return null;
+                const col = side === 'above' ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+                return (
+                  <div key={side} className="space-y-1">
+                    <div className="uppercase text-[9px] font-mono tracking-wider" style={{ color: col }}>
+                      {side === 'above' ? '↑ sopra ema200' : '↓ sotto ema200'}
+                    </div>
+                    <GravitaBar val={d.avg_max_dist_pct} max={maxPullDist} color={side === 'above' ? 'rgb(45,168,102)' : 'rgb(168,45,45)'} />
+                    <div className="grid grid-cols-2 gap-x-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>dist avg </span>
+                        <span style={{ color: 'var(--color-gold)' }}>{d.avg_max_dist_pct.toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>p75 </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.p75_max_dist_pct.toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>barre avg </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.avg_bars.toFixed(0)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>p50 </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.p50_bars}</span>
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+                      n={d.n} eventi
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+              — nessun dato per {tf}
+            </span>
+          )}
+        </div>
+
+        {/* ── BB Rientro EMA ── */}
+        <div className="space-y-2.5">
+          <div className="uppercase tracking-wider" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+            BB Rientro EMA
+          </div>
+          {bbTf ? (
+            <>
+              {(['ema9', 'ema21', 'ema50', 'ema100', 'ema200'] as const).map(key => {
+                const d = bbTf[key];
+                if (!d) return null;
+                return (
+                  <div key={key} className="space-y-1">
+                    <div className="uppercase text-[9px] font-mono tracking-wider" style={{ color: EMA_COLORS[key] }}>
+                      {key.replace('ema', 'EMA ')}
+                    </div>
+                    <GravitaBar val={d.avg_max_dist_pct} max={maxBbDist} color={EMA_COLORS[key]} />
+                    <div className="grid grid-cols-2 gap-x-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>dist avg </span>
+                        <span style={{ color: 'var(--color-gold)' }}>{d.avg_max_dist_pct.toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>p75 </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.p75_max_dist_pct.toFixed(2)}%</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>barre avg </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.avg_bars.toFixed(0)}</span>
+                      </div>
+                      <div>
+                        <span style={{ color: 'var(--color-text-dim)' }}>p50 </span>
+                        <span style={{ color: 'var(--color-text)' }}>{d.p50_bars}</span>
+                      </div>
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+                      n={d.n} eventi
+                    </div>
+                  </div>
+                );
+              })}
+            </>
+          ) : (
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+              — nessun dato per {tf}
+            </span>
+          )}
+        </div>
+
+      </div>
+    </div>
+  );
+}
+
 // ── Genome Detail Modal ───────────────────────────────────────────────────────
 
 function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
@@ -528,6 +718,11 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
             ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
         </div>
+
+        {/* Gravità */}
+        {(genome.ema200_pull || genome.bb_return) && (
+          <GravitaSection pull={genome.ema200_pull} bb={genome.bb_return} />
+        )}
 
         {/* Session profile */}
         {genome.session_profile && Object.keys(genome.session_profile).length > 0 && (
