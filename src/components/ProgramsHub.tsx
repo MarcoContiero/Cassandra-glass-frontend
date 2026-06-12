@@ -7,36 +7,36 @@ import ArgonautaPanel from './ArgonautaPanel';
 import OrionePanel from './orione/OrionePanel';
 import AgemaPanel from './agema/AgemaPanel';
 import DnaPanel from './dna/DnaPanel';
+import TreMoirePanel from './moire/TreMoirePanel';
 import Tifide3Panel from '@/app/tifide3/page';
-import TifidePage from '@/app/tifide/page';
 import Orione2Page from '@/app/orione2/patterns/page';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'tifide2' | 'orione2' | 'tifide3';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra', label: 'Cassandra' },
   { key: 'argonauta', label: 'Argonauta' },
   { key: 'orione',    label: 'Orione' },
   { key: 'tifide3',   label: 'Tifi 4.0' },
-  { key: 'tifide2',   label: 'Tifi 2.0' },
   { key: 'orione2',   label: 'Segnali' },
   { key: 'agema',     label: 'Agema' },
   { key: 'dna',       label: 'DNA Coin' },
+  { key: 'moire',     label: 'Tre Moire' },
 ];
 
 export default function ProgramsHub() {
   const [activeApp, setActiveApp] = useState<AppKey>('cassandra');
 
-  const isWide = activeApp === 'tifide2' || activeApp === 'tifide3';
+  const isWide = activeApp === 'tifide3';
 
   const content = useMemo(() => {
     switch (activeApp) {
       case 'argonauta': return <ArgonautaPanel />;
       case 'orione':    return <OrionePanel />;
-      case 'tifide2':   return <TifidePage />;
       case 'tifide3':   return <Tifide3Panel />;
       case 'agema':     return <AgemaPanel />;
       case 'dna':       return <DnaPanel />;
+      case 'moire':     return <TreMoirePanel />;
       case 'orione2':   return <Orione2Page />;
       case 'cassandra':
       default:          return <CassandraUI />;

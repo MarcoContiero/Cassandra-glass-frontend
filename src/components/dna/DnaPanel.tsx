@@ -83,6 +83,7 @@ interface GravitaSide {
   p75_max_dist_pct: number;
   avg_bars: number;
   p50_bars: number;
+  p90_bars: number;
   n: number;
 }
 
@@ -447,6 +448,12 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
                         <span style={{ color: 'var(--color-text-dim)' }}>p50 </span>
                         <span style={{ color: 'var(--color-text)' }}>{d.p50_bars}</span>
                       </div>
+                      {d.p90_bars != null && (
+                        <div>
+                          <span style={{ color: 'var(--color-text-dim)' }}>p90 </span>
+                          <span style={{ color: 'var(--color-text-dim)' }}>{d.p90_bars}</span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
                       n={d.n} eventi
@@ -495,6 +502,12 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
                         <span style={{ color: 'var(--color-text-dim)' }}>p50 </span>
                         <span style={{ color: 'var(--color-text)' }}>{d.p50_bars}</span>
                       </div>
+                      {d.p90_bars != null && (
+                        <div>
+                          <span style={{ color: 'var(--color-text-dim)' }}>p90 </span>
+                          <span style={{ color: 'var(--color-text-dim)' }}>{d.p90_bars}</span>
+                        </div>
+                      )}
                     </div>
                     <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
                       n={d.n} eventi

@@ -860,7 +860,7 @@ export default function CassandraUI() {
               onMouseEnter={e => (e.currentTarget.style.color = 'var(--color-text-dim)')}
               onMouseLeave={e => (e.currentTarget.style.color = 'var(--color-text-faint)')}
             >
-              Disclaimer — uso amatoriale, nessun consiglio finanziario
+              Le analisi sono fornite a scopo informativo e non costituiscono consulenza finanziaria
             </summary>
             {result ? (
               <div
