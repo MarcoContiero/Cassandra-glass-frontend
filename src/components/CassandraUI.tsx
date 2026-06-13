@@ -568,6 +568,8 @@ export default function CassandraUI() {
           <StrategiaAIOverlay
             data={(normalizedOverlayData?.strategia_ai ?? [])}
             onClose={() => closeOverlay()}
+            supporti={normalizedOverlayData?.supporti ?? []}
+            resistenze={normalizedOverlayData?.resistenze ?? []}
           />
         );
       case 'box':

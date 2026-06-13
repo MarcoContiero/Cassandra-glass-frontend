@@ -1,6 +1,6 @@
 // src/components/strategia/StrategiaAIOverlay.tsx
 import React, { useMemo, useState } from "react";
-import { X, ChevronDown } from "lucide-react";
+import { X, ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { OverlayShell } from "../overlays/OverlayShell";
 
 // Tipo locale: modelliamo solo ciò che usiamo qui dentro
@@ -68,7 +68,181 @@ type StrategiaAIStrategy = {
 type Props = {
   data: StrategiaAIStrategy[] | null | undefined;
   onClose: () => void;
+  supporti?: any[];
+  resistenze?: any[];
 };
+
+// ─────────────────────────────────────────────────────────────────
+// Bivi map types & logic
+// ─────────────────────────────────────────────────────────────────
+
+type BiviPosizione = 'primo' | 'intermedio' | 'tp1' | 'ultimo_pre_tp2' | 'tp2';
+
+type BiviNode = {
+  id: string;
+  mid: number;
+  zona?: string;
+  forza: number;
+  natura: string;
+  posizione: BiviPosizione;
+  prevMid: number;
+  nextMid?: number;
+};
+
+function srMid(it: any): number | null {
+  for (const key of ['mid', 'valore', 'value', 'price', 'level']) {
+    const n = Number(it?.[key]);
+    if (isFinite(n) && n > 0) return n;
+  }
+  const zona = String(it?.zona || '');
+  if (zona) {
+    const parts = zona.split(/[-–—]/);
+    if (parts.length >= 2) {
+      const a = parseFloat(parts[0]);
+      const b = parseFloat(parts[1]);
+      if (isFinite(a) && isFinite(b)) return (a + b) / 2;
+    }
+    const single = parseFloat(zona);
+    if (isFinite(single) && single > 0) return single;
+  }
+  return null;
+}
+
+function srForza(it: any): number {
+  for (const key of ['forza', 'punteggio', 'strength', 'score', 'livelli']) {
+    const n = Number(it?.[key]);
+    if (isFinite(n) && n > 0) return n;
+  }
+  return 1;
+}
+
+function srNatura(it: any): string {
+  return String(it?.natura || it?.scenario || it?.type || 'Tecnico');
+}
+
+function buildBiviNodes(
+  s: StrategiaAIStrategy,
+  supporti: any[],
+  resistenze: any[],
+): BiviNode[] {
+  const entry = s.entry;
+  const tp2Raw = s.tp2_price ?? s.tp2 ?? null;
+  const tp1Raw = s.tp1_price ?? s.tp1 ?? null;
+
+  if (!entry || !isFinite(entry) || tp2Raw == null || !isFinite(Number(tp2Raw))) return [];
+  const tp2 = Number(tp2Raw);
+  const tp1 = typeof tp1Raw === 'number' && isFinite(tp1Raw) && tp1Raw !== 0 ? tp1Raw : null;
+  const dir: 'LONG' | 'SHORT' = s.direction?.toUpperCase() === 'SHORT' ? 'SHORT' : 'LONG';
+
+  type Raw = { mid: number; forza: number; natura: string; zona?: string; isTp?: boolean };
+
+  // Raccoglie candidati S/R nel range (entry, tp2) con forza >= 5
+  const candidates: Raw[] = [...(supporti || []), ...(resistenze || [])]
+    .map(it => {
+      const mid = srMid(it);
+      if (mid == null) return null;
+      return { mid, forza: srForza(it), natura: srNatura(it), zona: it?.zona ? String(it.zona) : undefined };
+    })
+    .filter((n): n is Raw => n !== null && n.forza >= 5)
+    .filter(n => dir === 'LONG' ? (n.mid > entry && n.mid < tp2) : (n.mid < entry && n.mid > tp2));
+
+  // Sort per prossimità all'entry
+  candidates.sort((a, b) => dir === 'LONG' ? a.mid - b.mid : b.mid - a.mid);
+
+  // Dedup entro 0.5%
+  const deduped: Raw[] = [];
+  for (const n of candidates) {
+    const last = deduped[deduped.length - 1];
+    if (last && Math.abs(n.mid - last.mid) / Math.max(last.mid, 0.0001) < 0.005) {
+      if (n.forza > last.forza) deduped[deduped.length - 1] = n;
+    } else {
+      deduped.push(n);
+    }
+  }
+
+  // Cap a 4 nodi intermedi (più forti se troppi)
+  let intermediates = deduped;
+  if (intermediates.length > 4) {
+    intermediates = [...intermediates]
+      .sort((a, b) => b.forza - a.forza)
+      .slice(0, 4)
+      .sort((a, b) => dir === 'LONG' ? a.mid - b.mid : b.mid - a.mid);
+  }
+
+  const nodes: Raw[] = [...intermediates];
+
+  // Aggiungi TP1 esplicito se non già coperto
+  if (tp1 != null) {
+    const hasIt = nodes.some(n => Math.abs(n.mid - tp1) / Math.max(tp1, 0.0001) < 0.008);
+    if (!hasIt) {
+      const tp1Node: Raw = { mid: tp1, forza: 10, natura: 'TP1', isTp: true };
+      const insertIdx = dir === 'LONG'
+        ? nodes.findIndex(n => n.mid > tp1)
+        : nodes.findIndex(n => n.mid < tp1);
+      if (insertIdx === -1) nodes.push(tp1Node);
+      else nodes.splice(insertIdx, 0, tp1Node);
+    } else {
+      const idx = nodes.findIndex(n => Math.abs(n.mid - tp1) / Math.max(tp1, 0.0001) < 0.008);
+      nodes[idx] = { ...nodes[idx], natura: 'TP1', isTp: true };
+    }
+  }
+
+  // Aggiungi sempre TP2 in fondo
+  nodes.push({ mid: tp2, forza: 10, natura: 'TP2', isTp: true });
+
+  const tp1Idx = tp1 != null ? nodes.findIndex(n => n.natura === 'TP1') : -1;
+  const tp2Idx = nodes.length - 1;
+
+  return nodes.map((n, i) => {
+    let posizione: BiviPosizione;
+    if (i === tp2Idx) posizione = 'tp2';
+    else if (tp1Idx >= 0 && i === tp1Idx) posizione = 'tp1';
+    else if (i === 0) posizione = 'primo';
+    else if (i === tp2Idx - 1) posizione = 'ultimo_pre_tp2';
+    else posizione = 'intermedio';
+
+    return {
+      id: `bivi-${i}-${n.mid.toFixed(8)}`,
+      mid: n.mid,
+      zona: n.zona,
+      forza: n.forza,
+      natura: n.natura,
+      posizione,
+      prevMid: i > 0 ? nodes[i - 1].mid : entry,
+      nextMid: i < nodes.length - 1 ? nodes[i + 1].mid : undefined,
+    };
+  });
+}
+
+function getBiviActions(posizione: BiviPosizione, prevLabel: string): { rompe: string; rimbalza: string } {
+  switch (posizione) {
+    case 'primo':
+      return {
+        rompe: 'Sposta SL a breakeven',
+        rimbalza: 'Riduci 50% posizione — aspetta retest entry',
+      };
+    case 'intermedio':
+      return {
+        rompe: `Sposta SL a ${prevLabel} (livello precedente)`,
+        rimbalza: 'Chiudi 50%, tieni runner',
+      };
+    case 'tp1':
+      return {
+        rompe: 'Chiudi 50%, sposta SL a breakeven',
+        rimbalza: 'Chiudi tutto',
+      };
+    case 'ultimo_pre_tp2':
+      return {
+        rompe: 'Tieni — obiettivo TP2',
+        rimbalza: 'Chiudi runner',
+      };
+    case 'tp2':
+      return {
+        rompe: 'Chiudi tutto ✓',
+        rimbalza: 'Chiudi tutto ✓',
+      };
+  }
+}
 
 function formatModeLabel(mode: string): string {
   switch (mode) {
@@ -104,11 +278,14 @@ function formatDistanceBps(v: number | null | undefined): string {
   return v.toFixed(1);
 }
 
-export function StrategiaAIOverlay({ data, onClose }: Props) {
+export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = [] }: Props) {
   const [maxDistanceBps, setMaxDistanceBps] = useState<number | null>(null);
   const [minScore, setMinScore] = useState<number>(0);
   const [minRR1, setMinRR1] = useState<number>(0);
   const [openDetails, setOpenDetails] = useState<Record<string, boolean>>({});
+  const [openBivi, setOpenBivi] = useState<Record<string, boolean>>({});
+  // quale nodo è espanso all'interno di ogni sezione bivi (default: 0 = primo)
+  const [openBiviNode, setOpenBiviNode] = useState<Record<string, number>>({});
 
   const ordered = useMemo(() => {
     if (!data) return [];
@@ -234,11 +411,19 @@ export function StrategiaAIOverlay({ data, onClose }: Props) {
           const dir =
             s.direction?.toUpperCase?.() === "SHORT" ? "SHORT" : "LONG";
 
+          const cardId = `${s.tf}-${s.mode}-${s.source}-${s.entry}-${idx}`;
+          const isOpen = !!openDetails[cardId];
+
           // Usiamo solo i prezzi, niente fallback su tp1/tp2 (che sono gli RR)
           const tp1 = (s as any).tp1_price ?? null;
           const tp2 = (s as any).tp2_price ?? null;
           const hasTp2 =
             typeof tp2 === "number" && isFinite(tp2) && tp2 !== 0;
+
+          const nodes = buildBiviNodes(s, supporti, resistenze);
+          const hasBivi = nodes.length > 0;
+          const biviOpen = !!openBivi[cardId];
+          const activeNodeIdx = openBiviNode[cardId] ?? 0;
 
           const hasDetails =
             !!s.explanation ||
@@ -246,9 +431,6 @@ export function StrategiaAIOverlay({ data, onClose }: Props) {
             !!(s.conditions?.invalidate && s.conditions.invalidate.length) ||
             !!(s.tags && s.tags.length) ||
             !!s.note;
-
-          const cardId = `${s.tf}-${s.mode}-${s.source}-${s.entry}-${idx}`;
-          const isOpen = !!openDetails[cardId];
 
           return (
             <div
@@ -357,6 +539,122 @@ export function StrategiaAIOverlay({ data, onClose }: Props) {
                     {isOpen ? "Nascondi dettagli" : "Mostra dettagli"}
                   </span>
                 </button>
+              )}
+
+              {/* Sviluppo ipotetico del trade */}
+              {hasBivi && (
+                <button
+                  type="button"
+                  onClick={() =>
+                    setOpenBivi(prev => ({ ...prev, [cardId]: !biviOpen }))
+                  }
+                  className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-300 hover:text-white"
+                >
+                  <GitBranch size={13} className="opacity-70" />
+                  <span>{biviOpen ? 'Nascondi sviluppo' : 'Sviluppo ipotetico del trade'}</span>
+                  <ChevronDown
+                    size={13}
+                    className={`transition-transform ${biviOpen ? 'rotate-180' : 'rotate-0'}`}
+                  />
+                </button>
+              )}
+
+              {hasBivi && biviOpen && (
+                <div className="mt-3 space-y-1.5">
+                  <div className="text-[9px] uppercase tracking-widest text-zinc-500 mb-2">
+                    Mappa bivio · entry→TP2 ({nodes.length} nodi · forza ≥ 5)
+                  </div>
+                  {nodes.map((node, nIdx) => {
+                    const isNodeOpen = activeNodeIdx === nIdx;
+                    const actions = getBiviActions(node.posizione, formatPrice(node.prevMid));
+                    const isTP = node.posizione === 'tp1' || node.posizione === 'tp2';
+                    const nodeLabel =
+                      node.posizione === 'tp2' ? 'TP2' :
+                      node.posizione === 'tp1' ? 'TP1' :
+                      node.posizione === 'primo' ? `Nodo ${nIdx + 1} — PIÙ VICINO` :
+                      `Nodo ${nIdx + 1}`;
+
+                    return (
+                      <div
+                        key={node.id}
+                        className="rounded-lg overflow-hidden ring-1 ring-white/5"
+                        style={{ background: 'var(--color-deep)' }}
+                      >
+                        {/* Header nodo */}
+                        <button
+                          type="button"
+                          onClick={() =>
+                            setOpenBiviNode(prev => ({ ...prev, [cardId]: isNodeOpen ? -1 : nIdx }))
+                          }
+                          className="w-full flex items-center justify-between gap-2 px-3 py-2 text-left hover:bg-white/5 transition-colors"
+                        >
+                          <div className="flex items-center gap-2 min-w-0">
+                            <span className={`text-[9px] font-semibold uppercase tracking-wide shrink-0 ${isTP ? 'text-amber-400/80' : 'text-zinc-400'}`}>
+                              {nodeLabel}
+                            </span>
+                            <span className="font-mono text-[11px] text-white/90 shrink-0">
+                              {formatPrice(node.mid)}
+                            </span>
+                            <span className="text-[10px] text-zinc-500 truncate">
+                              {node.natura} · F{node.forza}
+                            </span>
+                          </div>
+                          {isNodeOpen
+                            ? <ChevronDown size={12} className="text-zinc-400 shrink-0" />
+                            : <ChevronRight size={12} className="text-zinc-500 shrink-0" />
+                          }
+                        </button>
+
+                        {/* Contenuto nodo espanso */}
+                        {isNodeOpen && (
+                          <div className="px-3 pb-3 space-y-2 text-[11px]">
+                            {/* Rami ROMPE / RIMBALZA */}
+                            {node.posizione === 'tp2' ? (
+                              <div className="flex items-start gap-2">
+                                <span className="text-amber-400/70 shrink-0 mt-0.5">→</span>
+                                <span className="text-zinc-200">
+                                  <span className="font-semibold text-amber-300/90">RAGGIUNTO</span>
+                                  {' — '}{actions.rompe}
+                                </span>
+                              </div>
+                            ) : (
+                              <div className="space-y-1.5">
+                                <div className="flex items-start gap-2">
+                                  <span className="text-emerald-400/70 shrink-0 mt-0.5 font-mono text-[10px]">↑</span>
+                                  <span className="text-zinc-200">
+                                    <span className="font-semibold text-emerald-300/90">ROMPE</span>
+                                    {' — '}{actions.rompe}
+                                    {node.nextMid != null && node.posizione !== 'ultimo_pre_tp2' && (
+                                      <span className="ml-1 text-zinc-500">
+                                        · prossimo bivio {formatPrice(node.nextMid)}
+                                      </span>
+                                    )}
+                                  </span>
+                                </div>
+                                <div className="flex items-start gap-2">
+                                  <span className="text-red-400/70 shrink-0 mt-0.5 font-mono text-[10px]">↓</span>
+                                  <span className="text-zinc-200">
+                                    <span className="font-semibold text-red-300/90">RIMBALZA</span>
+                                    {' — '}{actions.rimbalza}
+                                  </span>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Placeholder Tre Moire */}
+                            {node.posizione !== 'tp2' && (
+                              <div className="flex gap-3 text-[10px] text-zinc-600 border-t border-white/5 pt-2">
+                                <span>Prob. rottura: <span className="text-zinc-500">[--]%</span></span>
+                                <span>Prob. rimbalzo: <span className="text-zinc-500">[--]%</span></span>
+                                <span className="text-zinc-700 italic">← Atropo</span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    );
+                  })}
+                </div>
               )}
 
               {/* Dettagli (spiegazione + conferme/invalidazioni + ciclica + tag/note) */}
