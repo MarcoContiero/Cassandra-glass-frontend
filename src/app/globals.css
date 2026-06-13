@@ -254,3 +254,73 @@ body {
 
 @keyframes barFill { from { width: 0%; } }
 .score-bar-animated { animation: barFill 0.8s ease-out forwards; }
+
+/* ─────────────────────────────────────────────────────────────────── */
+/* LIGHT MODE — override colori Tailwind hardcoded negli overlay       */
+/* ─────────────────────────────────────────────────────────────────── */
+
+/* Backgrounds zinc/black → variabili tema */
+[data-theme="light"] .bg-zinc-900\/95,
+[data-theme="light"] .bg-zinc-900\/90,
+[data-theme="light"] .bg-zinc-900\/80,
+[data-theme="light"] .bg-zinc-900\/70,
+[data-theme="light"] .bg-zinc-900\/40,
+[data-theme="light"] .bg-zinc-900\/20,
+[data-theme="light"] .bg-zinc-900,
+[data-theme="light"] .bg-zinc-800\/80,
+[data-theme="light"] .bg-zinc-800 { background-color: var(--color-surface) !important; }
+
+[data-theme="light"] .bg-zinc-950\/70,
+[data-theme="light"] .bg-zinc-950\/60 { background-color: var(--color-overlay) !important; }
+
+[data-theme="light"] .bg-zinc-700 { background-color: var(--color-deep) !important; }
+
+[data-theme="light"] .bg-black\/70,
+[data-theme="light"] .bg-black\/60,
+[data-theme="light"] .bg-black\/40,
+[data-theme="light"] .bg-black\/30,
+[data-theme="light"] .bg-black\/25,
+[data-theme="light"] .bg-black\/20 { background-color: var(--color-deep) !important; }
+
+/* Testo bianco/zinc → variabili tema */
+[data-theme="light"] .text-white,
+[data-theme="light"] .text-white\/90,
+[data-theme="light"] .text-white\/80,
+[data-theme="light"] .text-white\/75,
+[data-theme="light"] .text-white\/70,
+[data-theme="light"] .text-white\/60,
+[data-theme="light"] .text-white\/50,
+[data-theme="light"] .text-white\/45,
+[data-theme="light"] .text-white\/35,
+[data-theme="light"] .text-zinc-100,
+[data-theme="light"] .text-zinc-200,
+[data-theme="light"] .text-zinc-300 { color: var(--color-text) !important; }
+
+[data-theme="light"] .text-white\/40,
+[data-theme="light"] .text-white\/30,
+[data-theme="light"] .text-white\/25,
+[data-theme="light"] .text-white\/20,
+[data-theme="light"] .text-zinc-400,
+[data-theme="light"] .text-zinc-500 { color: var(--color-text-dim) !important; }
+
+/* Bordi bianchi → variabili tema */
+[data-theme="light"] .border-white\/20,
+[data-theme="light"] .border-white\/15,
+[data-theme="light"] .border-white\/10,
+[data-theme="light"] .border-white\/5 { border-color: var(--color-border) !important; }
+
+/* odd/even rows in table override */
+[data-theme="light"] .odd\:bg-zinc-900\/40:nth-child(odd),
+[data-theme="light"] .even\:bg-zinc-900\/20:nth-child(even) { background-color: transparent !important; }
+
+/* bg-white/XX usati come sfondo attivo in pulsanti/filtri */
+[data-theme="light"] .bg-white\/10,
+[data-theme="light"] .bg-white\/5  { background-color: var(--color-gold-faint) !important; }
+
+/* Bordi aggiuntivi */
+[data-theme="light"] .border-white\/30,
+[data-theme="light"] .border-white\/40 { border-color: var(--color-gold-dim) !important; }
+
+/* text-green/red hardcoded (debug / posizione) */
+[data-theme="light"] .text-green-300 { color: var(--color-long-bright) !important; }
+[data-theme="light"] .text-red-300   { color: var(--color-short-bright) !important; }

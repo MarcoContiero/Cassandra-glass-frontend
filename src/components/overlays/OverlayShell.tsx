@@ -7,13 +7,18 @@ type OverlayShellProps = {
 };
 
 export function OverlayShell({ children, className }: OverlayShellProps) {
-  const base =
-    "mx-auto max-w-6xl rounded-3xl bg-zinc-900/95 p-4 md:p-6 shadow-xl border border-white/5";
-  const innerClassName = className ? `${base} ${className}` : base;
-
   return (
     <div className="max-h-[80vh] overflow-y-auto pr-2">
-      <div className={innerClassName}>{children}</div>
+      <div
+        className={`mx-auto max-w-6xl rounded-3xl p-4 md:p-6 shadow-xl${className ? ` ${className}` : ''}`}
+        style={{
+          background: 'var(--color-surface)',
+          border: '1px solid var(--color-border)',
+          color: 'var(--color-text)',
+        }}
+      >
+        {children}
+      </div>
     </div>
   );
 }

@@ -268,10 +268,10 @@ export default function Orione2Page() {
         </div>
       </div>
 
-      <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid rgba(255,255,255,0.08)", overflow: "hidden" }}>
+      <div style={{ marginTop: 14, borderRadius: 14, border: "1px solid var(--color-border)", overflow: "hidden" }}>
         <table style={{ width: "100%", borderCollapse: "collapse" }}>
           <thead>
-            <tr style={{ background: "rgba(255,255,255,0.04)" }}>
+            <tr style={{ background: "var(--color-surface)" }}>
               <th style={{ textAlign: "left", padding: "12px 14px", fontWeight: 600, width: 140 }}>Nome Coin</th>
               <th style={{ textAlign: "left", padding: "12px 14px", fontWeight: 600 }}>Hit trovati (finestra mobile)</th>
               <th style={{ textAlign: "left", padding: "12px 14px", fontWeight: 600, width: 160 }}>A che ora</th>
@@ -281,13 +281,13 @@ export default function Orione2Page() {
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={3} style={{ padding: 14, opacity: 0.7 }}>
+                <td colSpan={3} style={{ padding: 14, color: "var(--color-text-dim)" }}>
                   Nessun hit negli ultimi {minutes} minuti.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
-                <tr key={r.coin} style={{ borderTop: "1px solid rgba(255,255,255,0.06)", verticalAlign: "top" }}>
+                <tr key={r.coin} style={{ borderTop: "1px solid var(--color-border-dim)", verticalAlign: "top" }}>
                   <td style={{ padding: "12px 14px", fontWeight: 800 }}>{r.coin}</td>
 
                   {/* Colonna hits: lista completa */}
@@ -299,9 +299,8 @@ export default function Orione2Page() {
                           style={{
                             padding: "6px 10px",
                             borderRadius: 10,
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            background: "rgba(255,255,255,0.02)",
-                            opacity: 0.95,
+                            border: "1px solid var(--color-border)",
+                            background: "var(--color-surface)",
                             fontSize: 13,
                             lineHeight: 1.25,
                             wordBreak: "break-word",
@@ -322,10 +321,10 @@ export default function Orione2Page() {
                           style={{
                             padding: "6px 10px",
                             borderRadius: 10,
-                            border: "1px solid rgba(255,255,255,0.08)",
-                            background: "rgba(255,255,255,0.02)",
+                            border: "1px solid var(--color-border)",
+                            background: "var(--color-surface)",
                             fontSize: 13,
-                            opacity: 0.9,
+                            color: "var(--color-text-dim)",
                             whiteSpace: "nowrap",
                           }}
                         >
