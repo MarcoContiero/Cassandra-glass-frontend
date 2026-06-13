@@ -40,14 +40,27 @@ interface BtcRegimeAxis {
   '6-7'?: BtcRegimeBucket;
 }
 
+interface AxisBucket {
+  n: number;
+  wr: number;
+  pf: number | null;
+  avg_pnl: number;
+}
+
 interface GenomeFull {
   coin: string;
   n_trades: number;
   win_rate: number;
   profit_factor: number | null;
-  ema200_pull?:     { [tf: string]: Ema200PullTf };
-  bb_return?:       { [tf: string]: BbReturnTf };
-  btc_regime_axis?: BtcRegimeAxis;
+  ema200_pull?:         { [tf: string]: Ema200PullTf };
+  bb_return?:           { [tf: string]: BbReturnTf };
+  btc_regime_axis?:     BtcRegimeAxis;
+  mtf_bias_axis?:       { [combo: string]: AxisBucket };
+  ema200_dist_axis?:    { [tf: string]: { [bucket: string]: AxisBucket } };
+  momentum_xy_axis?:    { [combo: string]: AxisBucket };
+  sr_dist_axis?:        { [bucket: string]: AxisBucket };
+  pool_liquidity_axis?: { [combo: string]: AxisBucket };
+  ciclica_axis?:        { [tf: string]: { [phase: string]: AxisBucket } };
 }
 
 // ── Pattern classifier ───────────────────────────────────────────────────────
@@ -102,11 +115,21 @@ function dominantPattern(genome: GenomeFull): PatternInfo {
   return { type: 'unknown', label: '—', color: 'var(--color-text-dim)', desc: '' };
 }
 
+function hasData(obj: object | undefined | null): boolean {
+  return !!obj && Object.keys(obj).length > 0;
+}
+
 function countAxesAvailable(genome: GenomeFull): number {
-  let n = 0;
-  if (genome.ema200_pull && Object.keys(genome.ema200_pull).length > 0) n++;
-  if (genome.bb_return   && Object.keys(genome.bb_return).length   > 0) n++;
-  return n;
+  return [
+    genome.ema200_pull,
+    genome.bb_return,
+    genome.ciclica_axis,
+    genome.mtf_bias_axis,
+    genome.momentum_xy_axis,
+    genome.btc_regime_axis,
+    genome.sr_dist_axis,
+    genome.pool_liquidity_axis,
+  ].filter(hasData).length;
 }
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -289,6 +312,103 @@ function AxisStub({ n, title, desc, buckets }: { n: number; title: string; desc:
   );
 }
 
+// ── AxisBucketSection — renderer generico per assi flat e nested ──────────────
+
+type FlatAxis   = Record<string, AxisBucket>;
+type NestedAxis = Record<string, FlatAxis>;
+
+function wrColor(wr: number): string {
+  if (wr >= 60) return 'var(--color-long-bright)';
+  if (wr >= 45) return 'var(--color-gold)';
+  return 'var(--color-short-bright)';
+}
+
+function BucketRow({ bucket, d }: { bucket: string; d: AxisBucket }) {
+  const col = wrColor(d.wr);
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     minWidth: 120, opacity: 0.8 }}>
+        {bucket}
+      </span>
+      <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: col,
+                     fontWeight: 300, minWidth: 52, textAlign: 'right' }}>
+        {d.wr.toFixed(1)}%
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     minWidth: 36, textAlign: 'right', opacity: 0.6 }}>
+        n={d.n}
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     minWidth: 52, textAlign: 'right', opacity: 0.5 }}>
+        PF {d.pf?.toFixed(2) ?? '—'}
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     opacity: 0.45 }}>
+        avg {d.avg_pnl >= 0 ? '+' : ''}{d.avg_pnl.toFixed(2)}%
+      </span>
+    </div>
+  );
+}
+
+function AxisBucketSection({
+  n, title, desc, data, nested,
+}: {
+  n: number;
+  title: string;
+  desc: string;
+  data: FlatAxis | NestedAxis | undefined;
+  nested?: boolean;
+}) {
+  const hasAny = !!data && Object.keys(data).length > 0;
+
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12 }}>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+          {n}.
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text)', letterSpacing: '0.08em' }}>
+          {title}
+        </span>
+        {!hasAny && (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.35, marginLeft: 'auto' }}>
+            nessun dato
+          </span>
+        )}
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 6 }}>
+        {desc}
+      </div>
+
+      {hasAny && !nested && (
+        <div>
+          {Object.entries(data as FlatAxis)
+            .sort((a, b) => b[1].n - a[1].n)
+            .map(([bk, d]) => <BucketRow key={bk} bucket={bk} d={d} />)}
+        </div>
+      )}
+
+      {hasAny && nested && (
+        <div className="space-y-3">
+          {Object.entries(data as NestedAxis).map(([tf, buckets]) => (
+            <div key={tf}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)',
+                            opacity: 0.7, letterSpacing: '0.12em', marginBottom: 2 }}>
+                {tf}
+              </div>
+              {Object.entries(buckets)
+                .sort((a, b) => b[1].n - a[1].n)
+                .map(([bk, d]) => <BucketRow key={bk} bucket={bk} d={d} />)}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Genome detail ─────────────────────────────────────────────────────────────
 
 function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
@@ -404,25 +524,37 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           )}
         </div>
 
-        {/* ── Assi 3-8: stub ── */}
+        {/* ── Assi 3-8 ── */}
         <div className="space-y-3">
-          <AxisStub n={3} title="Ciclica" desc="Categoria fase da Agema"
-            buckets={['accumulo', 'impulso', 'distribuzione', 'correzione', 'laterale']} />
-          <AxisStub n={4} title="Struttura MTF Bias" desc="8 combinazioni binarie long/short su 3 gruppi TF"
-            buckets={['LLL', 'LLS', 'LSL', 'LSS', 'SLL', 'SLS', 'SSL', 'SSS']} />
-          <AxisStub n={5} title="Momentum X/Y" desc="X = struttura candele · Y = posizione nel range recente"
-            buckets={['impulso·alto', 'impulso·centrale', 'impulso·basso', 'pullback·alto', 'pullback·basso', 'laterale·centrale']} />
-          {/* Asse 6: BTC Regime Score — dati reali se disponibili */}
+
+          {/* Asse 3: Ciclica */}
+          <AxisBucketSection n={3} title="CICLICA" desc="Fase EMA21/50 + età swing · 1h e 4h"
+            data={genome.ciclica_axis} nested />
+
+          {/* Asse 4: MTF Bias */}
+          <AxisBucketSection n={4} title="STRUTTURA MTF BIAS" desc="EMA21 su 15m/1h/4h · L=long S=short"
+            data={genome.mtf_bias_axis} />
+
+          {/* Asse 5: Momentum X/Y */}
+          <AxisBucketSection n={5} title="MOMENTUM X/Y" desc="X = impulso/misto/contrarian · Y = alto/centrale/basso nel range 20b"
+            data={genome.momentum_xy_axis} />
+
+          {/* Asse 6: BTC Regime Score */}
           {genome.btc_regime_axis && Object.keys(genome.btc_regime_axis).length > 0 ? (
             <BtcRegimeSection data={genome.btc_regime_axis} />
           ) : (
             <AxisStub n={6} title="BTC Regime Score" desc="Score composito trend BTC 0-7"
               buckets={['0-1 downtrend', '2-3 misto rib.', '4-5 misto rialz.', '6-7 uptrend']} />
           )}
-          <AxisStub n={7} title="Distanza S/R" desc="Distanza dal livello più vicino + tipo + test precedenti"
-            buckets={['< 1% in zona', '1-3% vicino', '3-7% medio', '> 7% lontano']} />
-          <AxisStub n={8} title="Pool Liquidità" desc="Distanza dal pool più vicino + posizione relativa al prezzo"
-            buckets={['< 1% in zona', '1-3% vicino', '> 3% lontano', 'sopra', 'sotto']} />
+
+          {/* Asse 7: Distanza S/R */}
+          <AxisBucketSection n={7} title="DISTANZA S/R" desc="Pivot 4h · in_zona <1% / vicino 1-3% / medio 3-7% / lontano >7%"
+            data={genome.sr_dist_axis} />
+
+          {/* Asse 8: Pool Liquidità */}
+          <AxisBucketSection n={8} title="POOL LIQUIDITÀ" desc="Cluster swing 4h ≥2 tocchi · sopra/sotto il prezzo"
+            data={genome.pool_liquidity_axis} />
+
         </div>
 
         {/* ── ATROPO placeholder ── */}
