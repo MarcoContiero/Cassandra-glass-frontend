@@ -1095,14 +1095,18 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
     setSnapshot(null); setSnapError(null); setSnapLoading(true);
     fetch(`/api/moire/classify/${genome.coin}`)
       .then(async r => {
-        if (!r.ok) {
-          const err = await r.json().catch(() => ({}));
-          throw new Error((err as { detail?: string }).detail || `HTTP ${r.status}`);
+        const text = await r.text();
+        let parsed: Record<string, unknown>;
+        try { parsed = JSON.parse(text); } catch {
+          throw new Error(`HTTP ${r.status} — risposta non JSON`);
         }
-        return r.json() as Promise<MoireSnapshot>;
+        if (!r.ok) {
+          throw new Error((parsed as { detail?: string }).detail || `HTTP ${r.status}`);
+        }
+        return parsed as unknown as MoireSnapshot;
       })
       .then(d => { setSnapshot(d); setSnapLoading(false); })
-      .catch(e => { setSnapError(String(e)); setSnapLoading(false); });
+      .catch(e => { setSnapError(String(e).replace(/^Error: /, '')); setSnapLoading(false); });
   }, [genome.coin, genome.moire_phase_stats]);
 
   const pullTf = genome.ema200_pull?.[tf];
