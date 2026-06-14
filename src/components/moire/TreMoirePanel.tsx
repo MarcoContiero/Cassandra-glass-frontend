@@ -120,6 +120,71 @@ interface GenomeFull {
   moire_btc_beta?:      MoireBtcBeta;
 }
 
+// ── Lachesi / Atropo live snapshot types ─────────────────────────────────────
+
+type MaturityLabel = 'early' | 'mid' | 'late' | 'extended' | 'extreme';
+type VolRegime    = 'high_vol' | 'above_avg' | 'normal' | 'low_vol';
+
+interface LachesiPhase {
+  phase: 'up' | 'down';
+  bars_since: number;
+  amplitude_pct: number;
+  dur_maturity?: MaturityLabel;
+  dur_pct_of_p50?: number;
+  dur_p75?: number;
+  amp_maturity?: MaturityLabel;
+  amp_pct_of_p50?: number;
+  amp_p75?: number;
+  remaining_to_p75?: number;
+}
+
+interface LachesiEma200 {
+  dist_pct: number;
+  side: 'above' | 'below';
+  bucket: string;
+  ema200_px: number;
+  p_revert_20b?: number;
+  p_revert_50b?: number;
+  n_hist?: number;
+}
+
+interface LachesiBB {
+  inside: boolean;
+  bb_width_pct?: number;
+  band?: 'upper' | 'lower';
+  outside_pct?: number;
+  p_return_10b?: number;
+  p_return_20b?: number;
+}
+
+interface LachesiVolatility {
+  current_atr_pct: number;
+  hist_p50?: number;
+  regime?: VolRegime;
+}
+
+interface LachesiTf {
+  phase?: LachesiPhase;
+  ema200?: LachesiEma200;
+  bb?: LachesiBB;
+  volatility?: LachesiVolatility;
+}
+
+interface MoireSnapshot {
+  coin: string;
+  computed_at_ms: number;
+  bars_1h: number;
+  lachesi: Record<string, LachesiTf>;
+  atropo: {
+    P_up_10b?: number;
+    P_ema200_50b?: number;
+    P_bb_return_20b?: number;
+    confidence?: number;
+    key_signals?: string[];
+    volatility_regime?: Record<string, { regime: VolRegime; current_atr?: number; hist_p50?: number }>;
+  };
+}
+
 // ── Pattern classifier ───────────────────────────────────────────────────────
 
 type PatternType = 'noise' | 'ciclo_raro' | 'ciclo_strutturale' | 'unknown';
@@ -1021,6 +1086,24 @@ function MoireBetaSection({ data }: { data?: MoireBtcBeta }) {
 
 function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
   const [tf, setTf] = useState<GravityTf>('1h');
+  const [snapshot, setSnapshot]       = useState<MoireSnapshot | null>(null);
+  const [snapLoading, setSnapLoading] = useState(false);
+  const [snapError, setSnapError]     = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!genome.moire_phase_stats) return;
+    setSnapshot(null); setSnapError(null); setSnapLoading(true);
+    fetch(`/api/moire/classify/${genome.coin}`)
+      .then(async r => {
+        if (!r.ok) {
+          const err = await r.json().catch(() => ({}));
+          throw new Error((err as { detail?: string }).detail || `HTTP ${r.status}`);
+        }
+        return r.json() as Promise<MoireSnapshot>;
+      })
+      .then(d => { setSnapshot(d); setSnapLoading(false); })
+      .catch(e => { setSnapError(String(e)); setSnapLoading(false); });
+  }, [genome.coin, genome.moire_phase_stats]);
 
   const pullTf = genome.ema200_pull?.[tf];
   const bbTf   = genome.bb_return?.[tf];
@@ -1195,42 +1278,178 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           <MoireBetaSection     data={genome.moire_btc_beta} />
         </div>
 
-        {/* ── ATROPO placeholder ── */}
-        <div style={{
-          borderTop: '1px solid var(--color-border-dim)',
-          paddingTop: 16,
-          opacity: 0.35,
-        }}>
-          <div className="flex items-baseline gap-2 mb-2">
+        {/* ── LACHESI + ATROPO live ── */}
+        <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 16 }}>
+          <div className="flex items-baseline gap-2 mb-3">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', letterSpacing: '0.1em' }}>
-              ATROPO — PROIEZIONI
+              LACHESI · ATROPO — LIVE
             </span>
-            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
-              in costruzione · richiede Lachesi completo
-            </span>
+            {snapLoading && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.6 }}>
+                calcolo…
+              </span>
+            )}
+            {snapError && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-short-bright)' }}>
+                {snapError}
+              </span>
+            )}
+            {snapshot && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+                {new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')} · {snapshot.bars_1h} bar 1h
+              </span>
+            )}
           </div>
-          <div className="grid grid-cols-3 gap-2">
-            {['P(direzione 10b)', 'P(tocca EMA200 50b)', 'P(rientro BB 20b)'].map(label => (
-              <div key={label} style={{
-                padding: '8px 10px',
-                background: 'rgba(255,255,255,0.02)',
-                border: '1px solid var(--color-border-dim)',
-                borderRadius: 2,
-                textAlign: 'center',
-              }}>
-                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>
-                  {label}
-                </div>
-                <div style={{ fontFamily: 'var(--font-display)', fontSize: 24, color: 'var(--color-text-dim)', fontWeight: 300 }}>
-                  —
-                </div>
+
+          {/* Atropo — metriche principali */}
+          {snapshot ? (
+            <>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {/* P(direzione 10b) */}
+                {(() => {
+                  const p = snapshot.atropo.P_up_10b;
+                  const col = p == null ? 'var(--color-text-dim)'
+                    : p > 0.55 ? 'var(--color-long-bright)'
+                    : p < 0.45 ? 'var(--color-short-bright)'
+                    : 'var(--color-gold)';
+                  return (
+                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(up 10b · 1h)</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: col, fontWeight: 300 }}>
+                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* P(tocca EMA200 50b) */}
+                {(() => {
+                  const p = snapshot.atropo.P_ema200_50b;
+                  return (
+                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(EMA200 · 50b)</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
+                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* P(rientro BB 20b) */}
+                {(() => {
+                  const p = snapshot.atropo.P_bb_return_20b;
+                  return (
+                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(rientro BB · 20b)</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
+                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
-            ))}
-          </div>
+
+              {/* Lachesi — snapshot per TF */}
+              <div className="grid grid-cols-3 gap-2 mb-3">
+                {(['1h', '4h', '1d'] as const).map(ltf => {
+                  const s = snapshot.lachesi[ltf];
+                  if (!s) return (
+                    <div key={ltf} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--color-border-dim)', borderRadius: 2, opacity: 0.4 }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 6 }}>{ltf}</div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>dati insuff.</div>
+                    </div>
+                  );
+                  const ph  = s.phase;
+                  const em  = s.ema200;
+                  const bb  = s.bb;
+                  const vol = s.volatility;
+                  const phaseCol = ph?.phase === 'up' ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+                  const volCol   = vol?.regime === 'high_vol' ? 'var(--color-short-bright)'
+                                 : vol?.regime === 'above_avg' ? 'var(--color-gold)'
+                                 : vol?.regime === 'low_vol' ? 'var(--color-text-dim)'
+                                 : 'var(--color-text)';
+                  return (
+                    <div key={ltf} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.015)', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', marginBottom: 6, letterSpacing: '0.1em' }}>{ltf}</div>
+
+                      {ph && (
+                        <div className="mb-1">
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: phaseCol, fontWeight: 600 }}>
+                            {ph.phase.toUpperCase()}
+                          </span>
+                          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginLeft: 4 }}>
+                            {ph.bars_since}b · {ph.amplitude_pct.toFixed(1)}%
+                          </span>
+                          {ph.amp_maturity && (
+                            <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', marginLeft: 4, opacity: 0.6 }}>
+                              [{ph.amp_maturity}]
+                            </span>
+                          )}
+                        </div>
+                      )}
+
+                      {em && (
+                        <div className="mb-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+                          EMA200{' '}
+                          <span style={{ color: em.side === 'above' ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}>
+                            {em.dist_pct > 0 ? '+' : ''}{em.dist_pct.toFixed(1)}%
+                          </span>
+                          {em.p_revert_50b != null && (
+                            <span style={{ opacity: 0.6 }}> · rev50b {(em.p_revert_50b * 100).toFixed(0)}%</span>
+                          )}
+                        </div>
+                      )}
+
+                      {bb && !bb.inside && (
+                        <div className="mb-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)' }}>
+                          BB {bb.band} +{bb.outside_pct?.toFixed(1)}%
+                          {bb.p_return_20b != null && (
+                            <span style={{ color: 'var(--color-text-dim)', opacity: 0.7 }}> · ret20b {(bb.p_return_20b * 100).toFixed(0)}%</span>
+                          )}
+                        </div>
+                      )}
+
+                      {vol && (
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: volCol, opacity: 0.8 }}>
+                          ATR {vol.current_atr_pct.toFixed(2)}% · {vol.regime?.replace('_', ' ')}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Key signals */}
+              {snapshot.atropo.key_signals && snapshot.atropo.key_signals.length > 0 && (
+                <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 8 }}>
+                  {snapshot.atropo.key_signals.map((sig, i) => (
+                    <div key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.7, marginBottom: 2 }}>
+                      · {sig}
+                    </div>
+                  ))}
+                  {snapshot.atropo.confidence != null && (
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.45, marginTop: 4 }}>
+                      confidence {(snapshot.atropo.confidence * 100).toFixed(0)}% · {snapshot.bars_1h} bar 1h Bybit
+                    </div>
+                  )}
+                </div>
+              )}
+            </>
+          ) : snapLoading ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)', opacity: 0.5, padding: '12px 0' }}>
+              Calcolo snapshot live…
+            </div>
+          ) : !snapError && !genome.moire_phase_stats ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.4, padding: '8px 0' }}>
+              Genome senza dati moire_ — esegui rebuild-genome
+            </div>
+          ) : null}
         </div>
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.4, textAlign: 'right' }}>
-          Lachesi: lookup live non disponibile · Cloto: Gravità OK · dati genome 2y
+          {snapshot
+            ? `Lachesi OK · Cloto OK · ${new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')}`
+            : 'Cloto: Gravità OK · dati genome 2y'}
         </div>
       </div>
     </div>
@@ -1320,8 +1539,8 @@ export default function TreMoirePanel() {
         <div className="mt-3 grid grid-cols-3 gap-3 max-w-xl">
           {[
             { name: 'CLOTO',   sub: 'il passato',   desc: 'Costruisce la mappa · distribuzione storica per ogni asse',    active: true  },
-            { name: 'LACHESI', sub: 'il presente',  desc: 'Posiziona sulla mappa · lookup stato attuale',                  active: false },
-            { name: 'ATROPO',  sub: 'il futuro',    desc: 'Proietta · combina distribuzioni → output probabilistico',      active: false },
+            { name: 'LACHESI', sub: 'il presente',  desc: 'Posiziona sulla mappa · lookup stato attuale',                  active: true  },
+            { name: 'ATROPO',  sub: 'il futuro',    desc: 'Proietta · combina distribuzioni → output probabilistico',      active: true  },
           ].map(m => (
             <div key={m.name} style={{
               padding: '10px 12px',
