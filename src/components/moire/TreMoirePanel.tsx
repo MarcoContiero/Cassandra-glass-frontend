@@ -189,6 +189,41 @@ function countAxesAvailable(genome: GenomeFull): number {
   ].filter(hasData).length;
 }
 
+// ── Scale helpers ─────────────────────────────────────────────────────────────
+
+function wrLabel(wr: number): { text: string; color: string } {
+  if (wr >= 62) return { text: 'ottimo',  color: 'var(--color-long-bright)' };
+  if (wr >= 57) return { text: 'buono',   color: 'var(--color-long-bright)' };
+  if (wr >= 53) return { text: 'neutro',  color: 'var(--color-gold)' };
+  if (wr >= 48) return { text: 'debole',  color: 'var(--color-text-dim)' };
+  return         { text: 'evita',   color: 'var(--color-short-bright)' };
+}
+
+function computeFlatSummary(data: FlatAxis): string {
+  const rows = Object.entries(data).filter(([, d]) => d.n >= 15);
+  if (rows.length < 2) return '';
+  const sorted = [...rows].sort((a, b) => b[1].wr - a[1].wr);
+  const best  = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  const gap   = best[1].wr - worst[1].wr;
+  if (gap < 5)  return `spread ${gap.toFixed(0)}pt — asse poco discriminante`;
+  const strength = gap >= 12 ? 'segnale forte' : gap >= 8 ? 'segnale medio' : 'segnale utile';
+  return `migliore: ${best[0]} ${best[1].wr.toFixed(0)}% · peggiore: ${worst[0]} ${worst[1].wr.toFixed(0)}% — gap ${gap.toFixed(0)}pt · ${strength}`;
+}
+
+function computeNestedSummary(data: NestedAxis): string {
+  const all = Object.values(data).flatMap(tf => Object.entries(tf));
+  const filtered = all.filter(([, d]) => d.n >= 15);
+  if (filtered.length < 2) return '';
+  const sorted = [...filtered].sort((a, b) => b[1].wr - a[1].wr);
+  const best  = sorted[0];
+  const worst = sorted[sorted.length - 1];
+  const gap   = best[1].wr - worst[1].wr;
+  if (gap < 5)  return `spread ${gap.toFixed(0)}pt — asse poco discriminante`;
+  const strength = gap >= 12 ? 'segnale forte' : gap >= 8 ? 'segnale medio' : 'segnale utile';
+  return `migliore: ${best[0]} ${best[1].wr.toFixed(0)}% · peggiore: ${worst[0]} ${worst[1].wr.toFixed(0)}% — gap ${gap.toFixed(0)}pt · ${strength}`;
+}
+
 // ── Sub-components ───────────────────────────────────────────────────────────
 
 function PatternBadge({ p }: { p: PatternInfo }) {
@@ -275,16 +310,35 @@ function BtcRegimeSection({ data }: { data: BtcRegimeAxis }) {
   const buckets = ['0-1', '2-3', '4-5', '6-7'] as const;
   const maxN = Math.max(...buckets.map(k => data[k]?.n ?? 0), 1);
 
+  const filled = buckets.filter(k => data[k]);
+  const summary = (() => {
+    const rows = filled.map(k => ({ k, d: data[k]! })).filter(r => r.d.n >= 10);
+    if (rows.length < 2) return filled.length === 1
+      ? `tutti i trade in regime ${filled[0]} (periodo IS uniformemente bullish su BTC)`
+      : '';
+    const sorted = [...rows].sort((a, b) => b.d.wr - a.d.wr);
+    const gap = sorted[0].d.wr - sorted[sorted.length - 1].d.wr;
+    return `${sorted[0].k} uptrend ${sorted[0].d.wr.toFixed(0)}% vs ${sorted[sorted.length-1].k} ${sorted[sorted.length-1].d.wr.toFixed(0)}% — gap ${gap.toFixed(0)}pt`;
+  })();
+
   return (
     <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12 }}>
-      <div className="flex items-baseline gap-2 mb-3">
+      <div className="flex items-baseline gap-2 mb-1">
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>6.</span>
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', letterSpacing: '0.1em' }}>
           BTC REGIME SCORE
         </span>
-        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>
-          come performa questa coin a ogni livello di regime BTC
-        </span>
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 4 }}>
+        come performa questa coin a ogni livello di regime BTC
+      </div>
+      <div style={{
+        fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+        opacity: 0.55, marginBottom: 10, lineHeight: 1.6,
+        padding: '5px 8px', background: 'rgba(255,255,255,0.015)',
+        border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2,
+      }}>
+        Score composito 0-7 su slope lineare BTC: slope_4h(+1) + slope_6h(+1) + slope_12h(+2) + slope_1d(+3). Calcolato al momento di ogni entry trade. 0-1 = tutti i TF in downtrend, 6-7 = tutti up (massima forza direzionale).
       </div>
 
       <div className="grid grid-cols-4 gap-2">
@@ -334,6 +388,12 @@ function BtcRegimeSection({ data }: { data: BtcRegimeAxis }) {
           );
         })}
       </div>
+
+      {summary && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.65, marginTop: 7, fontStyle: 'italic' }}>
+          → {summary}
+        </div>
+      )}
     </div>
   );
 }
@@ -382,6 +442,7 @@ function wrColor(wr: number): string {
 
 function BucketRow({ bucket, d }: { bucket: string; d: AxisBucket }) {
   const col = wrColor(d.wr);
+  const lbl = wrLabel(d.wr);
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
                   borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
@@ -392,6 +453,10 @@ function BucketRow({ bucket, d }: { bucket: string; d: AxisBucket }) {
       <span style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: col,
                      fontWeight: 300, minWidth: 52, textAlign: 'right' }}>
         {d.wr.toFixed(1)}%
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: lbl.color,
+                     minWidth: 38, opacity: 0.75, letterSpacing: '0.04em' }}>
+        {lbl.text}
       </span>
       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
                      minWidth: 36, textAlign: 'right', opacity: 0.6 }}>
@@ -410,15 +475,21 @@ function BucketRow({ bucket, d }: { bucket: string; d: AxisBucket }) {
 }
 
 function AxisBucketSection({
-  n, title, desc, data, nested,
+  n, title, desc, explanation, data, nested,
 }: {
   n: number;
   title: string;
   desc: string;
+  explanation?: string;
   data: FlatAxis | NestedAxis | undefined;
   nested?: boolean;
 }) {
   const hasAny = !!data && Object.keys(data).length > 0;
+  const summary = hasAny
+    ? (nested
+        ? computeNestedSummary(data as NestedAxis)
+        : computeFlatSummary(data as FlatAxis))
+    : '';
 
   return (
     <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12 }}>
@@ -435,9 +506,22 @@ function AxisBucketSection({
           </span>
         )}
       </div>
-      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 6 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: explanation ? 4 : 6 }}>
         {desc}
       </div>
+
+      {explanation && (
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+          opacity: 0.55, marginBottom: 8, lineHeight: 1.6,
+          padding: '5px 8px',
+          background: 'rgba(255,255,255,0.015)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          borderRadius: 2,
+        }}>
+          {explanation}
+        </div>
+      )}
 
       {hasAny && !nested && (
         <div>
@@ -460,6 +544,15 @@ function AxisBucketSection({
                 .map(([bk, d]) => <BucketRow key={bk} bucket={bk} d={d} />)}
             </div>
           ))}
+        </div>
+      )}
+
+      {summary && (
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)',
+          opacity: 0.65, marginTop: 7, fontStyle: 'italic',
+        }}>
+          → {summary}
         </div>
       )}
     </div>
@@ -586,6 +679,21 @@ function MoirePhaseSection({ data }: { data?: MoirePhaseStats }) {
       <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.35, marginTop: 4 }}>
         avg* = media senza outlier (IQR filter)
       </div>
+
+      {/* Summary calcolato */}
+      {d.up && d.down && (() => {
+        const upP50  = d.up.duration_bars?.p50  ?? 0;
+        const upP75  = d.up.duration_bars?.p75  ?? 0;
+        const upP90  = d.up.duration_bars?.p90  ?? 0;
+        const upAmp  = d.up.amplitude_pct?.p50  ?? 0;
+        const dnAmp  = d.down.amplitude_pct?.p50 ?? 0;
+        const bias   = upAmp > dnAmp + 0.5 ? 'fasi UP più ampie' : dnAmp > upAmp + 0.5 ? 'fasi DOWN più ampie' : 'up/down simmetrici';
+        return (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.65, marginTop: 8, fontStyle: 'italic' }}>
+            → Fase mediana UP: {upP50}b · p75={upP75}b · p90={upP90}b. Oltre {upP90}b = fase extended. {bias} in ampiezza ({upAmp.toFixed(1)}% vs {dnAmp.toFixed(1)}%).
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -616,6 +724,9 @@ function MoireReversionSection({ data }: { data?: MoireReversionMap }) {
   return (
     <div>
       <MoireSectionHeader title="MAPPA DI RIENTRO" desc="P(prezzo torna a EMA200/BB entro N bars) · da storico 2 anni" />
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8, lineHeight: 1.6, padding: '5px 8px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+        Probabilità storica calcolata su ogni barra del dataset 2 anni. EMA200: quanto spesso il prezzo attraversa la EMA200 entro 20/50/100 barre dalla distanza attuale — più alta la distanza, più raro il rientro rapido. BB: dopo un tocco della banda, quanto spesso il prezzo rientra entro le bande in 5/10/20 barre.
+      </div>
       <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
 
       {/* EMA200 */}
@@ -706,6 +817,22 @@ function MoireReversionSection({ data }: { data?: MoireReversionMap }) {
           ))}
         </div>
       )}
+
+      {/* Summary EMA200 reversion */}
+      {d.ema200 && (() => {
+        const bk0 = d.ema200.above?.['0-1'];
+        const bk7 = d.ema200.above?.['>7'];
+        if (!bk0 || !bk7) return null;
+        const fast = Math.round((bk0.p_20b ?? 0) * 100);
+        const slow = Math.round((bk7.p_20b ?? 0) * 100);
+        const threshold = d.ema200.above?.['1-3'];
+        const thr20 = threshold ? Math.round((threshold.p_20b ?? 0) * 100) : null;
+        return (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.65, marginTop: 8, fontStyle: 'italic' }}>
+            → Reversion EMA200 rapida (20b) se distanza 0-1%: {fast}%.{thr20 !== null ? ` A 1-3%: ${thr20}%.` : ''} A &gt;7% scende a {slow}% — tendenza prevalente nel breve, non forzare il rientro.
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -742,6 +869,9 @@ function MoireVolatilitySection({ data }: { data?: MoireVolatility }) {
   return (
     <div>
       <MoireSectionHeader title="PROFILO VOLATILITÀ" desc="ATR storico · rendimento atteso a N bars · da OHLCV 2 anni" />
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8, lineHeight: 1.6, padding: '5px 8px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+        ATR% = Average True Range normalizzato al prezzo — misura il &lsquo;respiro&rsquo; tipico della coin per barra. Il rendimento atteso mostra la distribuzione storica dei ritorni forward a 1/5/20 barre: p50 vicino a 0 = nessun bias direzionale strutturale, spread p25/p75 = range tipico di movimento.
+      </div>
       <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
 
       {d.atr_pct && (
@@ -778,6 +908,19 @@ function MoireVolatilitySection({ data }: { data?: MoireVolatility }) {
           <FwdReturnRow label="20b"    d={fwd['20b']} />
         </div>
       )}
+
+      {/* Summary volatilità */}
+      {d.atr_pct && (() => {
+        const p50  = d.atr_pct.p50;
+        const p90  = d.atr_pct.p90;
+        const fwd5 = fwd['5b'];
+        const range5 = fwd5 ? ((fwd5.p75 ?? 0) - (fwd5.p25 ?? 0)).toFixed(1) : null;
+        return (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.65, marginTop: 8, fontStyle: 'italic' }}>
+            → ATR mediano {p50?.toFixed(2)}% per barra (p90={p90?.toFixed(2)}%). {range5 ? `Range tipico 5b: ±${(parseFloat(range5)/2).toFixed(1)}% (spread p25-p75).` : ''}
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -801,6 +944,9 @@ function MoireBetaSection({ data }: { data?: MoireBtcBeta }) {
   return (
     <div>
       <MoireSectionHeader title="CORRELAZIONE BTC" desc="Beta e rendimento della coin al variare di BTC per TF" />
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, marginBottom: 8, lineHeight: 1.6, padding: '5px 8px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+        Beta OLS su rendimenti a barra (4h/1d). Beta &gt; 1 = la coin amplifica i movimenti BTC. Beta↑ / Beta↓ = beta separati in sessioni rialziste vs ribassiste di BTC — asimmetria frequente negli altcoin. R² misura quanta varianza della coin è spiegata da BTC (0=indipendente, 1=perfettamente correlata).
+      </div>
       <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
 
       <div className="flex gap-6 mb-4">
@@ -852,6 +998,21 @@ function MoireBetaSection({ data }: { data?: MoireBtcBeta }) {
           })}
         </div>
       )}
+
+      {/* Summary beta */}
+      {(() => {
+        const bup = d.beta_up ?? null;
+        const bdn = d.beta_down ?? null;
+        if (bup == null || bdn == null) return null;
+        const asym = Math.abs(bdn - bup);
+        const asymDir = bdn > bup ? 'amplifica più le discese' : 'amplifica più le salite';
+        const r2label = d.r2 >= 0.6 ? 'alta correlazione BTC' : d.r2 >= 0.35 ? 'correlazione media' : 'bassa dipendenza da BTC';
+        return (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.65, marginTop: 8, fontStyle: 'italic' }}>
+            → Beta↓ {bdn.toFixed(2)} vs Beta↑ {bup.toFixed(2)} (delta {asym.toFixed(2)}) — {asymDir}. R²={d.r2.toFixed(3)} = {r2label}.
+          </div>
+        );
+      })()}
     </div>
   );
 }
@@ -898,7 +1059,7 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
 
         {/* ── ASSE 1: Gravità EMA200 ── */}
         <div>
-          <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center justify-between mb-1">
             <div className="flex items-baseline gap-2">
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>1.</span>
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', letterSpacing: '0.1em' }}>
@@ -924,6 +1085,15 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
             </div>
           </div>
 
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+            opacity: 0.55, marginBottom: 8, lineHeight: 1.6,
+            padding: '5px 8px', background: 'rgba(255,255,255,0.015)',
+            border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2,
+          }}>
+            Stretch del prezzo dalla EMA200: quante barre prima del rientro (p50/p90) e quanto lontano arriva (dist avg/p75). &lsquo;Ciclo strutturale&rsquo; = pattern ripetibile con varianza contenuta, usabile come prior di timing. &lsquo;Noise&rsquo; = nessun ciclo identificabile.
+          </div>
+
           {pullTf ? (
             <div className="grid grid-cols-2 gap-2">
               {(['above', 'below'] as const).map(side => {
@@ -943,11 +1113,19 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
 
         {/* ── ASSE 2: Gravità BB ── */}
         <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 16 }}>
-          <div className="flex items-baseline gap-2 mb-3">
+          <div className="flex items-baseline gap-2 mb-1">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>2.</span>
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', letterSpacing: '0.1em' }}>
               GRAVITÀ BB — RIENTRO EMA
             </span>
+          </div>
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+            opacity: 0.55, marginBottom: 8, lineHeight: 1.6,
+            padding: '5px 8px', background: 'rgba(255,255,255,0.015)',
+            border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2,
+          }}>
+            Quando il prezzo tocca una BB (2σ), misuriamo quanto ci mette a tornare alla EMA50/100/200. p50 = metà dei casi rientra entro X barre. dist avg = distanza massima raggiunta durante lo stretch. Usato da Lachesi per stimare il timing del mean-reversion.
           </div>
 
           {bbTf ? (
@@ -976,14 +1154,17 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
 
           {/* Asse 3: Ciclica */}
           <AxisBucketSection n={3} title="CICLICA" desc="Fase EMA21/50 + età swing · 1h e 4h"
+            explanation="EMA21 vs EMA50 determina la direzione (±0.15% = neutro). L'età del ciclo è la distanza dall'ultimo swing locale normalizzata sul ciclo medio: early 0–33%, mid 33–66%, late 66–100%. Il bucket mostra come performa il sistema quando entra in quella specifica fase strutturale."
             data={genome.ciclica_axis} nested />
 
           {/* Asse 4: MTF Bias */}
           <AxisBucketSection n={4} title="STRUTTURA MTF BIAS" desc="EMA21 su 15m/1h/4h · L=long S=short"
+            explanation="Tre caratteri: 1°=15m, 2°=1h, 3°=4h. L = close ≥ EMA21 (bias long), S = close < EMA21 (bias short). LLL = tutti e tre i TF long-biased = trend strutturale forte. Divergenze come SLL (contro-tendenza a 15m) o LLS (4h short contro 15m/1h long) indicano pullback in corso."
             data={genome.mtf_bias_axis} />
 
           {/* Asse 5: Momentum X/Y */}
           <AxisBucketSection n={5} title="MOMENTUM X/Y" desc="X = impulso/misto/contrarian · Y = alto/centrale/basso nel range 20b"
+            explanation="X misura il tipo di spinta: impulso = prezzo nel terzo estremo del range 5b con EMA21 a favore; contrarian = prezzo nel terzo opposto alla direzione EMA21; misto = intermedio. Y misura la posizione nel range delle ultime 20 barre al momento dell'entry: alto &gt;66%, centrale 33–66%, basso &lt;33%. Ogni combinazione identifica la 'firma' del setup."
             data={genome.momentum_xy_axis} />
 
           {/* Asse 6: BTC Regime Score */}
@@ -996,10 +1177,12 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
 
           {/* Asse 7: Distanza S/R */}
           <AxisBucketSection n={7} title="DISTANZA S/R" desc="Pivot 4h · in_zona <1% / vicino 1-3% / medio 3-7% / lontano >7%"
+            explanation="Pivot 4h calcolati con swing high/low window ±3 barre — solo pivot antecedenti all'entry (no lookahead). in_zona (&lt;1%) = il prezzo è esattamente su un livello S/R, vicino (1–3%) = nell'area di influenza immediata, medio/lontano = in zona più neutra. Un livello di S/R può fungere da magnete o da rimbalzo."
             data={genome.sr_dist_axis} />
 
           {/* Asse 8: Pool Liquidità */}
           <AxisBucketSection n={8} title="POOL LIQUIDITÀ" desc="Cluster swing 4h ≥2 tocchi · sopra/sotto il prezzo"
+            explanation="Cluster di prezzi con ≥2 tocchi storici nel 4h (potenziali zone di accumulo ordini / liquidity pools). sopra il prezzo = resistenza/target potenziale (il mercato tende ad andare a prendere la liquidità sopra), sotto = supporto. La presenza di pool sopra in un contesto rialzista funge spesso da magnete."
             data={genome.pool_liquidity_axis} />
 
         </div>
