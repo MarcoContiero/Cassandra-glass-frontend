@@ -47,6 +47,58 @@ interface AxisBucket {
   avg_pnl: number;
 }
 
+// ── Tre Moire — tipi analisi grafico ────────────────────────────────────────
+
+interface DistStats {
+  p25: number; p50: number; p75: number; p90: number;
+  avg: number; n: number;
+  avg_trim?: number; n_trim?: number; // media robusta senza outlier
+}
+
+interface PhaseMove {
+  duration_bars: DistStats;
+  amplitude_pct: DistStats;
+}
+
+interface MoirePhaseStats {
+  [tf: string]: { up?: PhaseMove; down?: PhaseMove; n_cycles?: number };
+}
+
+interface RevBucket  { p_20b?: number; p_50b?: number; p_100b?: number; n?: number; avg_dist_pct?: number; }
+interface BbRevBucket { p_5b?: number; p_10b?: number; p_20b?: number; n?: number; avg_out_pct?: number; }
+
+interface MoireReversionMap {
+  [tf: string]: {
+    ema200?: { above?: { [bk: string]: RevBucket }; below?: { [bk: string]: RevBucket } };
+    bb?:     { upper?: { [bk: string]: BbRevBucket }; lower?: { [bk: string]: BbRevBucket } };
+  };
+}
+
+interface FwdDist { p10: number; p25: number; p50: number; p75: number; p90: number; n: number; }
+
+interface MoireVolatility {
+  [tf: string]: {
+    atr_pct?:          DistStats;
+    bar_range_pct?:    DistStats;
+    forward_return_pct?: { '1b'?: FwdDist; '5b'?: FwdDist; '20b'?: FwdDist };
+  };
+}
+
+interface BtcMoveBucket { coin_avg_pct: number; btc_avg_pct: number; n: number; }
+
+interface MoireBtcBeta {
+  [tf: string]: {
+    beta: number; beta_up?: number | null; beta_down?: number | null;
+    r2: number; n: number;
+    by_btc_move?: {
+      btc_up_big?: BtcMoveBucket; btc_up_small?: BtcMoveBucket;
+      btc_dn_small?: BtcMoveBucket; btc_dn_big?: BtcMoveBucket;
+    };
+  };
+}
+
+// ── Genome full ───────────────────────────────────────────────────────────────
+
 interface GenomeFull {
   coin: string;
   n_trades: number;
@@ -61,6 +113,11 @@ interface GenomeFull {
   sr_dist_axis?:        { [bucket: string]: AxisBucket };
   pool_liquidity_axis?: { [combo: string]: AxisBucket };
   ciclica_axis?:        { [tf: string]: { [phase: string]: AxisBucket } };
+  // Tre Moire — analisi grafico
+  moire_phase_stats?:   MoirePhaseStats;
+  moire_reversion_map?: MoireReversionMap;
+  moire_volatility?:    MoireVolatility;
+  moire_btc_beta?:      MoireBtcBeta;
 }
 
 // ── Pattern classifier ───────────────────────────────────────────────────────
@@ -409,6 +466,396 @@ function AxisBucketSection({
   );
 }
 
+// ── Helpers Moire ─────────────────────────────────────────────────────────────
+
+function MoireSectionHeader({ title, desc }: { title: string; desc: string }) {
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12, marginTop: 4 }}>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-gold)', opacity: 0.7, letterSpacing: '0.12em' }}>
+          ◈ {title}
+        </span>
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 8 }}>
+        {desc}
+      </div>
+    </div>
+  );
+}
+
+function MoireTfTabs({ tfs, active, onChange }: { tfs: string[]; active: string; onChange: (tf: string) => void }) {
+  return (
+    <div className="flex gap-1 mb-3">
+      {tfs.map(t => (
+        <button key={t} onClick={() => onChange(t)}
+          style={{
+            fontFamily: 'var(--font-mono)', fontSize: 9, padding: '2px 8px',
+            background: active === t ? 'rgba(201,168,76,0.12)' : 'transparent',
+            color:      active === t ? 'var(--color-gold)'     : 'var(--color-text-dim)',
+            border:     active === t ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.08)',
+            cursor: 'pointer', borderRadius: 2,
+          }}>
+          {t}
+        </button>
+      ))}
+    </div>
+  );
+}
+
+function StatCell({ label, val, secondary, secLabel }: {
+  label: string; val: string | number | null | undefined;
+  secondary?: string | number | null; secLabel?: string;
+}) {
+  const fmtVal = val == null ? '—' : typeof val === 'number' ? (Number.isFinite(val) ? val.toFixed(1) : '—') : val;
+  return (
+    <div style={{ textAlign: 'center', minWidth: 44 }}>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 1 }}>
+        {label}
+      </div>
+      <div style={{ fontFamily: 'var(--font-display)', fontSize: 15, color: 'var(--color-text)', fontWeight: 300 }}>
+        {fmtVal}
+      </div>
+      {secondary != null && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-gold)', opacity: 0.6 }}>
+          {secLabel && `${secLabel} `}{typeof secondary === 'number' ? secondary.toFixed(1) : secondary}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function DistRow({ label, d, unit }: { label: string; d: DistStats | undefined; unit: string }) {
+  if (!d) return null;
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, padding: '3px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     minWidth: 80, opacity: 0.7 }}>
+        {label}
+      </span>
+      <StatCell label="p50"  val={d.p50} />
+      <StatCell label="p75"  val={d.p75} />
+      <StatCell label="p90"  val={d.p90} />
+      <StatCell label="avg"  val={d.avg} secondary={d.avg_trim} secLabel="↓" />
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.4 }}>
+        {unit} · n={d.n}{d.n_trim != null ? `→${d.n_trim}` : ''}
+      </span>
+    </div>
+  );
+}
+
+// ── MoirePhaseSection ─────────────────────────────────────────────────────────
+
+function MoirePhaseSection({ data }: { data?: MoirePhaseStats }) {
+  const tfs = Object.keys(data || {}).filter(tf => data![tf]);
+  const [tf, setTf] = useState(tfs[0] ?? '1h');
+  if (!data || tfs.length === 0) return null;
+  const d = data[tf] ?? {};
+
+  return (
+    <div>
+      <MoireSectionHeader title="FASI PREZZO" desc="Durata e ampiezza dei movimenti su/giù · ZigZag per TF" />
+      <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
+      {/* Header columns */}
+      <div style={{ display: 'flex', gap: 6, marginBottom: 2, paddingLeft: 86 }}>
+        {['p50', 'p75', 'p90', 'avg · avg*'].map(h => (
+          <span key={h} style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)',
+                                  opacity: 0.4, minWidth: 44, textAlign: 'center' }}>{h}</span>
+        ))}
+      </div>
+      {d.up && (
+        <div style={{ marginBottom: 6 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-long-bright)',
+                        opacity: 0.7, marginBottom: 3 }}>
+            ↑ UP · {d.n_cycles ?? '?'} cicli
+          </div>
+          <DistRow label="durata (bars)" d={d.up.duration_bars}  unit="b" />
+          <DistRow label="ampiezza %"    d={d.up.amplitude_pct}  unit="%" />
+        </div>
+      )}
+      {d.down && (
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-short-bright)',
+                        opacity: 0.7, marginBottom: 3 }}>
+            ↓ DOWN
+          </div>
+          <DistRow label="durata (bars)" d={d.down.duration_bars}  unit="b" />
+          <DistRow label="ampiezza %"    d={d.down.amplitude_pct}  unit="%" />
+        </div>
+      )}
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.35, marginTop: 4 }}>
+        avg* = media senza outlier (IQR filter)
+      </div>
+    </div>
+  );
+}
+
+// ── MoireReversionSection ─────────────────────────────────────────────────────
+
+const EMA_BKS  = ['0-1', '1-3', '3-7', '>7'] as const;
+const BB_BKS   = ['0-0.5', '0.5-2', '>2'] as const;
+
+function ProbCell({ val }: { val?: number }) {
+  if (val == null) return <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.3, minWidth: 44, textAlign: 'center', display: 'inline-block' }}>—</span>;
+  const pct = Math.round(val * 100);
+  const col = pct >= 70 ? 'var(--color-long-bright)' : pct >= 50 ? 'var(--color-gold)' : 'var(--color-text-dim)';
+  return (
+    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: col,
+                   minWidth: 44, textAlign: 'center', display: 'inline-block' }}>
+      {pct}%
+    </span>
+  );
+}
+
+function MoireReversionSection({ data }: { data?: MoireReversionMap }) {
+  const tfs = Object.keys(data || {});
+  const [tf, setTf] = useState(tfs[0] ?? '1h');
+  if (!data || tfs.length === 0) return null;
+  const d = data[tf] ?? {};
+
+  return (
+    <div>
+      <MoireSectionHeader title="MAPPA DI RIENTRO" desc="P(prezzo torna a EMA200/BB entro N bars) · da storico 2 anni" />
+      <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
+
+      {/* EMA200 */}
+      {d.ema200 && (
+        <div style={{ marginBottom: 10 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.7, marginBottom: 4 }}>
+            EMA200
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 1fr', gap: 4,
+                        fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5,
+                        marginBottom: 2 }}>
+            <span></span>
+            <span style={{ textAlign: 'center' }}>P(20b)</span>
+            <span style={{ textAlign: 'center' }}>P(50b)</span>
+            <span style={{ textAlign: 'center' }}>P(100b)</span>
+            <span style={{ textAlign: 'center' }}>n</span>
+          </div>
+          {(['above', 'below'] as const).map(side => (
+            <div key={side} style={{ marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)',
+                            opacity: 0.6, marginBottom: 2 }}>
+                {side === 'above' ? '↑ sopra EMA200' : '↓ sotto EMA200'}
+              </div>
+              {EMA_BKS.map(bk => {
+                const bkd = d.ema200?.[side]?.[bk];
+                return (
+                  <div key={bk} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 1fr',
+                                         gap: 4, padding: '2px 0',
+                                         borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.7 }}>
+                      {bk}%
+                    </span>
+                    <ProbCell val={bkd?.p_20b} />
+                    <ProbCell val={bkd?.p_50b} />
+                    <ProbCell val={bkd?.p_100b} />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)',
+                                   opacity: 0.4, textAlign: 'center' }}>
+                      {bkd?.n ?? '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* BB */}
+      {d.bb && (
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.7, marginBottom: 4 }}>
+            BOLLINGER BANDS (20, 2σ)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 1fr', gap: 4,
+                        fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5,
+                        marginBottom: 2 }}>
+            <span></span>
+            <span style={{ textAlign: 'center' }}>P(5b)</span>
+            <span style={{ textAlign: 'center' }}>P(10b)</span>
+            <span style={{ textAlign: 'center' }}>P(20b)</span>
+            <span style={{ textAlign: 'center' }}>n</span>
+          </div>
+          {(['upper', 'lower'] as const).map(band => (
+            <div key={band} style={{ marginBottom: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.6, marginBottom: 2 }}>
+                {band === 'upper' ? '↑ banda superiore' : '↓ banda inferiore'}
+              </div>
+              {BB_BKS.map(bk => {
+                const bkd = d.bb?.[band]?.[bk];
+                return (
+                  <div key={bk} style={{ display: 'grid', gridTemplateColumns: '90px 1fr 1fr 1fr 1fr',
+                                         gap: 4, padding: '2px 0',
+                                         borderBottom: '1px solid rgba(255,255,255,0.03)' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.7 }}>
+                      {bk}%
+                    </span>
+                    <ProbCell val={bkd?.p_5b} />
+                    <ProbCell val={bkd?.p_10b} />
+                    <ProbCell val={bkd?.p_20b} />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)',
+                                   opacity: 0.4, textAlign: 'center' }}>
+                      {bkd?.n ?? '—'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MoireVolatilitySection ────────────────────────────────────────────────────
+
+function FwdReturnRow({ label, d }: { label: string; d?: FwdDist }) {
+  if (!d) return null;
+  const p50col = (d.p50 ?? 0) >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+  return (
+    <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 1fr 1fr', gap: 4, padding: '3px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.7 }}>{label}</span>
+      {[d.p10, d.p25, d.p50, d.p75, d.p90].map((v, i) => (
+        <span key={i} style={{
+          fontFamily: 'var(--font-mono)', fontSize: 10, textAlign: 'center',
+          color: i === 2 ? p50col : 'var(--color-text-dim)',
+          opacity: i === 2 ? 1 : 0.6,
+        }}>
+          {v != null ? (v >= 0 ? '+' : '') + v.toFixed(1) + '%' : '—'}
+        </span>
+      ))}
+    </div>
+  );
+}
+
+function MoireVolatilitySection({ data }: { data?: MoireVolatility }) {
+  const tfs = Object.keys(data || {});
+  const [tf, setTf] = useState(tfs[0] ?? '1h');
+  if (!data || tfs.length === 0) return null;
+  const d = data[tf] ?? {};
+  const fwd = d.forward_return_pct ?? {};
+
+  return (
+    <div>
+      <MoireSectionHeader title="PROFILO VOLATILITÀ" desc="ATR storico · rendimento atteso a N bars · da OHLCV 2 anni" />
+      <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
+
+      {d.atr_pct && (
+        <div style={{ marginBottom: 8 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.7, marginBottom: 4 }}>
+            ATR %
+          </div>
+          <div style={{ display: 'flex', gap: 12 }}>
+            {([['p25', d.atr_pct.p25], ['p50', d.atr_pct.p50], ['p75', d.atr_pct.p75], ['p90', d.atr_pct.p90]] as [string, number][]).map(([l, v]) => (
+              <div key={l} style={{ textAlign: 'center' }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5 }}>{l}</div>
+                <div style={{ fontFamily: 'var(--font-display)', fontSize: 16, color: 'var(--color-text)', fontWeight: 300 }}>
+                  {v?.toFixed(2)}%
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {Object.keys(fwd).length > 0 && (
+        <div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.7, marginBottom: 4 }}>
+            RENDIMENTO ATTESO (da chiusura attuale)
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '44px 1fr 1fr 1fr 1fr 1fr', gap: 4, marginBottom: 2 }}>
+            <span></span>
+            {['p10', 'p25', 'p50', 'p75', 'p90'].map(h => (
+              <span key={h} style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.4, textAlign: 'center' }}>{h}</span>
+            ))}
+          </div>
+          <FwdReturnRow label="1 bar"  d={fwd['1b']} />
+          <FwdReturnRow label="5 bars" d={fwd['5b']} />
+          <FwdReturnRow label="20b"    d={fwd['20b']} />
+        </div>
+      )}
+    </div>
+  );
+}
+
+// ── MoireBetaSection ──────────────────────────────────────────────────────────
+
+function MoireBetaSection({ data }: { data?: MoireBtcBeta }) {
+  const tfs = Object.keys(data || {});
+  const [tf, setTf] = useState(tfs[0] ?? '4h');
+  if (!data || tfs.length === 0) return null;
+  const d = data[tf];
+  if (!d) return null;
+
+  const BTC_MOVE_LABELS: Record<string, string> = {
+    btc_up_big:   'BTC >+3%',
+    btc_up_small: 'BTC 0–+3%',
+    btc_dn_small: 'BTC 0–-3%',
+    btc_dn_big:   'BTC <-3%',
+  };
+
+  return (
+    <div>
+      <MoireSectionHeader title="CORRELAZIONE BTC" desc="Beta e rendimento della coin al variare di BTC per TF" />
+      <MoireTfTabs tfs={tfs} active={tf} onChange={setTf} />
+
+      <div className="flex gap-6 mb-4">
+        {[
+          ['Beta', d.beta?.toFixed(3)],
+          ['Beta↑', d.beta_up?.toFixed(3) ?? '—'],
+          ['Beta↓', d.beta_down?.toFixed(3) ?? '—'],
+          ['R²',    d.r2?.toFixed(3)],
+        ].map(([l, v]) => (
+          <div key={l} style={{ textAlign: 'center' }}>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5 }}>{l}</div>
+            <div style={{ fontFamily: 'var(--font-display)', fontSize: 18, color: 'var(--color-text)', fontWeight: 300 }}>{v ?? '—'}</div>
+          </div>
+        ))}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.4, alignSelf: 'flex-end', marginBottom: 2 }}>
+          n={d.n}
+        </div>
+      </div>
+
+      {d.by_btc_move && (
+        <div>
+          <div style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr', gap: 4, marginBottom: 2,
+                        fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+            <span></span>
+            <span style={{ textAlign: 'right' }}>BTC</span>
+            <span style={{ textAlign: 'right' }}>COIN</span>
+            <span style={{ textAlign: 'right' }}>n</span>
+          </div>
+          {Object.entries(BTC_MOVE_LABELS).map(([key, label]) => {
+            const bk = d.by_btc_move?.[key as keyof typeof d.by_btc_move];
+            if (!bk) return null;
+            const btcCol = (bk.btc_avg_pct ?? 0) >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+            const coinCol = (bk.coin_avg_pct ?? 0) >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+            return (
+              <div key={key} style={{ display: 'grid', gridTemplateColumns: '100px 1fr 1fr 1fr', gap: 4,
+                                       padding: '3px 0', borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.7 }}>{label}</span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: btcCol, textAlign: 'right' }}>
+                  {bk.btc_avg_pct >= 0 ? '+' : ''}{bk.btc_avg_pct?.toFixed(2)}%
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: coinCol, textAlign: 'right', fontWeight: 600 }}>
+                  {bk.coin_avg_pct >= 0 ? '+' : ''}{bk.coin_avg_pct?.toFixed(2)}%
+                </span>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.4, textAlign: 'right' }}>
+                  {bk.n}
+                </span>
+              </div>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Genome detail ─────────────────────────────────────────────────────────────
 
 function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
@@ -555,6 +1002,14 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           <AxisBucketSection n={8} title="POOL LIQUIDITÀ" desc="Cluster swing 4h ≥2 tocchi · sopra/sotto il prezzo"
             data={genome.pool_liquidity_axis} />
 
+        </div>
+
+        {/* ── TRE MOIRE — analisi grafico ── */}
+        <div className="space-y-2">
+          <MoirePhaseSection    data={genome.moire_phase_stats} />
+          <MoireReversionSection data={genome.moire_reversion_map} />
+          <MoireVolatilitySection data={genome.moire_volatility} />
+          <MoireBetaSection     data={genome.moire_btc_beta} />
         </div>
 
         {/* ── ATROPO placeholder ── */}
