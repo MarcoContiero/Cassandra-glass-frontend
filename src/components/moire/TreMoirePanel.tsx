@@ -1084,8 +1084,13 @@ function MoireBetaSection({ data }: { data?: MoireBtcBeta }) {
 
 // ── Genome detail ─────────────────────────────────────────────────────────────
 
-function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
+function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
+  genome: GenomeFull;
+  onClose: () => void;
+  initialView?: 'cloto' | 'lachesi' | 'atropo';
+}) {
   const [tf, setTf] = useState<GravityTf>('1h');
+  const [detailView, setDetailView] = useState<'cloto' | 'lachesi' | 'atropo'>(initialView);
   const [snapshot, setSnapshot]       = useState<MoireSnapshot | null>(null);
   const [snapLoading, setSnapLoading] = useState(false);
   const [snapError, setSnapError]     = useState<string | null>(null);
@@ -1135,7 +1140,7 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
             </span>
             <span className="ml-3 uppercase tracking-widest"
               style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
-              Mappa Cloto
+              {detailView === 'cloto' ? 'Mappa Cloto' : detailView === 'lachesi' ? 'Stato Attuale' : 'Proiezioni'}
             </span>
           </div>
           <button onClick={onClose}
@@ -1144,6 +1149,22 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           </button>
         </div>
 
+        {/* ── Tabs ── */}
+        <div className="flex gap-1">
+          {(['cloto', 'lachesi', 'atropo'] as const).map(v => (
+            <button key={v} onClick={() => setDetailView(v)} style={{
+              fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.15em',
+              textTransform: 'uppercase', padding: '3px 10px', cursor: 'pointer', borderRadius: 2,
+              background: detailView === v ? 'rgba(201,168,76,0.12)' : 'transparent',
+              color:      detailView === v ? 'var(--color-gold)' : 'var(--color-text-dim)',
+              border:     detailView === v ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.08)',
+            }}>
+              {v === 'cloto' ? 'Cloto — passato' : v === 'lachesi' ? 'Lachesi — presente' : 'Atropo — futuro'}
+            </button>
+          ))}
+        </div>
+
+        <div style={{ display: detailView === 'cloto' ? 'contents' : 'none' }}>
         {/* ── ASSE 1: Gravità EMA200 ── */}
         <div>
           <div className="flex items-center justify-between mb-1">
@@ -1281,12 +1302,14 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           <MoireVolatilitySection data={genome.moire_volatility} />
           <MoireBetaSection     data={genome.moire_btc_beta} />
         </div>
+        </div>{/* /cloto-sections */}
 
         {/* ── LACHESI + ATROPO live ── */}
-        <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 16 }}>
+        {detailView !== 'cloto' && (
+        <div style={{ paddingTop: 8 }}>
           <div className="flex items-baseline gap-2 mb-3">
             <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', letterSpacing: '0.1em' }}>
-              LACHESI · ATROPO — LIVE
+              {detailView === 'lachesi' ? 'LACHESI — SITUAZIONE ATTUALE' : 'ATROPO — PROIEZIONI'}
             </span>
             {snapLoading && (
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.6 }}>
@@ -1308,7 +1331,7 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
           {/* Atropo — metriche principali */}
           {snapshot ? (
             <>
-              <div className="grid grid-cols-3 gap-2 mb-4">
+              {detailView !== 'lachesi' && <div className="grid grid-cols-3 gap-2 mb-4">
                 {/* P(direzione 10b) */}
                 {(() => {
                   const p = snapshot.atropo.P_up_10b;
@@ -1351,10 +1374,10 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
                     </div>
                   );
                 })()}
-              </div>
+              </div>}
 
               {/* Lachesi — snapshot per TF */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              {detailView !== 'atropo' && <div className="grid grid-cols-3 gap-2 mb-3">
                 {(['1h', '4h', '1d'] as const).map(ltf => {
                   const s = snapshot.lachesi[ltf];
                   if (!s) return (
@@ -1421,7 +1444,7 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
                     </div>
                   );
                 })}
-              </div>
+              </div>}
 
               {/* Key signals */}
               {snapshot.atropo.key_signals && snapshot.atropo.key_signals.length > 0 && (
@@ -1449,11 +1472,14 @@ function ClotoDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => v
             </div>
           ) : null}
         </div>
+        )}
 
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.4, textAlign: 'right' }}>
-          {snapshot
-            ? `Lachesi OK · Cloto OK · ${new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')}`
-            : 'Cloto: Gravità OK · dati genome 2y'}
+          {detailView === 'cloto'
+            ? (snapshot ? `Cloto OK · Lachesi OK · ${new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')}` : 'Cloto: Gravità OK · dati genome 2y')
+            : detailView === 'lachesi'
+            ? (snapshot ? `Lachesi · ${new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')} · ${snapshot.bars_1h} bar 1h` : 'Lachesi: caricamento…')
+            : (snapshot ? `Atropo · ${new Date(snapshot.computed_at_ms).toLocaleTimeString('it-IT')} · confidence ${snapshot.atropo.confidence != null ? (snapshot.atropo.confidence * 100).toFixed(0) + '%' : '—'}` : 'Atropo: caricamento…')}
         </div>
       </div>
     </div>
