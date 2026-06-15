@@ -1461,6 +1461,35 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
                   )}
                 </div>
               )}
+
+              {/* Legenda scenari — solo in ATROPO */}
+              {detailView === 'atropo' && (
+                <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 8, marginTop: 8 }}>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.35, marginBottom: 6, letterSpacing: '0.08em' }}>
+                    LEGENDA
+                  </div>
+                  {([
+                    ['P(up 10b · 1h)',    'prob. direzione rialzista fra 10 candele · >55% bullish · <45% bearish'],
+                    ['P(EMA200 · 50b)',   'prob. toccare EMA200 nelle prossime 50 candele (~2gg su 1h)'],
+                    ['P(rientro BB)',     'prob. rientrare nelle Bollinger Bands se prezzo è fuori'],
+                    ['extreme durata',   'fase corrente oltre il p75 storico per durata — fase matura'],
+                    ['late durata',      'fase nel quartile superiore ma non ancora oltre p75'],
+                    ['mid durata',       'fase nella norma storica per durata'],
+                    ['extended ampiezza','% guadagnata > 1.5× la mediana storica della fase'],
+                    ['~X% al p75',       'quanto manca in % per raggiungere il p75 storico di ampiezza'],
+                    ['1.Nx p50',         'ampiezza attuale in multipli della mediana storica'],
+                  ] as [string, string][]).map(([term, def]) => (
+                    <div key={term} style={{ display: 'flex', gap: 6, marginBottom: 3, alignItems: 'baseline' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.6, whiteSpace: 'nowrap', minWidth: 110 }}>
+                        {term}
+                      </span>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.35, lineHeight: 1.4 }}>
+                        {def}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
             </>
           ) : snapLoading ? (
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)', opacity: 0.5, padding: '12px 0' }}>
