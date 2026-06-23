@@ -96,19 +96,6 @@ export default function HeroPlanetarium() {
 
       ctx.clearRect(0, 0, W, H);
 
-      // Background void
-      ctx.fillStyle = '#02020e';
-      ctx.fillRect(0, 0, W, H);
-
-      // Milky way diagonal gradient
-      const mw = ctx.createLinearGradient(0, H, W, 0);
-      mw.addColorStop(0,   'rgba(40,35,90,0)');
-      mw.addColorStop(0.4, 'rgba(40,35,90,0.18)');
-      mw.addColorStop(0.6, 'rgba(40,35,90,0.10)');
-      mw.addColorStop(1,   'rgba(40,35,90,0)');
-      ctx.fillStyle = mw;
-      ctx.fillRect(0, 0, W, H);
-
       // Draw stars
       starsRef.current.forEach(s => {
         const thetaS = Math.atan2(s.y, s.x) + t + pmx * 0.04;

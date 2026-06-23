@@ -287,7 +287,7 @@ const FIGURE_COLOR = '#6b3a0f'; // terracotta scuro
 
 function Fig({ style, children }: { style: React.CSSProperties; children: React.ReactNode }) {
   return (
-    <div style={{ position: 'fixed', pointerEvents: 'none', opacity: 0.075, zIndex: 0, ...style }}>
+    <div style={{ position: 'fixed', pointerEvents: 'none', opacity: 0.13, zIndex: 0, ...style }}>
       {children}
     </div>
   );

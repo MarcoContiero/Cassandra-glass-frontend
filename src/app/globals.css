@@ -51,8 +51,16 @@
   --shadow-card: 0 4px 24px rgba(0,0,0,0.4);
 }
 
+/* ── Background semitrasparenti (lasciano passare CassandraBackground) ── */
+:root {
+  --bg-section-main:   rgba(2, 2, 14, 0.87);
+  --bg-section-accent: rgba(6, 6, 15, 0.90);
+}
+
 /* ── Light mode override ── */
 [data-theme="light"] {
+  --bg-section-main:   transparent;
+  --bg-section-accent: transparent;
   --color-void:        #f8f6f0;
   --color-deep:        #f0ede4;
   --color-surface:     #e8e4d8;

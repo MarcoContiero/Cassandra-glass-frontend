@@ -252,7 +252,7 @@ export default function HomePage() {
       </section>
 
       {/* ── SISTEMA ───────────────────────────────────────────────────── */}
-      <section id="sistema" style={{ background: 'linear-gradient(to bottom, var(--color-void), var(--color-deep), var(--color-void))', borderTop: '1px solid var(--color-border-dim)', borderBottom: '1px solid var(--color-border-dim)', padding: '100px 32px' }}>
+      <section id="sistema" style={{ background: 'linear-gradient(to bottom, var(--bg-section-main), var(--bg-section-accent), var(--bg-section-main))', borderTop: '1px solid var(--color-border-dim)', borderBottom: '1px solid var(--color-border-dim)', padding: '100px 32px' }}>
         <RevealOnScroll>
           <div style={{ textAlign: 'center', marginBottom: '64px' }}>
             <span className="section-tag" style={{ display: 'inline-block', marginBottom: '16px' }}>Il Sistema</span>
@@ -311,7 +311,7 @@ export default function HomePage() {
       </section>
 
       {/* ── ANALISI ───────────────────────────────────────────────────── */}
-      <section id="analisi" style={{ background: 'var(--color-deep)', borderTop: '1px solid var(--color-border-cyan)', borderBottom: '1px solid var(--color-border-cyan)', padding: '100px 32px' }}>
+      <section id="analisi" style={{ background: 'var(--bg-section-accent)', borderTop: '1px solid var(--color-border-cyan)', borderBottom: '1px solid var(--color-border-cyan)', padding: '100px 32px' }}>
         <div style={{ maxWidth: '1100px', margin: '0 auto', display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '60px', alignItems: 'center' }}>
           {/* Text */}
           <RevealOnScroll>
