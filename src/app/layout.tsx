@@ -3,11 +3,9 @@ import { JetBrains_Mono } from 'next/font/google';
 import { ClerkProvider } from '@clerk/nextjs';
 import { itIT } from '@clerk/localizations';
 import { PostHogProvider } from '@/components/PostHogProvider';
-import dynamic from 'next/dynamic';
+import ClientBackground from '@/components/ClientBackground';
 import './globals.css';
 import '@/components/ui/scanlines.css';
-
-const CassandraBackground = dynamic(() => import('@/components/CassandraBackground'), { ssr: false });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ['latin'],
@@ -60,7 +58,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           />
         </head>
         <body>
-          <CassandraBackground />
+          <ClientBackground />
           <PostHogProvider>
             {children}
           </PostHogProvider>
