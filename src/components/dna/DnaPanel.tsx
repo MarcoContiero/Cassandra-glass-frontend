@@ -875,7 +875,11 @@ function CoinCard({ g, onClick }: { g: GenomeSummary; onClick: () => void }) {
 
 type SortKey = 'coin' | 'win_rate' | 'profit_factor' | 'n_trades' | 'avg_pnl_pct';
 
-export default function DnaPanel() {
+interface DnaPanelProps {
+  onPiziaContext?: (ctx: string) => void;
+}
+
+export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
   const [cache,     setCache]    = useState<GenomeFull[]>([]);
   const [loading,   setLoading]  = useState(true);
   const [error,     setError]    = useState<string | null>(null);
@@ -900,6 +904,28 @@ export default function DnaPanel() {
   }
 
   useEffect(() => { loadCache(); }, []);
+
+  useEffect(() => {
+    if (!onPiziaContext) return;
+    if (selected) {
+      const lines = [
+        `Pannello: DNA COIN — Profilo statistico`,
+        `Coin: ${selected.coin}`,
+        `Trade totali: ${selected.n_trades} | Win rate: ${selected.win_rate?.toFixed(1)}% | Profit factor: ${selected.profit_factor?.toFixed(2) ?? '—'}`,
+        `Bars medi: ${selected.avg_bars_held} | Bars mediani: ${selected.median_bars_held}`,
+        `P&L medio: ${selected.avg_pnl_pct?.toFixed(3)}%`,
+        `Costruito il: ${selected.built_at}`,
+      ];
+      onPiziaContext(lines.join('\n'));
+    } else if (cache.length > 0) {
+      const lines = [
+        `Pannello: DNA COIN — Profilo statistico`,
+        `${cache.length} coin disponibili nel database. Nessun coin selezionato.`,
+        `Coin disponibili: ${cache.slice(0, 20).map(g => g.coin).join(', ')}${cache.length > 20 ? '...' : ''}`,
+      ];
+      onPiziaContext(lines.join('\n'));
+    }
+  }, [selected, cache, onPiziaContext]);
 
   async function triggerRebuild() {
     setRebuilding(true);

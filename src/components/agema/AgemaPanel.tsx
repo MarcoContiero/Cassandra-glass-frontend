@@ -1,7 +1,7 @@
 'use client';
 
 import * as React from 'react';
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 
 const sanitizeDir = (text: string) =>
   text
@@ -121,7 +121,11 @@ function buildScenarioPhrase(s: StrategiaAIItem): string {
   }
 }
 
-export default function AgemaPanel() {
+interface AgemaPanelProps {
+  onPiziaContext?: (ctx: string) => void;
+}
+
+export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
   const [data, setData] = useState<AgemaResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -191,6 +195,29 @@ export default function AgemaPanel() {
       return da - db;
     });
   }, [data, minScore, maxHours, dir]);
+
+  useEffect(() => {
+    if (!onPiziaContext || rows.length === 0) return;
+    const dirFilter = dir === 'ALL' ? 'tutte le direzioni' : dir === 'LONG' ? 'rialzista' : 'ribassista';
+    const lines: string[] = [
+      `Pannello: AGEMA — Radar ciclico`,
+      `${rows.length} coin in classifica (min_score ${minScore}, entro ${maxHours}h, ${dirFilter})`,
+      '',
+    ];
+    for (const row of rows) {
+      const dirStr = row.direction === 'LONG' ? 'rialzista' : row.direction === 'SHORT' ? 'ribassista' : (row.direction ?? '—');
+      let line = `${row.coin} — dir: ${dirStr} — score: ${fmt(row.score, 0)} — prezzo: ${fmt(row.price, 6)}`;
+      if (row.ciclica_label) line += ` — fase: ${row.ciclica_label}`;
+      if (row.reentry_label) line += ` — ${sanitizeDir(row.reentry_label)}`;
+      if (Number.isFinite(row.eta_reentry_hours as number)) line += ` — ETA ${fmt(row.eta_reentry_hours, 0)}h`;
+      lines.push(line);
+      for (const s of (row.best ?? []).slice(0, 3)) {
+        const sDir = s.direction === 'LONG' ? 'rialzista' : s.direction === 'SHORT' ? 'ribassista' : (s.direction ?? '');
+        lines.push(`  [${s.tf}] ${sDir} sc ${fmt(s.score, 0)}: ${buildScenarioPhrase(s)}`);
+      }
+    }
+    onPiziaContext(lines.join('\n'));
+  }, [rows, onPiziaContext, dir, minScore, maxHours]);
 
   return (
     <div className="cassandra-card cassandra-card-corners" style={{ padding: '24px 24px 20px' }}>

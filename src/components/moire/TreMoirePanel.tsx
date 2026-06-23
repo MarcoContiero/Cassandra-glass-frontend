@@ -1564,7 +1564,11 @@ function MoireCoinCard({ genome, onClick }: { genome: GenomeFull; onClick: () =>
 
 // ── Main Panel ────────────────────────────────────────────────────────────────
 
-export default function TreMoirePanel() {
+interface TreMoirePanelProps {
+  onPiziaContext?: (ctx: string) => void;
+}
+
+export default function TreMoirePanel({ onPiziaContext }: TreMoirePanelProps) {
   const [genomes, setGenomes]   = useState<GenomeFull[]>([]);
   const [loading, setLoading]   = useState(true);
   const [error,   setError]     = useState<string | null>(null);
@@ -1581,6 +1585,33 @@ export default function TreMoirePanel() {
       .then(d => { setGenomes(d); setLoading(false); })
       .catch(e => { setError(String(e)); setLoading(false); });
   }, []);
+
+  useEffect(() => {
+    if (!onPiziaContext) return;
+    if (selected) {
+      const pf = selected.profit_factor?.toFixed(2) ?? '—';
+      const lines = [
+        `Pannello: TRE MOIRE — Mappa comportamentale probabilistica`,
+        `Coin selezionato: ${selected.coin}`,
+        `Trade totali: ${selected.n_trades} | Win rate: ${selected.win_rate?.toFixed(1)}% | Profit factor: ${pf}`,
+      ];
+      const btcTfs = Object.keys(selected.moire_btc_beta ?? {});
+      if (btcTfs.length > 0) {
+        btcTfs.forEach(tf => {
+          const b = selected.moire_btc_beta![tf];
+          lines.push(`Beta BTC [${tf}]: ${b.beta.toFixed(2)} (r²=${b.r2.toFixed(2)})`);
+        });
+      }
+      onPiziaContext(lines.join('\n'));
+    } else if (genomes.length > 0) {
+      const lines = [
+        `Pannello: TRE MOIRE — Mappa comportamentale probabilistica`,
+        `${genomes.length} coin disponibili. Nessun coin selezionato.`,
+        `Coin disponibili: ${genomes.slice(0, 20).map(g => g.coin).join(', ')}${genomes.length > 20 ? '...' : ''}`,
+      ];
+      onPiziaContext(lines.join('\n'));
+    }
+  }, [selected, genomes, onPiziaContext]);
 
   const filtered = useMemo(() => {
     if (filter === 'all') return genomes;

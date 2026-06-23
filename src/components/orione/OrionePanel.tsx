@@ -140,6 +140,7 @@ interface OrioneScanResponse {
 
 interface OrionePanelProps {
   onConfigure?: (payload: OrioneConfigPayload) => void;
+  onPiziaContext?: (ctx: string) => void;
 }
 
 const formatTimestamp = (ts?: number | null): string => {
@@ -162,7 +163,7 @@ const formatTimestamp = (ts?: number | null): string => {
   }
 };
 
-const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
+const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure, onPiziaContext }) => {
   const [coinsInput, setCoinsInput] = useState<string>("BTC, ETH, SOL");
   const [selectedTfs, setSelectedTfs] = useState<string[]>(["1m", "3m", "5m"]);
   const [patterns, setPatterns] = useState<PatternConfig[]>([
@@ -354,6 +355,25 @@ const OrionePanel: React.FC<OrionePanelProps> = ({ onConfigure }) => {
     return () => clearInterval(id);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [autoLoop, scanIntervalMinutes]);
+
+  useEffect(() => {
+    if (!onPiziaContext || !results) return;
+    const coins = coinsInput.split(',').map(c => c.trim().toUpperCase()).filter(Boolean).join(', ');
+    const lines: string[] = [
+      `Pannello: ORIONE — Scanner pattern`,
+      `Coin: ${coins} | TF: ${selectedTfs.join(', ')}`,
+      `${results.length} setup trovati`,
+      '',
+    ];
+    for (const s of results) {
+      const patternNames = s.patterns_hit.map(p => (p.extra?.name as string | undefined) ?? p.key).join(', ');
+      const dirs = s.patterns_hit.map(p => ((p.extra?.direction as string | undefined) ?? '').toUpperCase());
+      const dirStr = dirs.includes('BULL') ? 'rialzista' : dirs.includes('BEAR') ? 'ribassista' : 'neutro';
+      const priceStr = s.price != null ? ` — prezzo: ${s.price}` : '';
+      lines.push(`${s.coin} [${s.timeframe}] — ${s.status} — ${dirStr} — pattern: ${patternNames}${priceStr}`);
+    }
+    onPiziaContext(lines.join('\n'));
+  }, [results, onPiziaContext, coinsInput, selectedTfs]);
 
   const canRun =
     coinsInput.trim().length > 0 &&

@@ -47,23 +47,24 @@ export default function ProgramsHub() {
   function handleTabChange(key: AppKey) {
     posthog.capture('tab_changed', { tab: key });
     setActiveApp(key);
+    setCassandraContext('');
   }
 
   const isWide = activeApp === 'tifide3';
 
   const content = useMemo(() => {
     switch (activeApp) {
-      case 'argonauta': return <ArgonautaPanel />;
-      case 'orione':    return <OrionePanel />;
+      case 'argonauta': return <ArgonautaPanel onPiziaContext={handlePiziaContext} />;
+      case 'orione':    return <OrionePanel onPiziaContext={handlePiziaContext} />;
       case 'tifide3':   return <Tifide3Panel />;
-      case 'agema':     return <AgemaPanel />;
-      case 'dna':       return <DnaPanel />;
-      case 'moire':     return <TreMoirePanel />;
+      case 'agema':     return <AgemaPanel onPiziaContext={handlePiziaContext} />;
+      case 'dna':       return <DnaPanel onPiziaContext={handlePiziaContext} />;
+      case 'moire':     return <TreMoirePanel onPiziaContext={handlePiziaContext} />;
       case 'orione2':   return <Orione2Page />;
       case 'cassandra':
       default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
     }
-  }, [activeApp]);
+  }, [activeApp, handlePiziaContext]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--color-void)', color: 'var(--color-text)' }}>
@@ -216,7 +217,7 @@ export default function ProgramsHub() {
 
       <PiziaCompanion
         currentTab={activeApp}
-        cassandraContext={activeApp === 'cassandra' ? cassandraContext : ''}
+        cassandraContext={cassandraContext}
       />
     </div>
   );

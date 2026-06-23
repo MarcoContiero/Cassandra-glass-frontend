@@ -245,7 +245,11 @@ type BySymbolState = Record<string, {
   priceHint?: number | undefined;
 }>;
 
-export default function ArgonautaPanel() {
+interface ArgonautaPanelProps {
+  onPiziaContext?: (ctx: string) => void;
+}
+
+export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) {
   // Controls
   const [freqMin, setFreqMin] = useState<number>(15);
   const [cooldownMin, setCooldownMin] = useState<number>(90);
@@ -416,6 +420,21 @@ export default function ArgonautaPanel() {
       };
     }).filter(Boolean) as Array<{ symbol: string; dir: string; pct: string; current: number; entry: number }>;
   }, [symbols, bySymbol, onlyAI]);
+
+  useEffect(() => {
+    if (!onPiziaContext || summaryRows.length === 0) return;
+    const lines: string[] = [
+      `Pannello: ARGONAUTA — Scanner entrate`,
+      `Watchlist: ${symbols.join(', ')} | TF: ${tfsSelected.join(', ')}`,
+      `Ultima scansione: ${stats.lastScanAt ? new Date(stats.lastScanAt).toLocaleTimeString('it-IT') : '—'}`,
+      '',
+    ];
+    for (const r of summaryRows) {
+      const dirStr = r.dir === 'LONG' ? 'rialzista' : r.dir === 'SHORT' ? 'ribassista' : r.dir;
+      lines.push(`${r.symbol}: bias=${dirStr}, prezzo=${r.current}, entrata più vicina=${r.entry} (${r.pct}% di distanza)`);
+    }
+    onPiziaContext(lines.join('\n'));
+  }, [summaryRows, onPiziaContext, symbols, tfsSelected, stats.lastScanAt]);
 
   /* --------------------------------- UI ---------------------------------- */
 
