@@ -887,7 +887,7 @@ function renderMidCell(r: SRRow) {
   return (
     <span className="inline-flex flex-col items-end leading-tight">
       <span>{main}</span>
-      <span className="text-[10px] text-neutral-400">OB: {magStr}</span>
+      <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>OB: {magStr}</span>
     </span>
   );
 }
@@ -937,7 +937,7 @@ function describeZone(r: SRRow): string {
 // thead come componente per evitare riutilizzo dello stesso elemento in 2 tabelle
 function TableHead() {
   return (
-    <thead className="bg-neutral-800/60 text-neutral-300">
+    <thead style={{ background: 'var(--color-surface)', color: 'var(--color-text-dim)' }}>
       <tr>{[
         <th key="h0" className="px-4 py-2 text-left w-12"></th>,
         <th key="h1" className="px-2 py-2 text-left">Zona</th>,
@@ -1059,27 +1059,28 @@ export default function SupportiResistenzeOverlay({
           <td className="px-4 py-2">
             <button
               onClick={() => toggleRow(key)}
-              className="w-6 h-6 rounded-md border border-neutral-600 hover:bg-neutral-800 flex items-center justify-center"
+              className="w-6 h-6 rounded-md flex items-center justify-center"
+              style={{ border: '1px solid var(--color-border)' }}
               title="Dettagli zona"
             >
               <span className={`inline-block transition-transform ${isOpen ? 'rotate-90' : ''}`}>›</span>
             </button>
           </td>
-          <td className="px-2 py-2 text-neutral-200 flex items-center gap-2">
+          <td className="px-2 py-2 flex items-center gap-2">
             {isNearest && Badge(undefined, true)}
             <span>{r.zona || '—'}</span>
           </td>
-          <td className="px-2 py-2 text-right text-neutral-200">{renderMidCell(r)}</td>
-          <td className="px-2 py-2 text-right text-neutral-200">{r.livelli ?? '—'}</td>
-          <td className="px-2 py-2 text-right text-neutral-200">
+          <td className="px-2 py-2 text-right">{renderMidCell(r)}</td>
+          <td className="px-2 py-2 text-right">{r.livelli ?? '—'}</td>
+          <td className="px-2 py-2 text-right">
             {r.forza ?? '—'}
             {typeof r.size === 'number' && (
-              <span className="ml-2 text-[11px] text-neutral-400">
+              <span className="ml-2 text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                 {nice(r.size, 0)}
               </span>
             )}
           </td>
-          <td className="px-2 py-2 text-left text-neutral-200">{r.tf || '—'}</td>
+          <td className="px-2 py-2 text-left">{r.tf || '—'}</td>
           <td className="px-2 py-2 text-left">
             {Badge(r.natura)}
             {r.difficulty && (
@@ -1096,44 +1097,44 @@ export default function SupportiResistenzeOverlay({
         </tr>
         <tr key={`${key}-details`} className={`${isOpen ? 'table-row' : 'hidden'}`}>
           <td colSpan={7} className="px-4 pb-3">
-            <div className="rounded-xl border border-neutral-700 bg-neutral-850/40 px-4 py-3 text-sm text-neutral-300">
+            <div className="rounded-xl px-4 py-3 text-sm" style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg)', color: 'var(--color-text)' }}>
               <div className="grid sm:grid-cols-2 gap-2">
                 <div>
-                  <div><span className="text-neutral-400">Natura:</span> <span className="text-neutral-100">{r.natura || 'Tecnico'}</span></div>
-                  {r.source && (<div><span className="text-neutral-400">Source:</span> <span className="text-neutral-100">{r.source}</span></div>)}
-                  {r.tf && (<div><span className="text-neutral-400">TF:</span> <span className="text-neutral-100">{r.tf}</span></div>)}
+                  <div><span style={{ color: 'var(--color-text-dim)' }}>Natura:</span> <span>{r.natura || 'Tecnico'}</span></div>
+                  {r.source && (<div><span style={{ color: 'var(--color-text-dim)' }}>Source:</span> <span>{r.source}</span></div>)}
+                  {r.tf && (<div><span style={{ color: 'var(--color-text-dim)' }}>TF:</span> <span>{r.tf}</span></div>)}
                   {magnetStr && (
                     <div>
-                      <span className="text-neutral-400">Magnete orderbook:</span>{' '}
-                      <span className="text-neutral-100">{magnetStr}</span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>Magnete orderbook:</span>{' '}
+                      <span>{magnetStr}</span>
                     </div>
                   )}
                   {typeof r.wall_notional === 'number' && (
                     <div>
-                      <span className="text-neutral-400">Orderbook:</span>{' '}
-                      <span className="text-neutral-100">
+                      <span style={{ color: 'var(--color-text-dim)' }}>Orderbook:</span>{' '}
+                      <span>
                         {nice(r.wall_notional, 0)}
                       </span>
                     </div>
                   )}
                   {typeof r.wall_ratio === 'number' && (
                     <div>
-                      <span className="text-neutral-400">Quota orderbook:</span>{' '}
-                      <span className="text-neutral-100">
+                      <span style={{ color: 'var(--color-text-dim)' }}>Quota orderbook:</span>{' '}
+                      <span>
                         {(r.wall_ratio * 100).toFixed(1)}%
                       </span>
                     </div>
                   )}
                   {typeof r.confluence_count === 'number' && (
                     <div>
-                      <span className="text-neutral-400">Confluenze:</span>{' '}
-                      <span className="text-neutral-100">{r.confluence_count}</span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>Confluenze:</span>{' '}
+                      <span>{r.confluence_count}</span>
                     </div>
                   )}
                   {typeof r.penetration_score === 'number' && (
                     <div>
-                      <span className="text-neutral-400">Penetrazione:</span>{' '}
-                      <span className="text-neutral-100">
+                      <span style={{ color: 'var(--color-text-dim)' }}>Penetrazione:</span>{' '}
+                      <span>
                         {r.penetration_score.toFixed(1)}
                       </span>
                     </div>
@@ -1141,31 +1142,30 @@ export default function SupportiResistenzeOverlay({
 
                 </div>
                 <div>
-                  <div><span className="text-neutral-400">Mid:</span> <span className="text-neutral-100">{nice(r.mid, 6)}</span></div>
-                  <div><span className="text-neutral-400">Livelli/Forza:</span> <span className="text-neutral-100">{r.livelli ?? '—'} / {r.forza ?? '—'}</span></div>
+                  <div><span style={{ color: 'var(--color-text-dim)' }}>Mid:</span> <span>{nice(r.mid, 6)}</span></div>
+                  <div><span style={{ color: 'var(--color-text-dim)' }}>Livelli/Forza:</span> <span>{r.livelli ?? '—'} / {r.forza ?? '—'}</span></div>
                   {Number.isFinite(r.min as number) && Number.isFinite(r.max as number) && (
                     <div>
-                      <span className="text-neutral-400">Range zona:</span>{' '}
-                      <span className="text-neutral-100">{nice(r.min, 4)} – {nice(r.max, 4)}</span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>Range zona:</span>{' '}
+                      <span>{nice(r.min, 4)} – {nice(r.max, 4)}</span>
                     </div>
                   )}
                 </div>
               </div>
 
               {r._details?.method === 'backend' && (
-                <div className="mt-2">Zona fornita dal <span className="text-neutral-100">backend</span>.</div>
+                <div className="mt-2">Zona fornita dal <span>backend</span>.</div>
               )}
               {r._details?.method === 'zone_cluster' && (
                 <div className="mt-2">
-                  Zona ottenuta raggruppando livelli entro <span className="text-neutral-100">±0,25%</span>:
+                  Zona ottenuta raggruppando livelli entro <span>±0,25%</span>:
                   <ul className="mt-1 grid sm:grid-cols-2 gap-1">
                     {r._details.members
-                      // mostra solo i livelli con forza >= 1
                       .filter((m: any) => Number(m.forza ?? 0) >= 1)
                       .map((m: any, i: number) => (
-                        <li key={i} className="text-neutral-200">
+                        <li key={i}>
                           • {nice(m.mid, 6)}{" "}
-                          <span className="text-neutral-400">
+                          <span style={{ color: 'var(--color-text-dim)' }}>
                             ({m.natura}
                             {m.tf ? ` · ${m.tf}` : ""}
                             {typeof m.forza === "number" ? ` · F:${m.forza}` : ""}
@@ -1178,15 +1178,15 @@ export default function SupportiResistenzeOverlay({
               )}
               {r._details?.method === 'fibo_derivato' && (
                 <div className="mt-2">
-                  Livello <span className="text-neutral-100">Fibonacci (derivato)</span> da SWING
-                  {' '}<span className="text-neutral-100">{nice(r._details.anchors.lo, 6)}</span>
-                  {' → '}<span className="text-neutral-100">{nice(r._details.anchors.hi, 6)}</span>
+                  Livello <span>Fibonacci (derivato)</span> da SWING
+                  {' '}<span>{nice(r._details.anchors.lo, 6)}</span>
+                  {' → '}<span>{nice(r._details.anchors.hi, 6)}</span>
                   {r._details.anchors.tf && <> ({r._details.anchors.tf})</>}.
                 </div>
               )}
 
               {/* Narrativa gassosa sintetica */}
-              <div className="mt-3 text-xs text-neutral-300 italic">
+              <div className="mt-3 text-xs italic" style={{ color: 'var(--color-text-dim)' }}>
                 {describeZone(r)}
               </div>
             </div>
@@ -1207,7 +1207,8 @@ export default function SupportiResistenzeOverlay({
       <SafeDialogContent
         title={overlayTitle}
         description="Mappa di supporti e resistenze con livelli chiave e dettagli."
-        className="pointer-events-auto w-[min(96vw,1200px)] sm:max-w-5xl md:max-w-6xl bg-neutral-900 text-neutral-100 border border-neutral-700"
+        className="pointer-events-auto w-[min(96vw,1200px)] sm:max-w-5xl md:max-w-6xl"
+        style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
       >
         <DialogHeader className="pb-2">
           <DialogTitle className="flex items-center gap-2 text-lg">
@@ -1216,13 +1217,13 @@ export default function SupportiResistenzeOverlay({
           </DialogTitle>
         </DialogHeader>
 
-        <div className="px-4 pb-3 text-xs text-neutral-400">
-          Prezzo di riferimento: <span className="text-neutral-200">{nice(price, 6)}</span>
+        <div className="px-4 pb-3 text-xs" style={{ color: 'var(--color-text-dim)' }}>
+          Prezzo di riferimento: <span style={{ color: 'var(--color-text)' }}>{nice(price, 6)}</span>
         </div>
 
         {/* FILTRO DISTANZA */}
         <div className="mb-3 flex items-center gap-3">
-          <label className="text-neutral-300 whitespace-nowrap">
+          <label className="whitespace-nowrap" style={{ color: 'var(--color-text)' }}>
             Distanza max (%)
           </label>
 
@@ -1233,22 +1234,24 @@ export default function SupportiResistenzeOverlay({
             step={0.1}
             value={maxDistancePct * 100}
             onChange={(e) => setMaxDistancePct(Number(e.target.value) / 100)}
-            className="w-20 bg-neutral-800 border border-neutral-700 rounded p-1 text-neutral-100 text-right"
+            className="w-20 rounded p-1 text-right"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
           />
 
-          <span className="text-neutral-500 text-sm">
+          <span className="text-sm" style={{ color: 'var(--color-text-dim)' }}>
             (mostra solo i livelli entro {(maxDistancePct * 100).toFixed(1)}%)
           </span>
         </div>
 
         <div className="px-4 pb-4 grid md:grid-cols-2 gap-4">
           {/* Supporti */}
-          <div className="w-full overflow-visible rounded-xl border border-neutral-700">
-            <div className="px-4 py-2 text-sm font-medium text-neutral-200 flex items-center justify-between">
+          <div className="w-full overflow-visible rounded-xl" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="px-4 py-2 text-sm font-medium flex items-center justify-between" style={{ color: 'var(--color-text)' }}>
               <span>Supporti</span>
               <button
                 onClick={() => setShowMinor(true)}
-                className="pointer-events-auto relative z-61 text-xs px-2 py-0.5 rounded-md border border-neutral-600 hover:bg-neutral-800"
+                className="pointer-events-auto relative z-61 text-xs px-2 py-0.5 rounded-md"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
                 title="Mostra altri livelli minori"
               >
                 Altri livelli minori
@@ -1260,7 +1263,7 @@ export default function SupportiResistenzeOverlay({
                 {supPrimaryFiltered.map(Row("S", supSel.nearestKey))}
                 {supSel.primary.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-3 text-neutral-400">
+                    <td colSpan={7} className="px-4 py-3" style={{ color: 'var(--color-text-dim)' }}>
                       Nessun supporto
                     </td>
                   </tr>
@@ -1270,12 +1273,13 @@ export default function SupportiResistenzeOverlay({
           </div>
 
           {/* Resistenze */}
-          <div className="w-full overflow-hidden rounded-xl border border-neutral-700">
-            <div className="px-4 py-2 text-sm font-medium text-neutral-200 flex items-center justify-between">
+          <div className="w-full overflow-hidden rounded-xl" style={{ border: '1px solid var(--color-border)' }}>
+            <div className="px-4 py-2 text-sm font-medium flex items-center justify-between" style={{ color: 'var(--color-text)' }}>
               <span>Resistenze</span>
               <button
                 onClick={() => setShowMinor(true)}
-                className="pointer-events-auto relative z-61 text-xs px-2 py-0.5 rounded-md border border-neutral-600 hover:bg-neutral-800"
+                className="pointer-events-auto relative z-61 text-xs px-2 py-0.5 rounded-md"
+                style={{ border: '1px solid var(--color-border)', color: 'var(--color-text)' }}
                 title="Mostra altri livelli minori"
               >
                 Altri livelli minori
@@ -1287,7 +1291,7 @@ export default function SupportiResistenzeOverlay({
                 {resPrimaryFiltered.map(Row("R", resSel.nearestKey))}
                 {resSel.primary.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-3 text-neutral-400">
+                    <td colSpan={7} className="px-4 py-3" style={{ color: 'var(--color-text-dim)' }}>
                       Nessuna resistenza
                     </td>
                   </tr>
@@ -1303,8 +1307,8 @@ export default function SupportiResistenzeOverlay({
         <DialogContent
           className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2
                     z-80 pointer-events-auto
-                    w-[min(90vw,1200px)] sm:max-w-5xl md:max-w-6xl
-                    bg-neutral-900 text-neutral-100 border border-neutral-700"
+                    w-[min(90vw,1200px)] sm:max-w-5xl md:max-w-6xl"
+          style={{ background: 'var(--color-surface)', color: 'var(--color-text)', border: '1px solid var(--color-border)' }}
         >
           <DialogHeader className="pb-2">
             <DialogTitle className="text-lg">Altri livelli minori</DialogTitle>
@@ -1312,12 +1316,12 @@ export default function SupportiResistenzeOverlay({
 
           <div className="px-4 pb-4 grid md:grid-cols-2 gap-4">
             {/* Colonna Supporti (extra) */}
-            <div className="w-full overflow-visible rounded-xl border border-neutral-700">
-              <div className="px-4 py-2 text-sm font-medium text-neutral-200">
+            <div className="w-full overflow-visible rounded-xl" style={{ border: '1px solid var(--color-border)' }}>
+              <div className="px-4 py-2 text-sm font-medium" style={{ color: 'var(--color-text)' }}>
                 Supporti (altri 10)
               </div>
               <table className="w-full text-sm">
-                <thead className="text-neutral-400">
+                <thead style={{ color: 'var(--color-text-dim)' }}>
                   <tr>
                     <th className="px-4 py-2 text-left font-normal">Livello</th>
                     <th className="px-4 py-2 text-right font-normal">Forza</th>
@@ -1335,12 +1339,12 @@ export default function SupportiResistenzeOverlay({
             </div>
 
             {/* Colonna Resistenze (extra) */}
-            <div className="w-full overflow-visible rounded-xl border border-neutral-700">
-              <div className="px-4 py-2 text-sm font-medium text-neutral-200">
+            <div className="w-full overflow-visible rounded-xl" style={{ border: '1px solid var(--color-border)' }}>
+              <div className="px-4 py-2 text-sm font-medium" style={{ color: 'var(--color-text)' }}>
                 Resistenze (altri 10)
               </div>
               <table className="w-full text-sm">
-                <thead className="text-neutral-400">
+                <thead style={{ color: 'var(--color-text-dim)' }}>
                   <tr>
                     <th className="px-4 py-2 text-left font-normal">Livello</th>
                     <th className="px-4 py-2 text-right font-normal">Forza</th>

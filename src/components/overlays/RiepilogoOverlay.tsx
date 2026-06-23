@@ -487,10 +487,10 @@ export default function RiepilogoOverlay({ title, data }: Props) {
           {/* Direzione sintetica */}
           {ls && (
             <AccordionItem value="ls">
-              <AccordionTrigger>Direzione sintetica (Long/Short)</AccordionTrigger>
+              <AccordionTrigger>Direzione sintetica</AccordionTrigger>
               <AccordionContent>
                 <div className="text-sm">
-                  Direzione: <b>{ls.direzione}</b> · Score:{' '}
+                  Direzione: <b>{ls.direzione === 'LONG' ? 'Rialzista' : ls.direzione === 'SHORT' ? 'Ribassista' : ls.direzione}</b> · Score:{' '}
                   <b>{fmt(ls.score)}</b>
                   {ls.motivi.length > 0 && (
                     <div className="mt-2 text-white/80">
@@ -526,11 +526,15 @@ export default function RiepilogoOverlay({ title, data }: Props) {
                             Tot: {fmt(t.tot, 0)}
                           </div>
                         </div>
-                        <div className="text-base font-semibold uppercase">
-                          {t.bias ?? 'NEUTRO'}
+                        <div className="text-base font-semibold">
+                          {t.bias === 'LONG'
+                            ? 'rialzista'
+                            : t.bias === 'SHORT'
+                            ? 'ribassista'
+                            : 'neutro'}
                         </div>
                         <div className="mt-1 text-xs text-white/60">
-                          Score: {fmt(t.score)} · Long: {fmt(t.long)} · Short:{' '}
+                          Score: {fmt(t.score)} · Rialzista: {fmt(t.long)} · Ribassista:{' '}
                           {fmt(t.short)} · Neutro: {fmt(t.neutro)}
                         </div>
 
@@ -546,7 +550,11 @@ export default function RiepilogoOverlay({ title, data }: Props) {
                                   className="flex items-center justify-between rounded border border-white/10 px-2 py-1"
                                 >
                                   <div className="truncate">
-                                    <b className="uppercase">{c.kind}</b> ·{' '}
+                                    <b>{
+                                      c.kind === 'long' ? 'rialzista'
+                                      : c.kind === 'short' ? 'ribassista'
+                                      : (c.kind ?? 'neutro')
+                                    }</b> ·{' '}
                                     {c.indicatore ?? '—'}
                                     {c.scenario ? (
                                       <span className="text-white/60">
@@ -557,7 +565,11 @@ export default function RiepilogoOverlay({ title, data }: Props) {
                                     {c.direzione ? (
                                       <span className="text-white/60">
                                         {' '}
-                                        — dir: {c.direzione}
+                                        — {
+                                          c.direzione === 'LONG' ? 'rialzista'
+                                          : c.direzione === 'SHORT' ? 'ribassista'
+                                          : c.direzione
+                                        }
                                       </span>
                                     ) : null}
                                   </div>
@@ -607,11 +619,11 @@ export default function RiepilogoOverlay({ title, data }: Props) {
                             const parts: string[] = [];
                             if (b.long.count)
                               parts.push(
-                                `LONG +${fmt(b.long.sum, 0)} (${b.long.count})`
+                                `Rialzista +${fmt(b.long.sum, 0)} (${b.long.count})`
                               );
                             if (b.short.count)
                               parts.push(
-                                `SHORT +${fmt(b.short.sum, 0)} (${b.short.count})`
+                                `Ribassista +${fmt(b.short.sum, 0)} (${b.short.count})`
                               );
                             if (b.neutro.count)
                               parts.push(
@@ -846,14 +858,14 @@ export default function RiepilogoOverlay({ title, data }: Props) {
             </AccordionItem>
           )}
 
-          {/* Diagnostica */}
+          {/* Diagnostica — nascosta; visibile solo agli admin via attributo data-admin-only */}
           {(diag.data_collect ||
             diag.levels ||
             diag.liquidity_availability ||
             diag.liquidity_bias ||
             diag.liquidity_bias_autotune ||
             diag.ui_params) && (
-              <AccordionItem value="diagnostica">
+              <AccordionItem value="diagnostica" data-admin-only="true" style={{ display: 'none' }}>
                 <AccordionTrigger>Diagnostica</AccordionTrigger>
                 <AccordionContent>
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">

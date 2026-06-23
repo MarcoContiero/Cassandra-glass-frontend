@@ -236,7 +236,7 @@ function TrafficLightSection({ data }: { data: CiclicaViewModel["guidaUmano"] })
       <CardHeader>
         <CardTitle className="text-sm">Semaforo operativo</CardTitle>
         <CardDescription>
-          Sintesi rapida (guardrail + conflitto + shock + re-entry) per capire quando è meglio non operare.
+          Sintesi del quadro ciclico: guardrail, conflitti tra timeframe, shock e finestra ciclica attiva.
         </CardDescription>
       </CardHeader>
 
@@ -266,7 +266,13 @@ function TrafficLightSection({ data }: { data: CiclicaViewModel["guidaUmano"] })
 
             {(b.reentryState || b.reentryDirection) && (
               <Badge variant="outline" className="text-[0.7rem] px-2 py-0.5 rounded-full">
-                re-entry: {b.reentryDirection ?? "n/d"} · {b.reentryState ?? "n/d"}
+                fascia ciclica:{" "}
+                {b.reentryDirection === "LONG"
+                  ? "rialzista"
+                  : b.reentryDirection === "SHORT"
+                  ? "ribassista"
+                  : (b.reentryDirection ?? "n/d")}{" "}
+                · {b.reentryState ?? "n/d"}
               </Badge>
             )}
 
@@ -301,7 +307,7 @@ function GuidaUmanaSection({ data }: { data: CiclicaViewModel["guidaUmano"] }) {
     <Card>
       <CardHeader>
         <CardTitle className="text-sm">{data.title || "Lettura ciclica attuale"}</CardTitle>
-        <CardDescription>Spiegazione “umana” del perché del semaforo e della finestra operativa.</CardDescription>
+        <CardDescription>Lettura descrittiva del contesto ciclico e della finestra temporale.</CardDescription>
       </CardHeader>
       <CardContent>
         <p className="text-sm leading-relaxed whitespace-pre-line">{_renderBold(data.text)}</p>
@@ -785,8 +791,8 @@ function GlobalSignalsSection({
     gestioneOperativa?.tp1 ||
       gestioneOperativa?.tpFull ||
       gestioneOperativa?.slMove
-      ? `TP1 su ${gestioneOperativa.tp1 ?? "zona primaria"}, TP full su ${gestioneOperativa.tpFull ?? "zona massima"
-      }, spostamento SL sotto ${gestioneOperativa.slMove ?? "zona primaria low"
+      ? `Punto critico 1 su ${gestioneOperativa.tp1 ?? "zona primaria"}, obiettivo finale ${gestioneOperativa.tpFull ?? "zona massima"
+      }. Livello di riferimento inferiore: ${gestioneOperativa.slMove ?? "zona primaria low"
       }.`
       : undefined;
 
@@ -1084,7 +1090,7 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
       <CardHeader>
         <CardTitle className="text-sm">Percorso ciclico &amp; rientro</CardTitle>
         <CardDescription className="text-xs text-muted-foreground">
-          Sequenza di fasi tra nodo di ciclo (min/max) e zona di re-entry operativa
+          Sequenza di fasi tra nodo di ciclo (min/max) e fascia ciclica operativa
           (scenari principali + minori).
         </CardDescription>
       </CardHeader>
@@ -1146,7 +1152,7 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
         {roadmapLines && roadmapLines.length > 0 && (
           <div className="mt-1 flex flex-col gap-1 text-[0.7rem] text-muted-foreground">
             <div className="font-semibold text-[0.7rem]">
-              Roadmap temporale del re-entry (TF 1h)
+              Percorso temporale del ciclo (TF 1h)
             </div>
             <ul className="list-disc pl-4 space-y-0.5">
               {roadmapLines.map((line, idx) => (

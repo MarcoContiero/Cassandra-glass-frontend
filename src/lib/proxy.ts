@@ -44,16 +44,24 @@ export async function callBackend(
     ...authHeaders(),
   };
 
-  console.log("[proxy.callBackend] URL:", url, "headers:", Object.keys(headers));
+  let res: Response;
+  let bodyText: string;
 
-  const res = await fetch(url, {
-    ...init,
-    headers,
-    // niente cache per queste chiamate
-    cache: "no-store",
-  });
-
-  const bodyText = await res.text();
+  try {
+    res = await fetch(url, {
+      ...init,
+      headers,
+      cache: "no-store",
+    });
+    bodyText = await res.text();
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    console.error("[proxy.callBackend] network error →", url, detail);
+    return new Response(
+      JSON.stringify({ error: "network_error", detail, url }),
+      { status: 502, headers: { "content-type": "application/json" } },
+    );
+  }
 
   if (!res.ok) {
     console.error(
@@ -61,10 +69,9 @@ export async function callBackend(
       res.status,
       bodyText.slice(0, 500),
     );
-    // propaghiamo l'errore come 502 verso il client
     return new Response(
       JSON.stringify({
-        error: `backend ${res.status}`,
+        error: `backend_${res.status}`,
         body: bodyText,
       }),
       {
@@ -74,7 +81,6 @@ export async function callBackend(
     );
   }
 
-  // risposta OK, manteniamo content-type
   return new Response(bodyText, {
     status: res.status,
     headers: {

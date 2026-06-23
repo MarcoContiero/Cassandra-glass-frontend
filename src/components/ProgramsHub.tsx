@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useState, useCallback } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { ThemeToggle } from './ThemeToggle';
 import CassandraUI from './CassandraUI';
 import ArgonautaPanel from './ArgonautaPanel';
@@ -10,6 +11,8 @@ import DnaPanel from './dna/DnaPanel';
 import TreMoirePanel from './moire/TreMoirePanel';
 import Tifide3Panel from '@/app/tifide3/page';
 import Orione2Page from '@/app/orione2/patterns/page';
+import PiziaCompanion from './pizia/PiziaCompanion';
+import { posthog } from '@/lib/posthog';
 
 type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3';
 
@@ -18,7 +21,7 @@ const APPS: { key: AppKey; label: string }[] = [
   { key: 'argonauta', label: 'Argonauta' },
   { key: 'orione',    label: 'Orione' },
   { key: 'tifide3',   label: 'Tifi 4.0' },
-  { key: 'orione2',   label: 'Segnali' },
+  { key: 'orione2',   label: 'Pattern & EMA' },
   { key: 'agema',     label: 'Agema' },
   { key: 'dna',       label: 'DNA Coin' },
   { key: 'moire',     label: 'Tre Moire' },
@@ -26,6 +29,25 @@ const APPS: { key: AppKey; label: string }[] = [
 
 export default function ProgramsHub() {
   const [activeApp, setActiveApp] = useState<AppKey>('cassandra');
+  const [cassandraContext, setCassandraContext] = useState<string>('');
+  const { user, isLoaded } = useUser();
+
+  const handlePiziaContext = useCallback((ctx: string) => {
+    setCassandraContext(ctx);
+  }, []);
+
+  // Ottimistico: mentre Clerk carica teniamo il tab visibile per evitare il flash.
+  // Solo dopo il caricamento completo filtriamo in base a tifide_access.
+  const hasTifideAccess = !isLoaded || user?.publicMetadata?.tifide_access === true;
+  const visibleApps = useMemo(
+    () => APPS.filter(a => a.key !== 'tifide3' || hasTifideAccess),
+    [hasTifideAccess],
+  );
+
+  function handleTabChange(key: AppKey) {
+    posthog.capture('tab_changed', { tab: key });
+    setActiveApp(key);
+  }
 
   const isWide = activeApp === 'tifide3';
 
@@ -39,7 +61,7 @@ export default function ProgramsHub() {
       case 'moire':     return <TreMoirePanel />;
       case 'orione2':   return <Orione2Page />;
       case 'cassandra':
-      default:          return <CassandraUI />;
+      default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
     }
   }, [activeApp]);
 
@@ -100,12 +122,12 @@ export default function ProgramsHub() {
               flex: 1,
             }}
           >
-            {APPS.map((app) => {
+            {visibleApps.map((app) => {
               const isActive = activeApp === app.key;
               return (
                 <button
                   key={app.key}
-                  onClick={() => setActiveApp(app.key)}
+                  onClick={() => handleTabChange(app.key)}
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: '10px',
@@ -191,6 +213,11 @@ export default function ProgramsHub() {
       >
         {content}
       </main>
+
+      <PiziaCompanion
+        currentTab={activeApp}
+        cassandraContext={activeApp === 'cassandra' ? cassandraContext : ''}
+      />
     </div>
   );
 }

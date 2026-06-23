@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import { useAuth } from '@clerk/nextjs';
 import dynamic from 'next/dynamic';
 import { RevealOnScroll } from '@/components/RevealOnScroll';
 import { ThemeToggle } from '@/components/ThemeToggle';
@@ -95,9 +96,15 @@ const TF_MOCK = [
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
+function useEntraHref() {
+  const { isSignedIn } = useAuth();
+  return isSignedIn ? '/app' : '/sign-in';
+}
+
 function HomeNav() {
   const [scrolled, setScrolled] = useState(false);
   const router = useRouter();
+  const entraHref = useEntraHref();
 
   useEffect(() => {
     const h = () => setScrolled(window.scrollY > 40);
@@ -143,9 +150,8 @@ function HomeNav() {
 
         <ThemeToggle />
 
-        {/* TODO: auth gate */}
         <button
-          onClick={() => router.push('/app')}
+          onClick={() => router.push(entraHref)}
           className="btn-cassandra"
           style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'var(--color-gold)', color: 'var(--color-void)', border: 'none', padding: '10px 24px', cursor: 'pointer', transition: 'background 200ms ease' }}
           onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = 'var(--color-gold-bright)'; }}
@@ -162,6 +168,7 @@ function HomeNav() {
 
 export default function HomePage() {
   const router = useRouter();
+  const entraHref = useEntraHref();
 
   return (
     <div style={{ background: 'var(--color-void)', color: 'var(--color-text)', minHeight: '100vh', overflowX: 'hidden' }}>
@@ -220,9 +227,8 @@ export default function HomePage() {
           </p>
 
           <div style={{ display: 'flex', gap: '16px', marginTop: '8px', animation: 'fadeUp 1.2s ease 1.2s both' }}>
-            {/* TODO: auth gate */}
             <button
-              onClick={() => router.push('/app')}
+              onClick={() => router.push(entraHref)}
               className="btn-cassandra"
               style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', letterSpacing: '0.3em', textTransform: 'uppercase', background: 'var(--color-gold)', color: 'var(--color-void)', border: 'none', padding: '18px 40px', cursor: 'pointer', transition: 'background 200ms ease' }}
               onMouseEnter={e => { (e.target as HTMLButtonElement).style.background = 'var(--color-gold-bright)'; }}
@@ -387,7 +393,7 @@ export default function HomePage() {
               </span>
             </div>
             <button
-              onClick={() => router.push('/app')}
+              onClick={() => router.push(entraHref)}
               style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'var(--color-cyan)', color: 'var(--color-void)', border: 'none', padding: '12px 28px', cursor: 'pointer', whiteSpace: 'nowrap', flexShrink: 0, transition: 'background 200ms ease' }}
               onMouseEnter={e => { (e.currentTarget).style.background = 'var(--color-cyan-bright)'; }}
               onMouseLeave={e => { (e.currentTarget).style.background = 'var(--color-cyan)'; }}
@@ -427,8 +433,7 @@ export default function HomePage() {
                 </div>
 
                 <div style={{ margin: '28px 0', borderTop: '1px solid var(--color-border-dim)', borderBottom: '1px solid var(--color-border-dim)', padding: '20px 0' }}>
-                  <span style={{ fontFamily: 'var(--font-display)', fontSize: '52px', fontWeight: 300, color: 'var(--color-text)', lineHeight: 1 }}>{tier.price}</span>
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', marginLeft: '6px' }}>€/mese</span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '22px', fontWeight: 400, color: 'var(--color-text-dim)', letterSpacing: '0.2em' }}>TBA</span>
                 </div>
 
                 <ul style={{ listStyle: 'none', padding: 0, margin: '0 0 32px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -444,9 +449,8 @@ export default function HomePage() {
                   ))}
                 </ul>
 
-                {/* TODO: auth gate — in futuro href="/signup?tier=X" */}
                 <button
-                  onClick={() => router.push('/app')}
+                  onClick={() => router.push(entraHref)}
                   className={tier.featured ? 'btn-cassandra' : undefined}
                   style={{
                     width: '100%',

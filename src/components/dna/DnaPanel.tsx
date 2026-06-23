@@ -587,6 +587,11 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
           ))}
         </div>
 
+        {/* Nota metodologica WR/PF */}
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, lineHeight: 1.6, padding: '6px 10px', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
+          Win Rate e Profit Factor sono calcolati su un periodo di circa 2 anni con pattern e incroci EMA calibrati dai programmatori in base a dati statistici storici. Non rappresentano garanzie di risultati futuri.
+        </div>
+
         {/* Market profile */}
         {genome.market_profile && Object.keys(genome.market_profile).length > 0 && (
           <div className="grid grid-cols-3 gap-3">

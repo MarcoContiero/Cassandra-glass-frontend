@@ -3,6 +3,14 @@
 import * as React from 'react';
 import { useMemo, useState } from 'react';
 
+const sanitizeDir = (text: string) =>
+  text
+    .replace(/\bLONG\b/g, "rialzista")
+    .replace(/\bSHORT\b/g, "ribassista")
+    .replace(/\blong\b/g, "rialzista")
+    .replace(/\bshort\b/g, "ribassista")
+    .replace(/\breentry\b/gi, "reingresso");
+
 type CiclicaWindow = {
   direction?: 'LONG' | 'SHORT' | string;
   tf_ciclo?: string;            // es. "1h"
@@ -66,6 +74,51 @@ function barsToHours(bars: number | null | undefined, tf_ciclo?: string): number
 function fmt(n?: number | null, digits = 2) {
   if (!Number.isFinite(n as number)) return '—';
   return Number(n).toLocaleString('it-IT', { maximumFractionDigits: digits });
+}
+
+function dirLabel(d?: string): string {
+  const s = String(d || '').toUpperCase();
+  if (s === 'LONG') return 'Rialzista';
+  if (s === 'SHORT') return 'Ribassista';
+  return d || '';
+}
+
+function buildScenarioPhrase(s: StrategiaAIItem): string {
+  const dir = String(s.direction || '').toUpperCase();
+  const isLong = dir === 'LONG';
+  const tags = (s.tags ?? []).map((t: string) => String(t).toUpperCase());
+  const isBreakout = tags.some(t => t.includes('BREAK'));
+  const score = s.score != null ? Math.round(Number(s.score)) : null;
+  const scoreStr = score != null ? ` (livello ${score})` : '';
+  const entry = s.entry != null ? fmt(s.entry, 6) : null;
+  const tp1 = s.tp1_price != null ? fmt(s.tp1_price, 6) : null;
+  const tp2 = s.tp2_price != null ? fmt(s.tp2_price, 6) : null;
+
+  if (!entry) return s.explanation || '—';
+
+  if (isLong) {
+    if (isBreakout) {
+      let ph = `Se supera ${entry}${scoreStr}`;
+      if (tp1) ph += ` — resistenza successiva a ${tp1}`;
+      if (tp2 && tp2 !== tp1) ph += `, poi ${tp2}`;
+      return ph;
+    } else {
+      let ph = `Se scende verso ${entry}, zona di supporto${scoreStr}`;
+      if (tp1) ph += ` — area rialzista a ${tp1}`;
+      return ph;
+    }
+  } else {
+    if (isBreakout) {
+      let ph = `Se scende sotto ${entry}${scoreStr}`;
+      if (tp1) ph += ` — supporto successivo a ${tp1}`;
+      if (tp2 && tp2 !== tp1) ph += `, poi ${tp2}`;
+      return ph;
+    } else {
+      let ph = `Se sale verso ${entry}, zona di resistenza${scoreStr}`;
+      if (tp1) ph += ` — area ribassista a ${tp1}`;
+      return ph;
+    }
+  }
 }
 
 export default function AgemaPanel() {
@@ -182,8 +235,8 @@ export default function AgemaPanel() {
             onChange={(e) => setDir(e.target.value as any)}
           >
             <option value="ALL">TUTTE</option>
-            <option value="LONG">LONG</option>
-            <option value="SHORT">SHORT</option>
+            <option value="LONG">RIALZISTE</option>
+            <option value="SHORT">RIBASSISTE</option>
           </select>
         </div>
 
@@ -238,8 +291,8 @@ export default function AgemaPanel() {
                       {row.coin}
                     </span>
 
-                    {row.direction === 'LONG' && <span className="bias-long">{row.direction}</span>}
-                    {row.direction === 'SHORT' && <span className="bias-short">{row.direction}</span>}
+                    {row.direction === 'LONG' && <span className="bias-long">Rialzista</span>}
+                    {row.direction === 'SHORT' && <span className="bias-short">Ribassista</span>}
                     {row.direction && row.direction !== 'LONG' && row.direction !== 'SHORT' && (
                       <span className="bias-neutral">{row.direction}</span>
                     )}
@@ -257,7 +310,7 @@ export default function AgemaPanel() {
                         className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
                         style={{ border: '1px solid var(--color-border)' }}
                       >
-                        {row.reentry_label}
+                        {sanitizeDir(row.reentry_label)}
                       </span>
                     )}
                     {Number.isFinite(row.eta_reentry_hours as number) && (
@@ -284,7 +337,8 @@ export default function AgemaPanel() {
                             border: '1px solid var(--color-border-dim)',
                           }}
                         >
-                          <div className="flex items-center gap-2 flex-wrap mb-1.5">
+                          {/* Header: TF + direzione + score + eta */}
+                          <div className="flex items-center gap-2 flex-wrap mb-2">
                             <span
                               className="font-mono text-[10px] tracking-[0.1em] text-[var(--color-text-dim)] px-1.5 py-0.5"
                               style={{ border: '1px solid var(--color-border)' }}
@@ -292,47 +346,35 @@ export default function AgemaPanel() {
                               {s.tf}
                             </span>
 
-                            {s.direction === 'LONG' && <span className="bias-long">{s.direction}</span>}
-                            {s.direction === 'SHORT' && <span className="bias-short">{s.direction}</span>}
-                            {s.direction && s.direction !== 'LONG' && s.direction !== 'SHORT' && (
-                              <span className="bias-neutral">{s.direction}</span>
+                            {s.direction === 'LONG' && (
+                              <span className="font-mono text-[10px] text-[var(--color-long-bright)]">rialzista</span>
+                            )}
+                            {s.direction === 'SHORT' && (
+                              <span className="font-mono text-[10px] text-[var(--color-short-bright)]">ribassista</span>
                             )}
 
-                            <span className="font-mono text-[11px] text-[var(--color-gold)]">
-                              sc {fmt(s.score, 0)}
-                            </span>
+                            {s.score != null && (
+                              <span className="font-mono text-[10px] text-[var(--color-gold)]">
+                                sc {fmt(s.score, 0)}
+                              </span>
+                            )}
 
                             {etaH !== null && (
-                              <span className="font-mono text-[11px] text-[var(--color-text-dim)]">
+                              <span className="font-mono text-[10px] text-[var(--color-text-dim)]">
                                 &le;{fmt(etaH, 0)}h
                               </span>
                             )}
                           </div>
 
-                          <div className="font-mono text-[11px] text-[var(--color-text)] tabular-nums mb-1">
-                            entry {fmt(s.entry, 6)}
+                          {/* Frase descrittiva scenario */}
+                          <div className="font-mono text-[11px] text-[var(--color-text)] leading-relaxed">
+                            {buildScenarioPhrase(s)}
                           </div>
 
-                          <div className="font-mono text-[11px] text-[var(--color-text-dim)] tabular-nums">
-                            {Number.isFinite(s.tp1_price as number) && (
-                              <span>tp1 {fmt(s.tp1_price, 6)}</span>
-                            )}
-                            {Number.isFinite(s.tp1_price as number) && Number.isFinite(s.tp2_price as number) && (
-                              <span> &middot; </span>
-                            )}
-                            {Number.isFinite(s.tp2_price as number) && (
-                              <span>tp2 {fmt(s.tp2_price, 6)}</span>
-                            )}
-                          </div>
-
+                          {/* Finestra ciclica */}
                           {cw?.label && (
-                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1">
+                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1.5 opacity-70">
                               {cw.label}
-                            </div>
-                          )}
-                          {s.explanation && (
-                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1 line-clamp-2">
-                              {s.explanation}
                             </div>
                           )}
                         </div>

@@ -238,20 +238,20 @@ export default function TriggerMapOverlay({ result, symbol, price }: Props) {
     end();
 
     const longPlus = resAbove.length
-      ? { label: 'LONG+',  text: `breakout ${high(resAbove[0])} → ${mid(resAbove[1]) ?? low(resAbove[0])}` }
-      : { label: 'LONG+',  text: '— nessuna resistenza sopra trovata.' };
+      ? { label: 'Rialzista+',  text: `breakout ${high(resAbove[0])} → ${mid(resAbove[1]) ?? low(resAbove[0])}` }
+      : { label: 'Rialzista+',  text: '— nessuna resistenza sopra trovata.' };
 
     const longMinus = supBelow.length
-      ? { label: 'LONG−',  text: `rimbalzo ${high(supBelow[0])} → ${mid(resAbove[0]) ?? high(supBelow[0])}` }
-      : { label: 'LONG−',  text: '— nessun supporto sotto: usa VWAP/EMA o zona di domanda.' };
+      ? { label: 'Rialzista−',  text: `rimbalzo ${high(supBelow[0])} → ${mid(resAbove[0]) ?? high(supBelow[0])}` }
+      : { label: 'Rialzista−',  text: '— nessun supporto sotto: usa VWAP/EMA o zona di domanda.' };
 
     const shortPlus = supBelow.length
-      ? { label: 'SHORT+', text: `breakdown ${low(supBelow[0])} → ${mid(supBelow[1]) ?? low(supBelow[0])}` }
-      : { label: 'SHORT+', text: '— nessun supporto utile sotto.' };
+      ? { label: 'Ribassista+', text: `breakdown ${low(supBelow[0])} → ${mid(supBelow[1]) ?? low(supBelow[0])}` }
+      : { label: 'Ribassista+', text: '— nessun supporto utile sotto.' };
 
     const shortMinus = resAbove.length
-      ? { label: 'SHORT−', text: `rejection ${low(resAbove[0])} → ${mid(supBelow[0]) ?? low(resAbove[0])}` }
-      : { label: 'SHORT−', text: '— nessuna resistenza utile sopra.' };
+      ? { label: 'Ribassista−', text: `rejection ${low(resAbove[0])} → ${mid(supBelow[0]) ?? low(resAbove[0])}` }
+      : { label: 'Ribassista−', text: '— nessuna resistenza utile sopra.' };
 
     return [longPlus, longMinus, shortPlus, shortMinus];
   }, [currentPrice, supports, resistances]);

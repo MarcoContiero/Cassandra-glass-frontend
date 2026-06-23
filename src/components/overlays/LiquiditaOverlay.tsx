@@ -38,7 +38,10 @@ function fmtPct(v: number | undefined | null): string {
 
 function tfChip(tf: string) {
   return (
-    <span className="rounded-full bg-zinc-800/80 px-2 py-0.5 text-[10px] font-semibold tracking-wide text-zinc-200">
+    <span
+      className="rounded-full px-2 py-0.5 text-[10px] font-semibold tracking-wide"
+      style={{ background: 'var(--color-surface)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}
+    >
       {tf}
     </span>
   );
@@ -117,10 +120,8 @@ export default function LiquidityOverlay({
             dist_pct = ((price - currentPrice) / currentPrice) * 100;
           }
 
-          // Magnet
           const { score: magnetScore, label: magnetLabel } = getEntryMagnet(p);
 
-          // Percentuale OrderBook
           const sizeRealeRaw =
             (p as any).size_reale ??
             (p as any).wall_notional ??
@@ -148,7 +149,6 @@ export default function LiquidityOverlay({
           };
         })
 
-        // ordiniamo per distanza assoluta se abbiamo il prezzo, altrimenti per size decrescente
         .sort((a, b) => {
           if (a.dist_pct != null && b.dist_pct != null) {
             return Math.abs(a.dist_pct) - Math.abs(b.dist_pct);
@@ -169,11 +169,11 @@ export default function LiquidityOverlay({
 
   return (
     <OverlayShell>
-      <div className="flex flex-col gap-4 p-4 text-sm text-zinc-100">
+      <div className="flex flex-col gap-4 p-4 text-sm" style={{ color: 'var(--color-text)' }}>
         {/* HEADER */}
         <div className="flex items-center justify-between gap-3">
           <div className="flex flex-col gap-1">
-            <div className="text-xs uppercase tracking-wide text-zinc-400">
+            <div className="text-xs uppercase tracking-wide" style={{ color: 'var(--color-text-dim)' }}>
               Livelli di liquidità
             </div>
             <div className="flex items-baseline gap-2">
@@ -181,7 +181,7 @@ export default function LiquidityOverlay({
                 Pool sopra e sotto il prezzo
               </span>
               {currentPrice && (
-                <span className="text-[11px] text-zinc-400">
+                <span className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                   Prezzo attuale:{" "}
                   <span className="font-semibold">
                     {fmtPrice(currentPrice)}
@@ -189,10 +189,10 @@ export default function LiquidityOverlay({
                 </span>
               )}
             </div>
-            <div className="text-[11px] text-zinc-400 max-w-xl">
+            <div className="text-[11px] max-w-xl" style={{ color: 'var(--color-text-dim)' }}>
               Zone dove si concentra liquidità (ordini, stop, posizioni
               forzate). Più la pool è vicina al prezzo e grande, più è
-              probabile che agisca da “calamita”.
+              probabile che agisca da "calamita".
             </div>
 
             {tfList && tfList.length > 0 && (
@@ -200,7 +200,8 @@ export default function LiquidityOverlay({
                 {tfList.map((tf) => (
                   <span
                     key={String(tf)}
-                    className="rounded-full bg-zinc-900/80 px-2 py-0.5 text-[10px] text-zinc-300"
+                    className="rounded-full px-2 py-0.5 text-[10px]"
+                    style={{ background: 'var(--color-surface)', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}
                   >
                     TF {tf}
                   </span>
@@ -211,7 +212,8 @@ export default function LiquidityOverlay({
 
           {onClose && (
             <button
-              className="text-xs px-2 py-1 rounded border border-white/20 hover:bg-white/10"
+              className="text-xs px-2 py-1 rounded"
+              style={{ border: '1px solid var(--color-border)' }}
               onClick={onClose}
             >
               Chiudi
@@ -222,18 +224,21 @@ export default function LiquidityOverlay({
         {/* DUE COLONNE: SOPRA / SOTTO */}
         <div className="grid gap-3 md:grid-cols-2">
           {/* SOPRA */}
-          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-lg shadow-black/40">
+          <div
+            className="flex flex-col gap-2 rounded-2xl p-3"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-amber-200">
-                Pool SOPRA il prezzo
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-gold, #d4a84b)' }}>
+                Pool sopra il prezzo
               </span>
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                 {aboveList.length} livelli
               </span>
             </div>
 
             {aboveList.length === 0 ? (
-              <div className="rounded-lg bg-zinc-950/60 p-2 text-[12px] text-zinc-300">
+              <div className="rounded-lg p-2 text-[12px]" style={{ background: 'var(--color-bg)', color: 'var(--color-text-dim)' }}>
                 Nessuna pool significativa sopra il prezzo.
               </div>
             ) : (
@@ -241,28 +246,29 @@ export default function LiquidityOverlay({
                 {aboveList.slice(0, 12).map((p, idx) => (
                   <div
                     key={`above-${idx}-${p.price}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-zinc-950/70 px-2 py-1.5 text-[11px]"
+                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[11px]"
+                    style={{ background: 'var(--color-bg)' }}
                   >
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-zinc-100">
+                        <span className="font-semibold">
                           {fmtPrice(p.price)}
                         </span>
                         {p.tf && tfChip(p.tf)}
                       </div>
                       {p.dist_pct != null && (
-                        <span className="text-[10px] text-zinc-400">
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                           Distanza: {fmtPct(p.dist_pct)}
                         </span>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] text-zinc-400">Size</div>
+                      <div className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Size</div>
 
                       <div className="text-xs font-semibold">
                         {fmtSize(p.size)}
                         {p.obPercent != null && (
-                          <span className="text-[10px] text-zinc-500">
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                             {" "}
                             ({p.obPercent.toFixed(0)}% OB)
                           </span>
@@ -270,10 +276,10 @@ export default function LiquidityOverlay({
                       </div>
 
                       {p.magnetScore != null && (
-                        <div className="mt-0.5 text-[10px] text-zinc-400">
+                        <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                           Magnet: {p.magnetScore}
                           {p.magnetLabel && (
-                            <span className="text-[10px] text-zinc-500">
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                               {" "}
                               ({p.magnetLabel})
                             </span>
@@ -288,18 +294,21 @@ export default function LiquidityOverlay({
           </div>
 
           {/* SOTTO */}
-          <div className="flex flex-col gap-2 rounded-2xl border border-white/10 bg-zinc-900/70 p-3 shadow-lg shadow-black/40">
+          <div
+            className="flex flex-col gap-2 rounded-2xl p-3"
+            style={{ background: 'var(--color-surface)', border: '1px solid var(--color-border)' }}
+          >
             <div className="mb-1 flex items-center justify-between">
-              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-200">
-                Pool SOTTO il prezzo
+              <span className="text-xs font-semibold uppercase tracking-wide" style={{ color: 'var(--color-cyan, #5db8c2)' }}>
+                Pool sotto il prezzo
               </span>
-              <span className="text-[10px] text-zinc-400">
+              <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                 {belowList.length} livelli
               </span>
             </div>
 
             {belowList.length === 0 ? (
-              <div className="rounded-lg bg-zinc-950/60 p-2 text-[12px] text-zinc-300">
+              <div className="rounded-lg p-2 text-[12px]" style={{ background: 'var(--color-bg)', color: 'var(--color-text-dim)' }}>
                 Nessuna pool significativa sotto il prezzo.
               </div>
             ) : (
@@ -307,28 +316,29 @@ export default function LiquidityOverlay({
                 {belowList.slice(0, 12).map((p, idx) => (
                   <div
                     key={`below-${idx}-${p.price}`}
-                    className="flex items-center justify-between gap-2 rounded-lg bg-zinc-950/70 px-2 py-1.5 text-[11px]"
+                    className="flex items-center justify-between gap-2 rounded-lg px-2 py-1.5 text-[11px]"
+                    style={{ background: 'var(--color-bg)' }}
                   >
                     <div className="flex flex-col">
                       <div className="flex items-center gap-2">
-                        <span className="font-semibold text-zinc-100">
+                        <span className="font-semibold">
                           {fmtPrice(p.price)}
                         </span>
                         {p.tf && tfChip(p.tf)}
                       </div>
                       {p.dist_pct != null && (
-                        <span className="text-[10px] text-zinc-400">
+                        <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                           Distanza: {fmtPct(p.dist_pct)}
                         </span>
                       )}
                     </div>
                     <div className="text-right">
-                      <div className="text-[10px] text-zinc-400">Size</div>
+                      <div className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Size</div>
 
                       <div className="text-xs font-semibold">
                         {fmtSize(p.size)}
                         {p.obPercent != null && (
-                          <span className="text-[10px] text-zinc-500">
+                          <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                             {" "}
                             ({p.obPercent.toFixed(0)}% OB)
                           </span>
@@ -336,10 +346,10 @@ export default function LiquidityOverlay({
                       </div>
 
                       {p.magnetScore != null && (
-                        <div className="mt-0.5 text-[10px] text-zinc-400">
+                        <div className="mt-0.5 text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                           Magnet: {p.magnetScore}
                           {p.magnetLabel && (
-                            <span className="text-[10px] text-zinc-500">
+                            <span className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                               {" "}
                               ({p.magnetLabel})
                             </span>

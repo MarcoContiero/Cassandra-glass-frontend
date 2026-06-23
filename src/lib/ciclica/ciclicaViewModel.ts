@@ -1672,7 +1672,7 @@ function mapStrategiaAiCompat(
   const tfLabel = tfKey;
 
   const directionKey = s.direction ?? "";
-  const directionLabel = directionKey === "SHORT" ? "Short" : "Long";
+  const directionLabel = directionKey === "SHORT" ? "ribassista" : "rialzista";
 
   const timingKey = s.giudizio_ciclico ?? "neutro";
   const timingLabel = mapStrategiaTimingLabel(timingKey);

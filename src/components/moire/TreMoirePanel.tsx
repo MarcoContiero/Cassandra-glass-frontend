@@ -1164,6 +1164,13 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
           ))}
         </div>
 
+        {/* Nota metodologica WR/PF */}
+        {detailView === 'cloto' && (
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, lineHeight: 1.6, padding: '6px 10px', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
+            Win Rate e Profit Factor sono calcolati su un periodo di circa 2 anni con pattern e incroci EMA calibrati dai programmatori in base a dati statistici storici. Non rappresentano garanzie di risultati futuri.
+          </div>
+        )}
+
         <div style={{ display: detailView === 'cloto' ? 'contents' : 'none' }}>
         {/* ── ASSE 1: Gravità EMA200 ── */}
         <div>
@@ -1327,6 +1334,13 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
               </span>
             )}
           </div>
+
+          {/* Disclaimer Atropo */}
+          {detailView === 'atropo' && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.6, lineHeight: 1.6, padding: '6px 10px', border: '1px solid var(--color-border-dim)', borderRadius: 2, marginBottom: 12 }}>
+              Le proiezioni sono semplici calcoli statistici basati sul comportamento passato della coin e quindi non sono in nessun caso previsioni del futuro e non devono essere considerati consigli per operare.
+            </div>
+          )}
 
           {/* Atropo — metriche principali */}
           {snapshot ? (

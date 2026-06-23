@@ -24,3 +24,6 @@ yarn-error.log*
 
 __pycache__/
 *.pyc
+
+# clerk configuration (can include secrets)
+/.clerk/

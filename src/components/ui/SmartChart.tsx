@@ -23,7 +23,13 @@ import {
 
 export interface ShowFlags {
   ema9: boolean; ema21: boolean; ema50: boolean; ema200: boolean;
-  volume: boolean; trendlines: boolean; srZones: boolean;
+  volume: boolean; trendlines: boolean; srZones: boolean; boxes: boolean;
+}
+
+export interface BoxLayer {
+  top: number;
+  bottom: number;
+  active: boolean;
 }
 
 const toTs = (t: number) => t as UTCTimestamp;
@@ -33,11 +39,13 @@ export default function SmartChart({
   height = 420,
   show,
   minTouches = 2,
+  boxData = [],
 }: {
   ohlcv: OHLCV[];
   height?: number;
   show: ShowFlags;
   minTouches?: number;
+  boxData?: BoxLayer[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -105,6 +113,23 @@ export default function SmartChart({
       });
     }
 
+    // Boxes (ATR-based consolidation zones)
+    if (show.boxes) {
+      for (const box of boxData) {
+        const colTop    = box.active ? CT.gold         : 'rgba(201,168,76,0.3)';
+        const colBottom = box.active ? CT.goldDim      : 'rgba(201,168,76,0.18)';
+        const wTop      = box.active ? 2 as LineWidth  : 1 as LineWidth;
+        candles.createPriceLine({
+          price: box.top, color: colTop, lineStyle: LineStyle.Solid, lineWidth: wTop,
+          axisLabelVisible: box.active, title: box.active ? 'BOX' : '',
+        });
+        candles.createPriceLine({
+          price: box.bottom, color: colBottom, lineStyle: LineStyle.Dashed, lineWidth: 1 as LineWidth,
+          axisLabelVisible: false, title: '',
+        });
+      }
+    }
+
     // Volume histogram
     if (show.volume) {
       const volSeries = chart.addSeries(HistogramSeries, {
@@ -167,7 +192,7 @@ export default function SmartChart({
       ro.disconnect();
       chart.remove();
     };
-  }, [ohlcv, show.volume, ema9d, ema21d, ema50d, ema200d, trendlines, srZones, height]);
+  }, [ohlcv, show.volume, show.boxes, ema9d, ema21d, ema50d, ema200d, trendlines, srZones, boxData, height]);
 
   return <div ref={ref} style={{ width: '100%', height, background: CT.void }} />;
 }

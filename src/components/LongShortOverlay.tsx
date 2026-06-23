@@ -134,7 +134,8 @@ export default function LongShortOverlay({
                 globalBias,
               )}`}
             >
-              Bias complessivo: {globalBias}
+              Bias complessivo:{" "}
+              {globalBias === "LONG" ? "rialzista" : globalBias === "SHORT" ? "ribassista" : "neutro"}
             </span>
             <span className="text-[11px] text-zinc-400">
               (score {globalScore.toFixed(1)})

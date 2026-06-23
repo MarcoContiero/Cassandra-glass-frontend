@@ -141,7 +141,7 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
       {/* numeri: celle larghe e stabili */}
       <div className="mt-2 grid grid-cols-2 xl:grid-cols-4 gap-2 text-sm">
         <div className="space-y-0.5">
-          <div className="text-[10px] opacity-70">Entry</div>
+          <div className="text-[10px] opacity-70">Punto di ingresso</div>
           <div className={numCell}>
             {Array.isArray(item.entry)
               ? `${fmtN(item.entry[0])} – ${fmtN(item.entry[1])}`
@@ -149,15 +149,15 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
           </div>
         </div>
         <div className="space-y-0.5">
-          <div className="text-[10px] opacity-70">Stop</div>
+          <div className="text-[10px] opacity-70">Punto di invalidazione</div>
           <div className={numCell}>{fmtN(item.stop)}</div>
         </div>
         <div className="space-y-0.5">
-          <div className="text-[10px] opacity-70">TP1</div>
+          <div className="text-[10px] opacity-70">Obiettivo 1</div>
           <div className={numCell}>{fmtN(item.tp1)}</div>
         </div>
         <div className="space-y-0.5">
-          <div className="text-[10px] opacity-70">TP2</div>
+          <div className="text-[10px] opacity-70">Obiettivo 2</div>
           <div className={numCell}>{fmtN(item.tp2)}</div>
         </div>
       </div>

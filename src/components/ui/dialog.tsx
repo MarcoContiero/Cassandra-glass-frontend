@@ -31,7 +31,7 @@ DialogOverlay.displayName = DialogPrimitive.Overlay.displayName;
 const DialogContent = React.forwardRef<
   React.ElementRef<typeof DialogPrimitive.Content>,
   React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
->(({ className, ...props }, ref) => (
+>(({ className, onInteractOutside, onFocusOutside, ...props }, ref) => (
   <DialogPortal>
     <DialogOverlay />
     <DialogPrimitive.Content
@@ -50,6 +50,22 @@ const DialogContent = React.forwardRef<
         borderRadius: 0,
         color: 'var(--color-text)',
         boxShadow: '0 8px 48px rgba(0,0,0,0.7)',
+      }}
+      onInteractOutside={(e) => {
+        // Permetti interazione con Pizia senza chiudere il dialog
+        if ((e.target as Element | null)?.closest('[data-pizia-root]')) {
+          e.preventDefault();
+          return;
+        }
+        onInteractOutside?.(e);
+      }}
+      onFocusOutside={(e) => {
+        // Permetti al focus di spostarsi su Pizia senza far richiudere il dialog
+        if ((e.target as Element | null)?.closest('[data-pizia-root]')) {
+          e.preventDefault();
+          return;
+        }
+        onFocusOutside?.(e);
       }}
       {...props}
     />

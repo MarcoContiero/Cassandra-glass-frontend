@@ -123,8 +123,8 @@ function CompositionBar({ entry }: { entry: TrendTfEntry | undefined | null }) {
         )}
       </div>
       <div className="mt-1 flex justify-between text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
-        <span>Long: {longVal.toFixed(1)}</span>
-        <span>Short: {shortVal.toFixed(1)}</span>
+        <span>Rialzista: {longVal.toFixed(1)}</span>
+        <span>Ribassista: {shortVal.toFixed(1)}</span>
         <span>Neutro: {neutroVal.toFixed(1)}</span>
       </div>
     </div>
@@ -210,14 +210,15 @@ export default function LongShortOverlay({
             </div>
             <div className="flex items-baseline gap-2">
               <span className="text-lg font-semibold" style={{ color: biasColor(globalBias) }}>
-                Bias complessivo: {globalBias}
+                Bias complessivo:{" "}
+                {globalBias === "LONG" ? "rialzista" : globalBias === "SHORT" ? "ribassista" : "neutro"}
               </span>
               <span className="text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                 (score {globalScore.toFixed(1)})
               </span>
             </div>
             <div className="text-[11px] max-w-xl" style={{ color: 'var(--color-text-dim)' }}>
-              Direzione prevalente sui timeframe selezionati, calcolata dalla somma ponderata dei segnali LONG / SHORT / NEUTRO.
+              Direzione prevalente sui timeframe selezionati, calcolata dalla somma ponderata dei segnali rialzisti / ribassisti / neutri.
             </div>
           </div>
 
@@ -318,7 +319,7 @@ export default function LongShortOverlay({
                     className="flex items-center rounded-full px-2 py-1 text-[11px] font-semibold uppercase"
                     style={biasBg(bias)}
                   >
-                    {bias || "NEUTRO"}
+                    {bias === 'LONG' ? 'RIALZISTA' : bias === 'SHORT' ? 'RIBASSISTA' : bias || 'NEUTRO'}
                   </div>
                 </div>
 
@@ -336,7 +337,7 @@ export default function LongShortOverlay({
                       const label = formatScenario(c);
                       return (
                         <div key={`L-${i}-${c.indicatore}`} className="flex justify-between gap-2" style={{ color: 'var(--color-long-bright)' }}>
-                          <span className="truncate">LONG · {c.indicatore}{label && <> ({label})</>}</span>
+                          <span className="truncate">rialzista · {c.indicatore}{label && <> ({label})</>}</span>
                           <span className="shrink-0">{c.punteggio.toFixed(1)}</span>
                         </div>
                       );
@@ -345,7 +346,7 @@ export default function LongShortOverlay({
                       const label = formatScenario(c);
                       return (
                         <div key={`S-${i}-${c.indicatore}`} className="flex justify-between gap-2" style={{ color: 'var(--color-short-bright)' }}>
-                          <span className="truncate">SHORT · {c.indicatore}{label && <> ({label})</>}</span>
+                          <span className="truncate">ribassista · {c.indicatore}{label && <> ({label})</>}</span>
                           <span className="shrink-0">{c.punteggio.toFixed(1)}</span>
                         </div>
                       );

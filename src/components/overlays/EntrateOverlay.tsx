@@ -469,7 +469,7 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
 
   // 1) Costruzione liste
   const backendRaw = extractBackendEntries(data);
-  const mechanicalRaw = Array.isArray(data?.strategia_ai_in_costruzione)
+  const mechanicalRaw = (data?.strategia_ai_in_costruzione as any[])?.length > 0
     ? []
     : buildMechanicalEntries(data);
 
@@ -552,20 +552,21 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
 
   const empty = longsTop.length === 0 && shortsTop.length === 0;
 
-  const overlayTitle = `🎯 ${title}`;
+  const overlayTitle = title;
 
   return (
     <SafeDialogContent
       title={overlayTitle}
       description="Pannello Entrate: segnali, filtri e dettagli operativi."
-      className="w-full max-w-none p-0 bg-zinc-900/95 text-white"
+      className="w-full max-w-none p-0"
+      style={{ background: 'var(--color-surface)', color: 'var(--color-text)' }}
     >
       <div className="flex flex-col h-full">
         <DialogHeader className="px-4 pt-4">
-          <DialogTitle className="text-base font-semibold text-white flex items-center gap-2">
-            Entrate / Setup in costruzione
+          <DialogTitle className="text-base font-semibold flex items-center gap-2">
+            Scenari in costruzione
             {price != null && (
-              <span className="ml-2 text-xs text-white/70 border border-white/10 rounded-md px-2 py-0.5">
+              <span className="ml-2 text-xs rounded-md px-2 py-0.5" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
                 Prezzo corrente: <span className="font-mono">{price.toLocaleString('it-IT')}</span>
               </span>
             )}
@@ -574,32 +575,32 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
 
         <div className="flex-1 overflow-auto px-4 pb-4 pt-2">
           {empty ? (
-            <div className="text-white/70">Nessuna entry trovata.</div>
+            <div style={{ color: 'var(--color-text-dim)' }}>Nessun scenario in costruzione rilevato nei dati attuali.</div>
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-start content-start min-w-0">
               {/* COLONNA LONG */}
               <div className="space-y-4 min-w-0 md:col:1">
                 {longsTop.map((e, i) => (
-                  <div key={`L-${i}`} className="rounded-xl border border-white/10 bg-white/3 p-3">
+                  <div key={`L-${i}`} className="rounded-xl p-3" style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium min-w-0">
                         Entry {i + 1}
                         <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-md bg-green-500/15 text-green-300 border border-green-400/30">
-                          LONG
+                          RIALZISTA
                         </span>
                         {e.tf && (
-                          <span className="ml-2 text-xs text-white/70 border border-white/10 rounded-md px-2 py-0.5">
+                          <span className="ml-2 text-xs rounded-md px-2 py-0.5" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
                             {e.tf}
                           </span>
                         )}
                         {Number.isFinite(e.forza) && (
-                          <span className="ml-2 text-xs text-white/70 border border-white/10 rounded-md px-2 py-0.5">
+                          <span className="ml-2 text-xs rounded-md px-2 py-0.5" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
                             Forza {e.forza}
                           </span>
                         )}
                       </div>
                       {typeof e.rr !== 'undefined' && (
-                        <div className="text-xs text-white/80">R/R: {e.rr}</div>
+                        <div className="text-xs" style={{ color: 'var(--color-text-dim)' }}>R/R: {e.rr}</div>
                       )}
                     </div>
 
@@ -607,14 +608,15 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                       {([
                         ['Entry', e.entry],
                         ['Stop', e.stop],
-                        ['TP1', e.tp1],
-                        ['TP2', e.tp2],
+                        ['Punto critico 1', e.tp1],
+                        ['Punto critico 2', e.tp2],
                       ] as const).map(([lab, val]) => (
                         <div
                           key={lab}
-                          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 min-w-[130px]"
+                          className="rounded-lg px-3 py-2 min-w-[130px]"
+                          style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
                         >
-                          <div className="text-[10px] uppercase text-white/60 whitespace-nowrap">{lab}</div>
+                          <div className="text-[10px] uppercase whitespace-nowrap" style={{ color: 'var(--color-text-dim)' }}>{lab}</div>
                           <div className="whitespace-nowrap font-mono tabular-nums text-[13px] tracking-tight">
                             {val?.toLocaleString?.('it-IT') ?? '—'}
                           </div>
@@ -623,7 +625,7 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                     </div>
 
                     {typeof e.score_potenziale === 'number' && (
-                      <div className="mt-1 text-xs text-white/60">
+                      <div className="mt-1 text-xs" style={{ color: 'var(--color-text-dim)' }}>
                         Score potenziale: {e.score_potenziale.toFixed(1)}
                       </div>
                     )}
@@ -632,8 +634,8 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                         Manca: {e.missing_trigger}
                       </div>
                     )}
-                    {e.note && <p className="mt-2 text-white/80">{e.note}</p>}
-                    {e.src && <div className="mt-1 text-xs text-white/60">Fonte: {e.src}</div>}
+                    {e.note && <p className="mt-2" style={{ color: 'var(--color-text-dim)' }}>{e.note}</p>}
+                    {e.src && <div className="mt-1 text-xs" style={{ color: 'var(--color-text-dim)' }}>Fonte: {e.src}</div>}
                   </div>
                 ))}
               </div>
@@ -641,26 +643,26 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
               {/* COLONNA SHORT */}
               <div className="space-y-4 min-w-0 md:col-2">
                 {shortsTop.map((e, i) => (
-                  <div key={`S-${i}`} className="rounded-xl border border-white/10 bg-white/3 p-3">
+                  <div key={`S-${i}`} className="rounded-xl p-3" style={{ border: '1px solid var(--color-border)', background: 'var(--color-surface)' }}>
                     <div className="flex items-center justify-between gap-3">
                       <div className="font-medium min-w-0">
                         Entry {i + 1}
                         <span className="ml-2 text-xs font-semibold px-2 py-0.5 rounded-md bg-red-500/15 text-red-300 border border-red-400/30">
-                          SHORT
+                          RIBASSISTA
                         </span>
                         {e.tf && (
-                          <span className="ml-2 text-xs text-white/70 border border-white/10 rounded-md px-2 py-0.5">
+                          <span className="ml-2 text-xs rounded-md px-2 py-0.5" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
                             {e.tf}
                           </span>
                         )}
                         {Number.isFinite(e.forza) && (
-                          <span className="ml-2 text-xs text-white/70 border border-white/10 rounded-md px-2 py-0.5">
+                          <span className="ml-2 text-xs rounded-md px-2 py-0.5" style={{ color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }}>
                             Forza {e.forza}
                           </span>
                         )}
                       </div>
                       {typeof e.rr !== 'undefined' && (
-                        <div className="text-xs text-white/80">R/R: {e.rr}</div>
+                        <div className="text-xs" style={{ color: 'var(--color-text-dim)' }}>R/R: {e.rr}</div>
                       )}
                     </div>
 
@@ -668,14 +670,15 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                       {([
                         ['Entry', e.entry],
                         ['Stop', e.stop],
-                        ['TP1', e.tp1],
-                        ['TP2', e.tp2],
+                        ['Punto critico 1', e.tp1],
+                        ['Punto critico 2', e.tp2],
                       ] as const).map(([lab, val]) => (
                         <div
                           key={lab}
-                          className="rounded-lg border border-white/10 bg-black/20 px-3 py-2 min-w-[130px]"
+                          className="rounded-lg px-3 py-2 min-w-[130px]"
+                          style={{ border: '1px solid var(--color-border)', background: 'var(--color-bg)' }}
                         >
-                          <div className="text-[10px] uppercase text-white/60 whitespace-nowrap">{lab}</div>
+                          <div className="text-[10px] uppercase whitespace-nowrap" style={{ color: 'var(--color-text-dim)' }}>{lab}</div>
                           <div className="whitespace-nowrap font-mono tabular-nums text-[13px] tracking-tight">
                             {val?.toLocaleString?.('it-IT') ?? '—'}
                           </div>
@@ -684,7 +687,7 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                     </div>
 
                     {typeof e.score_potenziale === 'number' && (
-                      <div className="mt-1 text-xs text-white/60">
+                      <div className="mt-1 text-xs" style={{ color: 'var(--color-text-dim)' }}>
                         Score potenziale: {e.score_potenziale.toFixed(1)}
                       </div>
                     )}
@@ -693,8 +696,8 @@ export default function EntrateOverlay({ title, data }: { title: string; data?: 
                         Manca: {e.missing_trigger}
                       </div>
                     )}
-                    {e.note && <p className="mt-2 text-white/80">{e.note}</p>}
-                    {e.src && <div className="mt-1 text-xs text-white/60">Fonte: {e.src}</div>}
+                    {e.note && <p className="mt-2" style={{ color: 'var(--color-text-dim)' }}>{e.note}</p>}
+                    {e.src && <div className="mt-1 text-xs" style={{ color: 'var(--color-text-dim)' }}>Fonte: {e.src}</div>}
                   </div>
                 ))}
               </div>

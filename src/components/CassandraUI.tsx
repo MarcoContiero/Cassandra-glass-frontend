@@ -28,6 +28,7 @@ import ScenariPrevistiOverlay from "@/components/overlays/ScenariPrevistiOverlay
 import { buildCiclicaViewModel, buildFollowerWithCrossSync } from "@/lib/ciclica/ciclicaViewModel";
 import { CiclicaOverlay } from "@/components/ciclica/CiclicaOverlay";
 import { mockCiclica } from "@/lib/ciclica/mockCiclica";
+import { buildPiziaContextText } from "@/lib/buildPiziaContext";
 
 
 // UI
@@ -256,7 +257,11 @@ function buildMiddles(result: any) {
   return out.sort((a, b) => b.score - a.score);
 }
 
-export default function CassandraUI() {
+interface CassandraUIProps {
+  onPiziaContext?: (ctx: string) => void;
+}
+
+export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
   const [symbol, setSymbol] = useState<string>('BTC');
   const [timeframes, setTimeframes] = useState<string[]>(['15m', '1h', '4h', '12h', '1d']);
   const [result, setResult] = useState<AnalisiLightResponse | null>(null);
@@ -323,6 +328,7 @@ export default function CassandraUI() {
       console.log('[DBG FE] resp._meta.tfs=', tfFromMeta, ' trend_tf_score keys=', tfFromTrend);
 
       setResult(json);
+      onPiziaContext?.(buildPiziaContextText(json));
     } catch (e: any) {
       setError(String(e?.message || e));
     }
@@ -596,17 +602,17 @@ export default function CassandraUI() {
   }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes, ciclicaVm]);
 
   const CARDS = [
-    { key: 'longshort'   as OverlayKey, icon: '➠', label: 'Long o Short?',       desc: 'Quadro direzionale multi-TF' },
+    { key: 'longshort'   as OverlayKey, icon: '➠', label: 'Analisi situazione',     desc: 'Direzione del trend per timeframe' },
     { key: 'supporti'    as OverlayKey, icon: '⬡', label: 'Supporti / Resistenze', desc: 'Livelli chiave di prezzo' },
-    { key: 'scenari'     as OverlayKey, icon: '◈', label: 'Scenari attivi',         desc: 'Setup e contesti operativi' },
+    { key: 'scenari'     as OverlayKey, icon: '◈', label: 'Scenari attivi',         desc: 'Contesti operativi in corso' },
     { key: 'riepilogo'   as OverlayKey, icon: '◉', label: 'Riepilogo totale',       desc: 'Score e sintesi aggregata' },
-    { key: 'alert'       as OverlayKey, icon: '◎', label: 'Alert',                  desc: 'Segnali e notifiche attive' },
-    { key: 'strategia_ai'as OverlayKey, icon: '✦', label: 'Strategia AI',           desc: 'Setup generati da Cassandra' },
+    { key: 'alert'       as OverlayKey, icon: '◎', label: 'Alert',                  desc: 'Avvisi e notifiche attive' },
+    { key: 'strategia_ai'as OverlayKey, icon: '✦', label: 'Strategia AI',           desc: 'Analisi generata da Cassandra' },
     { key: 'liquidita'   as OverlayKey, icon: '◌', label: 'Liquidita',              desc: 'Pool e livelli di liquidita' },
     { key: 'spiegazione' as OverlayKey, icon: '◍', label: 'Pregresso',              desc: 'Da dove veniamo' },
     { key: 'ciclica'     as OverlayKey, icon: '◐', label: 'Analisi ciclica',        desc: 'Fasi e finestre temporali' },
-    { key: 'entrate'     as OverlayKey, icon: '⊕', label: 'Setup in costruzione',   desc: 'Entrate valide correnti' },
-    { key: 'grafico'     as OverlayKey, icon: '◫', label: 'Grafico + Trendline',     desc: 'Chart con supporti e resistenze' },
+    { key: 'entrate'     as OverlayKey, icon: '⊕', label: 'Scenari in costruzione', desc: 'Scenari non ancora completati' },
+    { key: 'grafico'     as OverlayKey, icon: '◫', label: 'Grafico + Trendline',    desc: 'Chart con supporti e resistenze' },
   ] as const;
 
   return (

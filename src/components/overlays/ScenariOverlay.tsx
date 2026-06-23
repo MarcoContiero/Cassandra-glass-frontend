@@ -519,7 +519,7 @@ export default function ScenarioOverlay({
                                         : 'bg-neutral-700 text-neutral-200 border border-neutral-600'
                                       }`}
                                   >
-                                    {String(s.direzione).toUpperCase()}
+                                    {String(s.direzione).toUpperCase() === 'LONG' ? 'RIALZISTA' : String(s.direzione).toUpperCase() === 'SHORT' ? 'RIBASSISTA' : String(s.direzione).toUpperCase()}
                                   </span>
                                 ) : null}
 
@@ -588,7 +588,7 @@ export default function ScenarioOverlay({
                                   </span>
                                   {s.direzione ? (
                                     <span className="ml-2 text-[11px] rounded-full px-2 py-0.5 border border-neutral-600 text-neutral-200">
-                                      {String(s.direzione).toUpperCase()}
+                                      {String(s.direzione).toUpperCase() === 'LONG' ? 'RIALZISTA' : String(s.direzione).toUpperCase() === 'SHORT' ? 'RIBASSISTA' : String(s.direzione).toUpperCase()}
                                     </span>
                                   ) : null}
                                 </div>

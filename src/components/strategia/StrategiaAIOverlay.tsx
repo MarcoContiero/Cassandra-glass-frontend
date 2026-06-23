@@ -1,5 +1,8 @@
 // src/components/strategia/StrategiaAIOverlay.tsx
 import React, { useMemo, useState } from "react";
+
+const sanitizeDir = (text: string) =>
+  text.replace(/\bLONG\b/g, "rialzista").replace(/\bSHORT\b/g, "ribassista");
 import { X, ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { OverlayShell } from "../overlays/OverlayShell";
 
@@ -218,23 +221,23 @@ function getBiviActions(posizione: BiviPosizione, prevLabel: string): { rompe: s
   switch (posizione) {
     case 'primo':
       return {
-        rompe: 'Sposta SL a breakeven',
-        rimbalza: 'Riduci 50% posizione — aspetta retest entry',
+        rompe: 'Consolida a breakeven',
+        rimbalza: 'Considera riduzione — aspetta stabilizzazione',
       };
     case 'intermedio':
       return {
-        rompe: `Sposta SL a ${prevLabel} (livello precedente)`,
-        rimbalza: 'Chiudi 50%, tieni runner',
+        rompe: `Livello di riferimento: ${prevLabel}`,
+        rimbalza: 'Chiudi parzialmente, mantieni esposizione residua',
       };
     case 'tp1':
       return {
-        rompe: 'Chiudi 50%, sposta SL a breakeven',
-        rimbalza: 'Chiudi tutto',
+        rompe: 'Chiudi parzialmente, consolida',
+        rimbalza: 'Chiudi esposizione',
       };
     case 'ultimo_pre_tp2':
       return {
-        rompe: 'Tieni — obiettivo TP2',
-        rimbalza: 'Chiudi runner',
+        rompe: 'Mantieni — obiettivo punto critico 2',
+        rimbalza: 'Chiudi esposizione residua',
       };
     case 'tp2':
       return {
@@ -462,7 +465,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                     : "bg-red-500/10 text-red-300"
                     }`}
                 >
-                  {dir}
+                  {dir === "LONG" ? "RIALZISTA" : "RIBASSISTA"}
                   {s.score != null && (
                     <span className="ml-1 text-[9px] text-zinc-300">
                       Score {s.score}
@@ -476,7 +479,11 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                 <div className="space-y-1">
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-zinc-400">
-                      Entry
+                      {s.source === "rimbalzo"
+                        ? "Punto di rimbalzo"
+                        : s.source === "rottura"
+                        ? "Punto di rottura"
+                        : "Punto di ingresso"}
                     </div>
                     <div className="font-mono text-sm text-white">
                       {formatPrice(s.entry)}
@@ -496,7 +503,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                 <div className="space-y-1">
                   <div>
                     <div className="text-[10px] uppercase tracking-wide text-zinc-400">
-                      TP1 / TP2
+                      Punto critico 1 / 2
                     </div>
                     <div className="font-mono text-sm text-white">
                       {formatPrice(tp1)}{" "}
@@ -541,36 +548,21 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                 </button>
               )}
 
-              {/* Sviluppo ipotetico del trade */}
-              {hasBivi && (
-                <button
-                  type="button"
-                  onClick={() =>
-                    setOpenBivi(prev => ({ ...prev, [cardId]: !biviOpen }))
-                  }
-                  className="mt-3 inline-flex items-center gap-1.5 text-[11px] text-zinc-300 hover:text-white"
-                >
-                  <GitBranch size={13} className="opacity-70" />
-                  <span>{biviOpen ? 'Nascondi sviluppo' : 'Sviluppo ipotetico del trade'}</span>
-                  <ChevronDown
-                    size={13}
-                    className={`transition-transform ${biviOpen ? 'rotate-180' : 'rotate-0'}`}
-                  />
-                </button>
-              )}
+              {/* Sviluppo ipotetico del trade — nascosto */}
+              {false && hasBivi && null}
 
-              {hasBivi && biviOpen && (
+              {false && hasBivi && biviOpen && (
                 <div className="mt-3 space-y-1.5">
                   <div className="text-[9px] uppercase tracking-widest text-zinc-500 mb-2">
-                    Mappa bivio · entry→TP2 ({nodes.length} nodi · forza ≥ 5)
+                    Mappa bivio · entry→obiettivo 2 ({nodes.length} nodi · forza ≥ 5)
                   </div>
                   {nodes.map((node, nIdx) => {
                     const isNodeOpen = activeNodeIdx === nIdx;
                     const actions = getBiviActions(node.posizione, formatPrice(node.prevMid));
                     const isTP = node.posizione === 'tp1' || node.posizione === 'tp2';
                     const nodeLabel =
-                      node.posizione === 'tp2' ? 'TP2' :
-                      node.posizione === 'tp1' ? 'TP1' :
+                      node.posizione === 'tp2' ? 'Punto critico 2' :
+                      node.posizione === 'tp1' ? 'Punto critico 1' :
                       node.posizione === 'primo' ? `Nodo ${nIdx + 1} — PIÙ VICINO` :
                       `Nodo ${nIdx + 1}`;
 
@@ -662,7 +654,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                 <div className="mt-3 space-y-2 text-[11px] leading-tight">
                   {s.explanation && (
                     <div className="rounded-lg bg-white/5 p-2 text-[11px] text-zinc-100">
-                      {s.explanation}
+                      {sanitizeDir(s.explanation)}
                     </div>
                   )}
 
@@ -681,7 +673,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                                     key={c.id ?? i}
                                     className="flex items-start justify-between gap-2 text-[11px] text-emerald-100"
                                   >
-                                    <span className="flex-1">{c.label}</span>
+                                    <span className="flex-1">{sanitizeDir(c.label)}</span>
                                     {c.weight != null && isFinite(c.weight) && (
                                       <span className="ml-2 text-[10px] text-emerald-300/80">
                                         peso {c.weight.toFixed(1)}
@@ -697,7 +689,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                         {s.conditions?.invalidate?.length ? (
                           <div className="rounded-lg bg-red-950/40 p-2">
                             <div className="text-[10px] font-semibold uppercase tracking-wide text-red-300">
-                              Cosa invalida il setup
+                              Cosa invalida lo scenario
                             </div>
                             <ul className="mt-1 space-y-1">
                               {s.conditions?.invalidate?.map(
@@ -706,7 +698,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                                     key={c.id ?? i}
                                     className="flex items-start justify-between gap-2 text-[11px] text-red-100"
                                   >
-                                    <span className="flex-1">{c.label}</span>
+                                    <span className="flex-1">{sanitizeDir(c.label)}</span>
                                     {c.weight != null && isFinite(c.weight) && (
                                       <span className="ml-2 text-[10px] text-red-300/80">
                                         peso {c.weight.toFixed(1)}
@@ -738,8 +730,8 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                                 : "bg-red-500/20 text-red-200 border border-red-400/40",
                             ].join(" ")}
                           >
-                            Reentry{" "}
-                            {s.ciclica_window.direction === "LONG" ? "LONG" : "SHORT"}
+                            Fascia ciclica{" "}
+                            {s.ciclica_window.direction === "LONG" ? "rialzista" : "ribassista"}
                           </span>
                         )}
                       </div>

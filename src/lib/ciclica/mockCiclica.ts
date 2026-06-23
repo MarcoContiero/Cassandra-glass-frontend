@@ -290,7 +290,7 @@ export const mockCiclica: CiclicaRaw = {
         },
       ],
       commento_ciclico_breve:
-        "Il setup short 4h si inserisce in una Cuspide Breve 1h con Nodo 1D in avvicinamento.",
+        "Il setup ribassista 4h si inserisce in una Cuspide Breve 1h con Nodo 1D in avvicinamento.",
     },
   },
 

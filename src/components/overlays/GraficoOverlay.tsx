@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useCallback, useEffect, useState } from 'react';
-import SmartChart, { type ShowFlags } from '@/components/ui/SmartChart';
+import SmartChart, { type ShowFlags, type BoxLayer } from '@/components/ui/SmartChart';
 import type { OHLCV } from '@/lib/chartCompute';
+import { API } from '@/api';
 
 const BYBIT_INTERVAL: Record<string, string> = {
   '1m':'1','3m':'3','5m':'5','15m':'15','30m':'30',
@@ -47,6 +48,7 @@ const LEGEND: { key: keyof ShowFlags; label: string; color: string; desc: string
   { key: 'volume',     label: 'Volume',   color: '#c9a84c', desc: 'Quantità scambiata per barra. Alto volume conferma breakout; basso li mette in dubbio.' },
   { key: 'trendlines', label: 'Trendline',color: '#3da866', desc: 'Linee dinamiche che collegano pivot di minimo (verde = supporto) e massimo (rosso = resistenza). Il filtro tocchi mostra solo linee confermate N+ volte.' },
   { key: 'srZones',    label: 'Zone SR',  color: '#26a69a', desc: 'Aree di prezzo dove il mercato ha rimbalzato più volte. Verde = supporto (sotto prezzo), rosso = resistenza (sopra). Le due linee indicano i bordi della zona.' },
+  { key: 'boxes',      label: 'Box ATR',  color: '#c9a84c', desc: 'Zone di consolidamento rilevate con soglia ATR dinamica. Linea superiore = top del box, tratteggio = bottom. Box attivo in oro pieno, storici in trasparenza.' },
 ];
 
 // ──────────────────────────────
@@ -91,10 +93,11 @@ export default function GraficoOverlay({
 
   const [show, setShow] = useState<ShowFlags>({
     ema9: false, ema21: true, ema50: false, ema200: false,
-    volume: false, trendlines: true, srZones: true,
+    volume: false, trendlines: true, srZones: true, boxes: false,
   });
   const [minTouches, setMinTouches] = useState(2);
   const [showLegend, setShowLegend] = useState(false);
+  const [boxData, setBoxData] = useState<BoxLayer[]>([]);
 
   const toggle = useCallback((key: keyof ShowFlags) => {
     setShow(prev => ({ ...prev, [key]: !prev[key] }));
@@ -126,6 +129,26 @@ export default function GraficoOverlay({
     return () => { alive = false; };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTf, symbol, cache]);
+
+  // Fetch boxes on TF/symbol change (sempre, toggle controlla solo visibilità)
+  useEffect(() => {
+    let alive = true;
+    const sym = symbol.replace(/USDT$/i, '').toUpperCase() + 'USDT';
+    const qs = new URLSearchParams({ symbol: sym, timeframe: activeTf, limit: '300' });
+    fetch(`${API}/api/box/boxes.json?${qs}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!alive || !json?.boxes) return;
+        setBoxData(
+          (json.boxes as any[])
+            .filter(b => typeof b.top === 'number' && typeof b.bottom === 'number')
+            .map(b => ({ top: b.top as number, bottom: b.bottom as number, active: !!b.active }))
+        );
+      })
+      .catch(() => {});
+    return () => { alive = false; };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [activeTf, symbol]);
 
   const ohlcv = (cache[activeTf] ?? []) as OHLCV[];
   const hasData = ohlcv.length > 0;
@@ -161,7 +184,7 @@ export default function GraficoOverlay({
           </div>
         )}
         {!loading && hasData && (
-          <SmartChart ohlcv={ohlcv} height={420} show={show} minTouches={minTouches} />
+          <SmartChart ohlcv={ohlcv} height={420} show={show} minTouches={minTouches} boxData={boxData} />
         )}
         {!loading && !hasData && cache[activeTf] !== undefined && (
           <div className="h-80 flex items-center justify-center text-white/30 text-sm">
@@ -223,6 +246,11 @@ export default function GraficoOverlay({
 
           {/* SR Zones */}
           <ToggleChip label="Zone SR" color="#26a69a" active={show.srZones} onClick={() => toggle('srZones')} />
+
+          <span className="mx-1 h-3 w-px bg-white/10 inline-block" />
+
+          {/* Box ATR */}
+          <ToggleChip label="Box ATR" color="#c9a84c" active={show.boxes} onClick={() => toggle('boxes')} />
 
           {/* Legend toggle — right-aligned */}
           <button

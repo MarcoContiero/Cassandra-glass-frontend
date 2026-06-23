@@ -508,15 +508,18 @@ function buildNarrativa(opts: {
 
   let mainText = '';
 
+  const toLabel = (d: string) =>
+    d === 'LONG' ? 'rialzista' : d === 'SHORT' ? 'ribassista' : 'neutro';
+
   const dirTxt = (() => {
     const pieces: string[] = [];
-    pieces.push(`Contesto generale: bias ${quadro.dir}`);
+    pieces.push(`Contesto generale: bias ${toLabel(quadro.dir)}`);
     if (quadro.pct != null) pieces.push(`(forza ${quadro.pct.toFixed(1)}%)`);
 
     const dettagli: string[] = [];
-    dettagli.push(`TF brevi: ${dBrevi}`);
-    dettagli.push(`TF medi: ${dMedi}`);
-    dettagli.push(`TF lunghi: ${dLunghi}`);
+    dettagli.push(`TF brevi: ${toLabel(dBrevi)}`);
+    dettagli.push(`TF medi: ${toLabel(dMedi)}`);
+    dettagli.push(`TF lunghi: ${toLabel(dLunghi)}`);
 
     return `${pieces.join(' ')}. ${dettagli.join(' · ')}.`;
   })();
@@ -765,11 +768,13 @@ function buildPregressoTextForTf(opts: {
 
   const parts: string[] = [];
 
+  const dirLabel = dir === 'LONG' ? 'rialzista' : dir === 'SHORT' ? 'ribassista' : 'neutro';
+
   // Riga 1: bias su quel TF
   if (strength != null) {
-    parts.push(`Bias dominante: ${dir} (forza ${strength}%).`);
+    parts.push(`Bias dominante: ${dirLabel} (forza ${strength}%).`);
   } else {
-    parts.push(`Bias dominante: ${dir}.`);
+    parts.push(`Bias dominante: ${dirLabel}.`);
   }
 
   // Riga 2: scenari (se ci sono)

@@ -90,7 +90,7 @@ export function buildArgonautaCandidates(symbol:string, payload: Any, cfg?: Part
         C.weights.overlap * (nearLiq ? (overlap({min:nearLiq.price,max:nearLiq.price}, nearS)>0 ? 100 : 40) : 20);
 
       out.push({
-        symbol, title:'Pullback su supporto (LONG)', side:'long',
+        symbol, title:'Pullback su supporto (rialzista)', side:'long',
         entry, invalidation: inv, targets: [tgt1, tgt2].filter(Boolean) as string[],
         distance: Number(distancePct(mid(nearS), price).toFixed(2)),
         rr_est: Number(rr.toFixed(2)), score: Math.round(score), tags
@@ -126,7 +126,7 @@ export function buildArgonautaCandidates(symbol:string, payload: Any, cfg?: Part
         C.weights.overlap * (nearLiq ? (overlap({min:nearLiq.price,max:nearLiq.price}, nearR)>0 ? 100 : 40) : 20);
 
       out.push({
-        symbol, title:'Ritesto resistenza (SHORT)', side:'short',
+        symbol, title:'Ritesto resistenza (ribassista)', side:'short',
         entry, invalidation: inv, targets: [tgt1, tgt2].filter(Boolean) as string[],
         distance: Number(distancePct(mid(nearR), price).toFixed(2)),
         rr_est: Number(rr.toFixed(2)), score: Math.round(score), tags

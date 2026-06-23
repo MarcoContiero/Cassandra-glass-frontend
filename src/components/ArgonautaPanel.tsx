@@ -433,7 +433,7 @@ export default function ArgonautaPanel() {
             textTransform: 'uppercase',
           }}
         >
-          Argonauta — Entrate vicine valide
+          Argonauta — Alla ricerca dello scenario d'oro
         </h2>
         <ArgonautaLegendButton>
           <span
@@ -777,7 +777,7 @@ export default function ArgonautaPanel() {
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Coin', 'Dir', '% Mancante', 'Prezzo Attuale', 'Entry'].map((h) => (
+                  {['Coin', 'Bias', '% Mancante', 'Prezzo Attuale', 'Punto di ingresso'].map((h) => (
                     <th
                       key={h}
                       style={{
@@ -820,7 +820,7 @@ export default function ArgonautaPanel() {
                         <span
                           className={r.dir === 'LONG' ? 'bias-long' : r.dir === 'SHORT' ? 'bias-short' : 'bias-neutral'}
                         >
-                          {r.dir}
+                          {r.dir === 'LONG' ? 'rialzista' : r.dir === 'SHORT' ? 'ribassista' : r.dir}
                         </span>
                       </td>
                       <td

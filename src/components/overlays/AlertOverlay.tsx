@@ -3,6 +3,9 @@
 import * as React from "react";
 import { OverlayShell } from "./OverlayShell";
 
+const sanitizeDir = (text: string) =>
+  text.replace(/\bLONG\b/g, "rialzista").replace(/\bSHORT\b/g, "ribassista");
+
 
 type AlertItem = {
   tf?: string | null;
@@ -51,28 +54,31 @@ export default function AlertOverlay({ title, data, timeframes }: Props) {
 
   return (
     <OverlayShell>
-      <div className="w-full max-w-5xl mx-auto text-sm text-white">
+      <div className="w-full max-w-5xl mx-auto text-sm" style={{ color: 'var(--color-text)' }}>
         {/* Header */}
         <div className="mb-4">
-          <div className="text-xs uppercase tracking-[0.2em] text-zinc-400">
-            Alert
+          <div className="text-xs uppercase tracking-[0.2em]" style={{ color: 'var(--color-text-dim)' }}>
+            Avvisi
           </div>
           <h2 className="text-xl font-semibold mt-1">{title}</h2>
         </div>
 
         {/* Hero: Perché Cassandra sta squillando? */}
-        <div className="mb-4 rounded-2xl bg-amber-500/10 border border-amber-500/40 px-4 py-3">
-          <div className="font-semibold text-amber-200">
+        <div className="mb-4 rounded-2xl px-4 py-3" style={{
+          background: 'var(--color-gold, #d4a84b)18',
+          border: '1px solid var(--color-gold, #d4a84b)44',
+        }}>
+          <div className="font-semibold" style={{ color: 'var(--color-gold, #d4a84b)' }}>
             Perché Cassandra sta squillando?
           </div>
           {motivazioni.length > 0 ? (
-            <ul className="mt-2 list-disc list-inside space-y-1 text-amber-100/90 text-xs">
+            <ul className="mt-2 list-disc list-inside space-y-1 text-xs" style={{ color: 'var(--color-text)' }}>
               {motivazioni.map((m, idx) => (
                 <li key={idx}>{m}</li>
               ))}
             </ul>
           ) : (
-            <div className="mt-2 text-xs text-amber-100/70">
+            <div className="mt-2 text-xs" style={{ color: 'var(--color-text-dim)' }}>
               Nessuna motivazione particolare rilevata nei timeframe selezionati.
             </div>
           )}
@@ -83,39 +89,49 @@ export default function AlertOverlay({ title, data, timeframes }: Props) {
           {filtered.map((a, idx) => (
             <div
               key={idx}
-              className="rounded-xl bg-zinc-900/70 border border-zinc-700/60 px-4 py-3 flex justify-between items-center gap-4"
+              className="rounded-xl px-4 py-3 flex justify-between items-center gap-4"
+              style={{
+                background: 'var(--color-surface)',
+                border: '1px solid var(--color-border)',
+              }}
             >
               <div>
                 <div className="flex items-center gap-2">
-                  <span className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold border border-amber-400/70 text-amber-200 uppercase tracking-wide">
-                    {a.code || "ALERT"}
+                  <span
+                    className="inline-flex items-center rounded-full px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wide"
+                    style={{
+                      border: '1px solid var(--color-gold, #d4a84b)99',
+                      color: 'var(--color-gold, #d4a84b)',
+                    }}
+                  >
+                    {a.code || "AVVISO"}
                   </span>
                   {a.tf && (
-                    <span className="text-[10px] text-zinc-400 uppercase">
+                    <span className="text-[10px] uppercase" style={{ color: 'var(--color-text-dim)' }}>
                       TF: {a.tf}
                     </span>
                   )}
                 </div>
                 <div className="mt-1 text-sm font-medium">
-                  {a.title || "Segnale rilevante"}
+                  {sanitizeDir(a.title || "Segnale rilevante")}
                 </div>
                 {a.condition && (
-                  <div className="text-xs text-zinc-400 mt-0.5">
-                    {a.condition}
+                  <div className="text-xs mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
+                    {sanitizeDir(a.condition)}
                     {a.score != null && !Number.isNaN(a.score) && (
                       <> — punteggio {a.score.toFixed(2)}</>
                     )}
                   </div>
                 )}
                 {a.sources && a.sources.length > 0 && (
-                  <div className="mt-1 text-[10px] text-zinc-500">
+                  <div className="mt-1 text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
                     Sorgente: {a.sources.join(", ")}
                   </div>
                 )}
               </div>
               {a.price != null && !Number.isNaN(a.price) && (
                 <div className="text-right">
-                  <div className="text-[10px] text-zinc-400">Livello</div>
+                  <div className="text-[10px]" style={{ color: 'var(--color-text-dim)' }}>Livello</div>
                   <div className="text-xs font-semibold">
                     @{fmtPrice(a.price)}
                   </div>
@@ -126,7 +142,7 @@ export default function AlertOverlay({ title, data, timeframes }: Props) {
 
           {!hasAnything && (
             <div className="text-sm opacity-50">
-              Nessun alert rilevato nei timeframe selezionati.
+              Nessun avviso rilevato nei timeframe selezionati.
             </div>
           )}
         </div>

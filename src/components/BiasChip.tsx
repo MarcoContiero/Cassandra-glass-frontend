@@ -3,11 +3,11 @@
 import React from 'react';
 
 const biasConfig = {
-  LONG:   { label: 'LONG',   className: 'bias-long'    },
-  SHORT:  { label: 'SHORT',  className: 'bias-short'   },
-  NEUTRO: { label: 'NEUTRO', className: 'bias-neutral' },
-  LONG_BIAS:  { label: 'LONG',   className: 'bias-long'  },
-  SHORT_BIAS: { label: 'SHORT',  className: 'bias-short' },
+  LONG:   { label: 'rialzista',   className: 'bias-long'    },
+  SHORT:  { label: 'ribassista',  className: 'bias-short'   },
+  NEUTRO: { label: 'neutro',      className: 'bias-neutral' },
+  LONG_BIAS:  { label: 'rialzista',  className: 'bias-long'  },
+  SHORT_BIAS: { label: 'ribassista', className: 'bias-short' },
 } as const;
 
 type BiasKey = keyof typeof biasConfig;

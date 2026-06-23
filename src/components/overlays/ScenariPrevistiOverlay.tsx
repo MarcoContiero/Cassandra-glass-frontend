@@ -317,7 +317,11 @@ export default function ScenariPrevistiOverlay({
                   </h4>
                   {s.badge && (
                     <span className="shrink-0 text-[10px] px-2 py-1 rounded-full bg-white/10 border border-white/15">
-                      {s.badge}
+                      {s.badge === "LONG"
+                        ? "rialzista"
+                        : s.badge === "SHORT"
+                        ? "ribassista"
+                        : s.badge}
                     </span>
                   )}
                 </header>
@@ -355,13 +359,13 @@ export default function ScenariPrevistiOverlay({
                     <div className="grid grid-cols-3 gap-2">
                       {s.entry && (
                         <div className="rounded-lg bg-black/30 border border-white/10 p-2">
-                          <dt className="text-xs uppercase tracking-wide opacity-70">Entry</dt>
+                          <dt className="text-xs uppercase tracking-wide opacity-70">Punto di ingresso</dt>
                           <dd className="font-mono text-sm wrap-break-words">{s.entry}</dd>
                         </div>
                       )}
                       {s.stop && (
                         <div className="rounded-lg bg-black/30 border border-white/10 p-2">
-                          <dt className="text-xs uppercase tracking-wide opacity-70">Stop</dt>
+                          <dt className="text-xs uppercase tracking-wide opacity-70">Punto di invalidazione</dt>
                           <dd className="font-mono text-sm wrap-break-words">{s.stop}</dd>
                         </div>
                       )}

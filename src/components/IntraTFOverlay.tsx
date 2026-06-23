@@ -180,8 +180,8 @@ function getStartLongLevel(tfLong?: TfData | null): number | undefined {
 
 function dirBadge(d?: Direction) {
   const map: Record<Direction, { label: string; cls: string }> = {
-    long: { label: "LONG", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" },
-    short: { label: "SHORT", cls: "bg-red-500/15 text-red-300 border-red-500/40" },
+    long: { label: "rialzista", cls: "bg-emerald-500/15 text-emerald-300 border-emerald-500/40" },
+    short: { label: "ribassista", cls: "bg-red-500/15 text-red-300 border-red-500/40" },
     neutral: { label: "NEUTRO", cls: "bg-zinc-500/15 text-zinc-300 border-zinc-500/40" },
   } as const;
   const meta = d ? map[d] : { label: "?", cls: "bg-zinc-800 text-zinc-200 border-zinc-700" };
@@ -228,7 +228,7 @@ function buildIntraTfNarrative(tfsSelected: string[], dataByTf: Record<string, T
       `; su ${tfMid} ${String(midDir).toUpperCase()} in continuità, mentre su ${tfShort} si intravede ` +
       `${String((shortScenario?.direction ?? shortDir)).toUpperCase()} ` +
       (invalidation
-        ? `che può annullare i LONG più lunghi solo con prezzo < ${fmt(invalidation)}.`
+        ? `che può annullare le strutture rialziste più lunghe solo con prezzo < ${fmt(invalidation)}.`
         : `che resta di breve respiro finché il prezzo non invalida i supporti chiave.`)
     );
     if ((longRSI ?? 0) >= 68) {
@@ -250,7 +250,7 @@ function buildIntraTfNarrative(tfsSelected: string[], dataByTf: Record<string, T
     parts.push(`Resistenza vicina a ${fmt(keyRes.price)}; breakout rafforza il quadro ${String(longDir).toUpperCase()}.`);
   }
   if (keySup) {
-    parts.push(`Supporto di rilievo a ${fmt(keySup.price)}; perdita del livello indebolisce i LONG su ${tfLong}.`);
+    parts.push(`Supporto di rilievo a ${fmt(keySup.price)}; perdita del livello indebolisce l'orientamento rialzista su ${tfLong}.`);
   }
 
   return {

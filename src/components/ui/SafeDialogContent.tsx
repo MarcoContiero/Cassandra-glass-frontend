@@ -9,6 +9,7 @@ type Props = {
   description?: string;
   children: React.ReactNode;
   className?: string;
+  style?: React.CSSProperties;
 };
 
 /**
@@ -18,9 +19,9 @@ type Props = {
  * - nessun max-width di default
  */
 const SafeDialogContent = React.forwardRef<HTMLDivElement, Props>(
-  ({ title, description = 'Dialog content', className, children }, ref) => {
+  ({ title, description = 'Dialog content', className, style, children }, ref) => {
     return (
-      <div ref={ref} data-safe-content className={cn('w-full max-w-none', className)}>
+      <div ref={ref} data-safe-content className={cn('w-full max-w-none', className)} style={style}>
         {children}
       </div>
     );

@@ -324,3 +324,12 @@ body {
 /* text-green/red hardcoded (debug / posizione) */
 [data-theme="light"] .text-green-300 { color: var(--color-long-bright) !important; }
 [data-theme="light"] .text-red-300   { color: var(--color-short-bright) !important; }
+
+/* ── Pizia — thinking dots ── */
+@keyframes piziaDotPulse {
+  0%, 60%, 100% { opacity: 0.25; transform: scale(0.8); }
+  30%           { opacity: 1;    transform: scale(1.15); background: var(--color-gold); }
+}
+.pizia-dot   { animation: piziaDotPulse 1.6s ease-in-out infinite; }
+.pizia-dot-1 { animation-delay: 0.25s; }
+.pizia-dot-2 { animation-delay: 0.5s; }
