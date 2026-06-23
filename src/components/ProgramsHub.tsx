@@ -67,7 +67,7 @@ export default function ProgramsHub() {
   }, [activeApp, handlePiziaContext]);
 
   return (
-    <div style={{ minHeight: '100vh', background: 'var(--color-void)', color: 'var(--color-text)' }}>
+    <div style={{ minHeight: '100vh', background: 'var(--bg-section-main)', color: 'var(--color-text)' }}>
 
       {/* ── Navbar ────────────────────────────────────────────────── */}
       <header

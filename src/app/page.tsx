@@ -8,7 +8,6 @@ import { RevealOnScroll } from '@/components/RevealOnScroll';
 import { ThemeToggle } from '@/components/ThemeToggle';
 
 const HeroPlanetarium = dynamic(() => import('@/components/HeroPlanetarium'), { ssr: false });
-const CassandraBackground = dynamic(() => import('@/components/CassandraBackground'), { ssr: false });
 
 // ── Data ─────────────────────────────────────────────────────────────────────
 
@@ -173,7 +172,6 @@ export default function HomePage() {
 
   return (
     <div style={{ color: 'var(--color-text)', minHeight: '100vh', overflowX: 'hidden', position: 'relative' }}>
-      <CassandraBackground />
       <HomeNav />
 
       {/* ── HERO ──────────────────────────────────────────────────────── */}
