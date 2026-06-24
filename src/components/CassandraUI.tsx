@@ -3,7 +3,8 @@
 import OrionePanel from './orione/OrionePanel';
 
 import * as React from 'react';
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useUser } from '@clerk/nextjs';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { VisuallyHidden } from "@radix-ui/react-visually-hidden";
 import ChartPreview from "@/components/ChartPreview";
@@ -262,6 +263,7 @@ interface CassandraUIProps {
 }
 
 export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
+  const { user } = useUser();
   const [symbol, setSymbol] = useState<string>('BTC');
   const [timeframes, setTimeframes] = useState<string[]>(['15m', '1h', '4h', '12h', '1d']);
   const [result, setResult] = useState<AnalisiLightResponse | null>(null);
@@ -277,6 +279,9 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
   const [compareAlt, setCompareAlt] = useState<boolean>(false);
   const [altCoin, setAltCoin] = useState<string>('');  // es. SOL, ETH, LDO...
   const [bootstrapped, setBootstrapped] = useState(false);
+
+  // Onboarding al primo accesso
+  const [showOnboardingHint, setShowOnboardingHint] = useState(false);
 
   async function fetchAnalisi() {
     try {
@@ -359,6 +364,27 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
     fetchAnalisi();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bootstrapped]);
+
+  // 3) Onboarding: mostra hint solo se l'utente non lo ha ancora visto
+  useEffect(() => {
+    if (!user?.id) return;
+    fetch('/api/user/flags', { headers: { 'X-User-Id': user.id } })
+      .then(r => r.ok ? r.json() : null)
+      .then(data => {
+        if (data && !data.onboarding_completed) setShowOnboardingHint(true);
+      })
+      .catch(() => {/* ignore */});
+  }, [user?.id]);
+
+  const dismissOnboardingHint = useCallback(() => {
+    setShowOnboardingHint(false);
+    if (!user?.id) return;
+    fetch('/api/user/flags', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': user.id },
+      body: JSON.stringify({ onboarding_completed: true }),
+    }).catch(() => {/* ignore */});
+  }, [user?.id]);
 
   const prezzo = useMemo(() => extractPrice(result ?? {}), [result]);
 
@@ -732,19 +758,67 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
           </div>
         )}
 
+        {/* Onboarding hint */}
+        {showOnboardingHint && (
+          <div
+            onClick={dismissOnboardingHint}
+            style={{
+              position: 'relative',
+              marginBottom: '12px',
+              padding: '8px 36px 8px 14px',
+              border: '1px solid rgba(201,168,76,0.25)',
+              background: 'rgba(201,168,76,0.04)',
+              cursor: 'pointer',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '10px',
+            }}
+          >
+            <span style={{
+              width: '6px', height: '6px', borderRadius: '50%',
+              background: 'var(--color-gold)', flexShrink: 0,
+              animation: 'cassandraPulse 2s ease-in-out infinite',
+            }} />
+            <span style={{
+              fontFamily: 'var(--font-mono)', fontSize: '10px',
+              letterSpacing: '0.12em', color: 'rgba(201,168,76,0.8)',
+              lineHeight: 1.5,
+            }}>
+              Inizia da qui per il quadro generale — poi esplora le altre sezioni.
+            </span>
+            <button
+              onClick={e => { e.stopPropagation(); dismissOnboardingHint(); }}
+              style={{
+                position: 'absolute', right: '10px', top: '50%',
+                transform: 'translateY(-50%)',
+                background: 'transparent', border: 'none',
+                color: 'rgba(201,168,76,0.5)', fontSize: '11px', cursor: 'pointer',
+                padding: '4px',
+              }}
+              aria-label="Chiudi"
+            >
+              ✕
+            </button>
+          </div>
+        )}
+
         {/* Cards grid */}
         <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 pb-4">
           {CARDS.map(({ key, icon, label, desc }) => {
             const isActive = overlayKey === key;
+            const isOnboardingTarget = key === 'longshort' && showOnboardingHint;
             return (
               <button
                 key={key}
                 className="cassandra-card cassandra-card-corners text-left p-4 flex flex-col gap-1 transition-colors duration-200"
-                style={
-                  isActive
+                style={{
+                  position: 'relative',
+                  ...(isActive
                     ? { background: 'rgba(201,168,76,0.06)', borderColor: 'var(--color-border)' }
-                    : undefined
-                }
+                    : isOnboardingTarget
+                      ? { borderColor: 'rgba(201,168,76,0.45)' }
+                      : undefined),
+                }}
                 onMouseEnter={e => {
                   if (!isActive) (e.currentTarget as HTMLElement).style.background = 'rgba(201,168,76,0.04)';
                 }}
@@ -753,6 +827,16 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
                 }}
                 onClick={() => openOverlay(key, label, result)}
               >
+                {/* Pulsing dot onboarding indicator */}
+                {isOnboardingTarget && (
+                  <span style={{
+                    position: 'absolute', top: '8px', right: '8px',
+                    width: '7px', height: '7px', borderRadius: '50%',
+                    background: 'var(--color-gold)',
+                    boxShadow: '0 0 8px rgba(201,168,76,0.8)',
+                    animation: 'cassandraPulse 1.5s ease-in-out infinite',
+                  }} />
+                )}
                 <span
                   className="text-base leading-none"
                   style={{ color: 'var(--color-gold-dim)' }}

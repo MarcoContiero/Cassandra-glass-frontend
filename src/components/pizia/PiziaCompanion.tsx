@@ -17,12 +17,14 @@ interface Props {
   currentCoin?: string;
   currentTimeframe?: string;
   cassandraContext?: string;
+  unreadAlerts?: number;
+  onAlertBadgeClick?: () => void;
 }
 
 const AMBIENT_TIMEOUT_MS = 22000;
 const FALLBACK = 'Non ho accesso ai dati in tempo reale di questa scheda in questo momento — puoi controllare il valore aggiornato direttamente in dashboard.';
 
-export default function PiziaCompanion({ currentTab, currentCoin, currentTimeframe, cassandraContext }: Props) {
+export default function PiziaCompanion({ currentTab, currentCoin, currentTimeframe, cassandraContext, unreadAlerts = 0, onAlertBadgeClick }: Props) {
   const [size, setSize] = useState<PiziaSize>('ambient');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -248,6 +250,37 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           }}
         >
           <PiziaOrb size={orbPx} state={orbState} />
+
+          {/* Alert badge */}
+          {unreadAlerts > 0 && !isExpanded && (
+            <span
+              onClick={e => { e.stopPropagation(); onAlertBadgeClick?.(); }}
+              title={`${unreadAlerts} alert da leggere — vai agli Avvisi`}
+              style={{
+                position: 'absolute',
+                top: '0',
+                right: '0',
+                width: '14px',
+                height: '14px',
+                borderRadius: '50%',
+                background: 'var(--color-gold)',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                fontSize: '8px',
+                fontFamily: 'var(--font-mono)',
+                fontWeight: 700,
+                color: 'var(--color-void)',
+                letterSpacing: 0,
+                boxShadow: '0 0 8px rgba(201,168,76,0.7)',
+                animation: 'cassandraPulse 2s ease-in-out infinite',
+                cursor: 'pointer',
+                zIndex: 1,
+              }}
+            >
+              {unreadAlerts > 9 ? '9+' : unreadAlerts}
+            </span>
+          )}
 
           {/* Hover label */}
           {!isExpanded && (
