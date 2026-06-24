@@ -94,7 +94,145 @@ const TF_MOCK = [
   { tf: '1w',  bias: '–',  color: '#5a5a8a' },
 ];
 
+const UNIQUE_ITEMS = [
+  { text: "Analisi multi-timeframe sintetica con bias aggregato e disclosure dei conflitti", module: 'Cassandra' },
+  { text: 'Scanner pattern in tempo reale con alert configurabili dall\'utente stesso', module: 'Orione' },
+  { text: 'Esecuzione algoritmica calibrata su gate validati per scenario/coin', module: 'Tifide' },
+  { text: 'Setup operativi con livelli e rapporto rischio/rendimento precalcolato', module: 'Argonauta' },
+  { text: 'Radar ciclico multi-coin che identifica la fase di mercato di ogni asset', module: 'Agema' },
+  { text: 'Profilo storico, presente e proiezione probabilistica per ogni coin', module: 'Le Tre Moire' },
+  { text: 'Sistema di alert personalizzato su pattern, livelli e soglie scelti dall\'utente', module: 'Servizio Alert' },
+  { text: 'Statistiche e dati aggiornati ogni giorno, su tutte le coin coperte', module: 'Aggiornamento Giornaliero' },
+];
+
+const STRUMENTI = [
+  'EMA 9 · 21 · 50 · 99 · 200', 'RSI', 'MACD', 'Parabolic SAR',
+  'Ichimoku', 'Bollinger Bands', 'ADX', 'CCI',
+  'Williams %R', 'TRIX', 'VWAP', 'Fibonacci',
+  'Gann', 'Supporti & Resistenze', 'Pool di Liquidità', 'FVG',
+];
+
 // ── Sub-components ────────────────────────────────────────────────────────────
+
+function UnicoSistemaSection() {
+  return (
+    <section style={{ background: 'var(--bg-section-accent)', borderTop: '1px solid var(--color-border-dim)', borderBottom: '1px solid var(--color-border-dim)', padding: '100px 32px' }}>
+      <div style={{ maxWidth: '860px', margin: '0 auto' }}>
+        <RevealOnScroll>
+          <div style={{ textAlign: 'center', marginBottom: '56px' }}>
+            <span className="section-tag" style={{ display: 'inline-block', marginBottom: '16px' }}>Perché Cassandra</span>
+            <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3.2vw, 34px)', fontWeight: 300, color: 'var(--color-gold)', letterSpacing: '0.08em', lineHeight: 1.45, margin: 0 }}>
+              Tutto quello che un analista guarderebbe.<br />
+              <em style={{ color: 'var(--color-text)', fontStyle: 'normal' }}>Fatto per te, su ogni coin.</em>
+            </h2>
+          </div>
+        </RevealOnScroll>
+
+        <div>
+          {UNIQUE_ITEMS.map((item, i) => (
+            <RevealOnScroll key={item.module} delay={i * 70}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '24px', padding: '18px 0', borderBottom: '1px solid var(--color-text-faint)' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-text-dim)', lineHeight: 1.6, maxWidth: '560px' }}>
+                  {item.text}
+                </span>
+                <span style={{ fontFamily: 'var(--font-display)', fontSize: '13px', color: 'var(--color-gold)', letterSpacing: '0.1em', textTransform: 'uppercase', flexShrink: 0, whiteSpace: 'nowrap' }}>
+                  {item.module}
+                </span>
+              </div>
+            </RevealOnScroll>
+          ))}
+        </div>
+
+        <RevealOnScroll delay={UNIQUE_ITEMS.length * 70 + 100}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-dim)', letterSpacing: '0.2em', textAlign: 'center', marginTop: '48px' }}>
+            Non uno strumento in più. Un modo diverso di guardare il mercato.
+          </p>
+        </RevealOnScroll>
+      </div>
+    </section>
+  );
+}
+
+function StrumentiSection() {
+  const gridRef = useRef<HTMLDivElement>(null);
+  const [visible, setVisible] = useState(false);
+
+  useEffect(() => {
+    const obs = new IntersectionObserver(
+      ([e]) => { if (e.isIntersecting) setVisible(true); },
+      { threshold: 0.1 }
+    );
+    if (gridRef.current) obs.observe(gridRef.current);
+    return () => obs.disconnect();
+  }, []);
+
+  return (
+    <section style={{ padding: '100px 32px', textAlign: 'center' }}>
+      <div style={{ maxWidth: '760px', margin: '0 auto' }}>
+        <RevealOnScroll>
+          <span className="section-tag" style={{ display: 'inline-block', marginBottom: '18px' }}>Sotto il cofano</span>
+        </RevealOnScroll>
+        <RevealOnScroll delay={150}>
+          <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(24px, 3.4vw, 36px)', fontWeight: 300, color: 'var(--color-gold)', letterSpacing: '0.04em', lineHeight: 1.45, marginBottom: '14px', marginTop: 0 }}>
+            Tutto quello che un analista<br />guarderebbe.
+          </h2>
+        </RevealOnScroll>
+        <RevealOnScroll delay={280}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-dim)', letterSpacing: '0.15em', marginBottom: '40px' }}>
+            CALCOLATO PER TE, SU OGNI COIN, OGNI TIMEFRAME
+          </p>
+        </RevealOnScroll>
+        <RevealOnScroll delay={340}>
+          <div style={{ display: 'inline-flex', alignItems: 'center', gap: '10px', marginBottom: '56px' }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', background: 'var(--color-gold)', animation: 'cassandraPulse 1.6s ease-in-out infinite', display: 'inline-block' }} />
+            <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.3em', color: 'var(--color-text-dim)', textTransform: 'uppercase' }}>In 10 secondi</span>
+          </div>
+        </RevealOnScroll>
+
+        <div ref={gridRef} style={{ display: 'flex', flexWrap: 'wrap', gap: '10px', justifyContent: 'center' }}>
+          {STRUMENTI.map((tag, i) => (
+            <span
+              key={tag}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                letterSpacing: '0.08em',
+                color: 'var(--color-text-dim)',
+                border: '1px solid var(--color-text-faint)',
+                padding: '9px 18px',
+                whiteSpace: 'nowrap',
+                opacity: visible ? 1 : 0,
+                transform: visible ? 'translateY(0) scale(1)' : 'translateY(10px) scale(0.96)',
+                transition: `opacity 0.5s ease ${i * 0.06 + 0.1}s, transform 0.5s ease ${i * 0.06 + 0.1}s, border-color 0.3s, color 0.3s`,
+                cursor: 'default',
+              }}
+              onMouseEnter={e => {
+                const el = e.currentTarget;
+                el.style.borderColor = 'var(--color-gold-dim)';
+                el.style.color = 'var(--color-gold)';
+                el.style.background = 'rgba(201,168,76,0.04)';
+              }}
+              onMouseLeave={e => {
+                const el = e.currentTarget;
+                el.style.borderColor = 'var(--color-text-faint)';
+                el.style.color = 'var(--color-text-dim)';
+                el.style.background = 'transparent';
+              }}
+            >
+              {tag}
+            </span>
+          ))}
+        </div>
+
+        <RevealOnScroll delay={1200}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-faint)', letterSpacing: '0.15em', marginTop: '48px', textTransform: 'uppercase' }}>
+            Sintetizzati in un unico bias, non sommati a caso
+          </p>
+        </RevealOnScroll>
+      </div>
+    </section>
+  );
+}
 
 function useEntraHref() {
   const { isSignedIn } = useAuth();
@@ -120,9 +258,9 @@ function HomeNav() {
         left: 0,
         right: 0,
         zIndex: 50,
-        borderBottom: scrolled ? '1px solid var(--color-gold-dim)' : '1px solid transparent',
-        backdropFilter: scrolled ? 'none' : 'none',
-        background: scrolled ? 'var(--color-gold)' : 'transparent',
+        borderBottom: scrolled ? '1px solid var(--color-border-dim)' : '1px solid transparent',
+        backdropFilter: scrolled ? 'blur(8px)' : 'none',
+        background: scrolled ? 'rgba(2,2,14,0.92)' : 'transparent',
         transition: 'all 300ms ease',
         padding: '0 32px',
         height: '60px',
@@ -140,9 +278,9 @@ function HomeNav() {
           <a
             key={label}
             href={`#${label.toLowerCase()}`}
-            style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: scrolled ? 'rgba(2,2,14,0.55)' : 'var(--color-text-dim)', textDecoration: 'none', transition: 'color 200ms ease' }}
-            onMouseEnter={e => { (e.target as HTMLElement).style.color = scrolled ? 'var(--color-void)' : 'var(--color-gold)'; }}
-            onMouseLeave={e => { (e.target as HTMLElement).style.color = scrolled ? 'rgba(2,2,14,0.55)' : 'var(--color-text-dim)'; }}
+            style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', color: 'var(--color-text-dim)', textDecoration: 'none', transition: 'color 200ms ease' }}
+            onMouseEnter={e => { (e.target as HTMLElement).style.color = 'var(--color-gold)'; }}
+            onMouseLeave={e => { (e.target as HTMLElement).style.color = 'var(--color-text-dim)'; }}
           >
             {label}
           </a>
@@ -248,6 +386,12 @@ export default function HomePage() {
           </div>
         </div>
       </section>
+
+      {/* ── L'UNICO SISTEMA CHE ───────────────────────────────────────── */}
+      <UnicoSistemaSection />
+
+      {/* ── STRUMENTI ─────────────────────────────────────────────────── */}
+      <StrumentiSection />
 
       {/* ── SISTEMA ───────────────────────────────────────────────────── */}
       <section id="sistema" style={{ background: 'linear-gradient(to bottom, var(--bg-section-main), var(--bg-section-accent), var(--bg-section-main))', borderTop: '1px solid var(--color-border-dim)', borderBottom: '1px solid var(--color-border-dim)', padding: '100px 32px' }}>
