@@ -63,7 +63,7 @@ const TIERS = [
     name: 'Argonauta', sub: 'Suite Completa', price: 89, featured: true,
     features: [
       { on: true, text: 'Tutto di Orione incluso' },
-      { on: true, text: 'Setup AI con entry/TP/SL/R:R' },
+      { on: true, text: 'Setup con zone operative e R:R calcolato' },
       { on: true, text: 'Pool di liquidità con magnete' },
       { on: true, text: 'DNA Coin completo (Cloto · Lachesi · Atropo)' },
       { on: true, text: 'Performance per sessione USA/EU/ASIA' },
@@ -77,7 +77,7 @@ const TIERS = [
       { on: true, text: 'Tutto di Argonauta incluso' },
       { on: true, text: 'Radar ciclico su tutte le coins' },
       { on: true, text: 'Fase espansiva/distributiva real-time' },
-      { on: true, text: 'Segnali qualificati da fase ciclica' },
+      { on: true, text: 'Scenari qualificati da fase ciclica' },
       { on: true, text: 'Accesso anticipato nuove features' },
       { on: true, text: 'Supporto prioritario' },
     ],
