@@ -86,12 +86,12 @@ const TIERS = [
 ];
 
 const TF_MOCK = [
-  { tf: '15m', bias: 'LONG',  color: '#3da866' },
-  { tf: '1h',  bias: 'LONG',  color: '#3da866' },
-  { tf: '4h',  bias: 'SHORT', color: '#a83d3d' },
-  { tf: '12h', bias: 'SHORT', color: '#a83d3d' },
-  { tf: '1d',  bias: 'SHORT', color: '#a83d3d' },
-  { tf: '1w',  bias: 'NEUTRO', color: '#5a5a8a' },
+  { tf: '15m', bias: '↑',  color: '#3da866' },
+  { tf: '1h',  bias: '↑',  color: '#3da866' },
+  { tf: '4h',  bias: '↓',  color: '#a83d3d' },
+  { tf: '12h', bias: '↓',  color: '#a83d3d' },
+  { tf: '1d',  bias: '↓',  color: '#a83d3d' },
+  { tf: '1w',  bias: '–',  color: '#5a5a8a' },
 ];
 
 // ── Sub-components ────────────────────────────────────────────────────────────
@@ -316,10 +316,10 @@ export default function HomePage() {
             <div>
               <span className="section-tag" style={{ marginBottom: '20px' }}>Analisi live</span>
               <h2 style={{ fontFamily: 'var(--font-display)', fontSize: 'clamp(22px, 3.5vw, 36px)', fontWeight: 300, color: 'var(--color-gold)', letterSpacing: '0.2em', marginBottom: '24px', marginTop: 0 }}>
-                Ogni segnale ha un contesto
+                Ogni scenario ha un contesto
               </h2>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.9, color: 'var(--color-text-dim)', margin: '0 0 16px' }}>
-                Cassandra non si limita al pattern. Ogni segnale viene valutato su <em style={{ color: 'var(--color-text)', fontStyle: 'normal' }}>supporti e resistenze</em>, pool di liquidità, fase ciclica e bias multi-timeframe.
+                Cassandra non si limita al pattern. Ogni scenario viene valutato su <em style={{ color: 'var(--color-text)', fontStyle: 'normal' }}>supporti e resistenze</em>, pool di liquidità, fase ciclica e bias multi-timeframe.
               </p>
               <p style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', lineHeight: 1.9, color: 'var(--color-text-dim)', margin: 0 }}>
                 Il risultato: meno rumore, più <em style={{ color: 'var(--color-gold)', fontStyle: 'normal' }}>precisione operativa</em>.
@@ -339,7 +339,7 @@ export default function HomePage() {
                 </div>
                 {/* Direction */}
                 <div style={{ display: 'flex', alignItems: 'center', gap: '12px', marginBottom: '16px' }}>
-                  <span className="bias-short" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', padding: '3px 8px' }}>SHORT</span>
+                  <span className="bias-short" style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em', padding: '3px 8px' }}>RIBASSISTA</span>
                   <span style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: '#a83d3d' }}>10.16</span>
                 </div>
                 {/* S/R */}
