@@ -25,16 +25,16 @@ const MODULES = [
     desc: 'Il reparto scelto. Fase ciclica di ogni coin — espansione, distribuzione, accumulazione. Solo i setup allineati alla fase vengono promossi.',
   },
   {
-    index: 'IV', name: 'Cloto', role: 'DNA Coin · Storia',
-    desc: 'Fila il filo. Win rate per sessione, profit factor storico, correlazione BTC/ETH, distribuzione oraria dei trade. La memoria della coin.',
+    index: 'IV', name: 'Le Tre Moire', role: 'Cloto · Lachesi · Atropo',
+    desc: 'Le parche filano, misurano e tagliano. Storia, momento presente e proiezione probabilistica di ogni coin — tre letture di uno stesso filo.',
   },
   {
-    index: 'V', name: 'Lachesi', role: 'DNA Coin · Presente',
-    desc: 'Misura il filo. Sessione attuale, regime di volatilità, fase del ciclo corrente, bias direzionale multi-timeframe in tempo reale.',
+    index: 'V', name: 'DNA Coin', role: 'Profilo · Statistiche · Genoma',
+    desc: 'Il patrimonio genetico di ogni asset. Win rate per sessione, profit factor, correlazione BTC/ETH, distribuzione oraria dei trade. La firma statistica di ogni coin.',
   },
   {
-    index: 'VI', name: 'Atropo', role: 'DNA Coin · Proiezione',
-    desc: 'Taglia il filo. Proiezione probabilistica basata su Cloto e Lachesi: la stima del prossimo movimento secondo la storia della coin.',
+    index: 'VI', name: 'Tifide', role: 'Esecuzione Algoritmica · Live',
+    desc: 'Il braccio armato. Esecuzione algoritmica su gate validati — apre, gestisce e chiude posizioni in tempo reale seguendo gli scenari di Orione e Argonauta.',
   },
 ];
 
