@@ -34,7 +34,7 @@ const MODULES = [
   },
   {
     index: 'VI', name: 'Tifide', role: 'Esecuzione Algoritmica · Live',
-    desc: 'Il braccio armato. Esecuzione algoritmica su gate validati — apre, gestisce e chiude posizioni in tempo reale seguendo gli scenari di Orione e Argonauta.',
+    desc: 'Il braccio armato. Ricerca algoritmica su gate validati in tempo reale seguendo pattern e incroci EMA.',
   },
 ];
 

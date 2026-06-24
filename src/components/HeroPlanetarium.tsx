@@ -7,9 +7,9 @@ const NODES = [
   { name: 'ORIONE',    theta: 0.8, phi: 0.55, size: 3.5, color: '#0abfbc' },
   { name: 'ARGONAUTA', theta: 2.1, phi: 0.45, size: 3.5, color: '#0abfbc' },
   { name: 'AGEMA',     theta: 3.4, phi: 0.52, size: 3.5, color: '#0abfbc' },
-  { name: 'CLOTO',     theta: 4.5, phi: 0.38, size: 3,   color: '#9a7a3a' },
-  { name: 'LACHESI',   theta: 5.4, phi: 0.60, size: 3,   color: '#9a7a3a' },
-  { name: 'ATROPO',    theta: 1.5, phi: 0.70, size: 3,   color: '#9a7a3a' },
+  { name: 'LE TRE MOIRE', theta: 4.5, phi: 0.38, size: 3,   color: '#9a7a3a' },
+  { name: 'DNA COIN',     theta: 5.4, phi: 0.60, size: 3,   color: '#9a7a3a' },
+  { name: 'TIFIDE',       theta: 1.5, phi: 0.70, size: 3,   color: '#9a7a3a' },
 ];
 
 const STAR_COUNT = 420;
