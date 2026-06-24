@@ -13,6 +13,7 @@ import Tifide3Panel from '@/app/tifide3/page';
 import Orione2Page from '@/app/orione2/patterns/page';
 import PiziaCompanion from './pizia/PiziaCompanion';
 import AvvisiPanel from './avvisi/AvvisiPanel';
+import SegnalaProblema from './SegnalaProblema';
 import { posthog } from '@/lib/posthog';
 
 type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi';
@@ -221,7 +222,7 @@ export default function ProgramsHub() {
             })}
           </nav>
 
-          {/* Theme toggle + live indicator */}
+          {/* Theme toggle + segnala + live indicator */}
           <div
             style={{
               display: 'flex',
@@ -232,6 +233,7 @@ export default function ProgramsHub() {
               borderLeft: '1px solid rgba(2,2,14,0.15)',
             }}
           >
+            <SegnalaProblema />
             <ThemeToggle />
             <span
               style={{
