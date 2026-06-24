@@ -49,7 +49,7 @@ const TIERS = [
   {
     name: 'Orione', sub: 'Segnali & Pattern', price: 39, featured: false,
     features: [
-      { on: true,  text: 'Scanner pattern real-time su 30+ coins' },
+      { on: true,  text: 'Scanner pattern real-time su qualsiasi coin' },
       { on: true,  text: 'Bias MTF su tutti i timeframe' },
       { on: true,  text: 'Alert contestualizzati con score' },
       { on: true,  text: 'Supporti e resistenze dinamici' },

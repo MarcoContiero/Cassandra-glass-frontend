@@ -20,6 +20,9 @@ export function ThemeToggle() {
     localStorage.setItem('cassandra-theme', next);
   }
 
+  // Mostra il tema verso cui si switcha (call-to-action)
+  const label = theme === 'dark' ? 'LIGHT' : 'DARK';
+
   return (
     <button
       onClick={toggle}
@@ -29,8 +32,9 @@ export function ThemeToggle() {
         border: '1px solid rgba(2,2,14,0.25)',
         color: 'rgba(2,2,14,0.55)',
         fontFamily: 'var(--font-mono)',
-        fontSize: '11px',
-        width: '32px',
+        fontSize: '10px',
+        letterSpacing: '0.08em',
+        paddingInline: '10px',
         height: '32px',
         cursor: 'pointer',
         display: 'flex',
@@ -38,6 +42,7 @@ export function ThemeToggle() {
         justifyContent: 'center',
         transition: 'color 200ms ease, border-color 200ms ease',
         flexShrink: 0,
+        whiteSpace: 'nowrap',
       }}
       onMouseEnter={e => {
         (e.currentTarget).style.color = 'var(--color-void)';
@@ -48,7 +53,7 @@ export function ThemeToggle() {
         (e.currentTarget).style.borderColor = 'rgba(2,2,14,0.25)';
       }}
     >
-      {theme === 'dark' ? '◑' : '◐'}
+      {label}
     </button>
   );
 }
