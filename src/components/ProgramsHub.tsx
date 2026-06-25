@@ -13,21 +13,23 @@ import Tifide3Panel from '@/app/tifide3/page';
 import Orione2Page from '@/app/orione2/patterns/page';
 import PiziaCompanion from './pizia/PiziaCompanion';
 import AvvisiPanel from './avvisi/AvvisiPanel';
+import CostellazioniPage from './tifide3/CostellazioniPage';
 import SegnalaProblema from './SegnalaProblema';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni';
 
 const APPS: { key: AppKey; label: string }[] = [
-  { key: 'cassandra', label: 'Cassandra' },
-  { key: 'argonauta', label: 'Argonauta' },
-  { key: 'orione',    label: 'Orione' },
-  { key: 'tifide3',   label: 'Tifi 4.0' },
-  { key: 'orione2',   label: 'Pattern & EMA' },
-  { key: 'agema',     label: 'Agema' },
-  { key: 'dna',       label: 'DNA Coin' },
-  { key: 'moire',     label: 'Tre Moire' },
-  { key: 'avvisi',    label: 'Avvisi' },
+  { key: 'cassandra',     label: 'Cassandra' },
+  { key: 'argonauta',     label: 'Argonauta' },
+  { key: 'orione',        label: 'Orione' },
+  { key: 'costellazioni', label: 'Tifide' },
+  { key: 'agema',         label: 'Agema' },
+  { key: 'dna',           label: 'DNA Coin' },
+  { key: 'moire',         label: 'Tre Moire' },
+  { key: 'avvisi',        label: 'Avvisi' },
+  { key: 'tifide3',       label: 'Tifi 4.0' },
+  { key: 'orione2',       label: 'Pattern & EMA' },
 ];
 
 const ALERT_POLL_MS = 60_000; // polling unread count ogni 60s
@@ -94,6 +96,7 @@ export default function ProgramsHub() {
       case 'dna':       return <DnaPanel onPiziaContext={handlePiziaContext} />;
       case 'moire':     return <TreMoirePanel onPiziaContext={handlePiziaContext} />;
       case 'orione2':   return <Orione2Page />;
+      case 'costellazioni': return <CostellazioniPage />;
       case 'avvisi':    return <AvvisiPanel onUnreadChange={handleUnreadChange} />;
       case 'cassandra':
       default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
