@@ -13,7 +13,8 @@ type Stella = {
   coin: string;
   pattern: string;
   tf: string;
-  btcRegime: string; // '' | 'bull' | 'bear'
+  side: string;       // 'LONG' | 'SHORT' | ''
+  btcRegime: string;  // '' | 'bull' | 'bear'
   thirdToken: boolean;
 };
 
@@ -26,7 +27,10 @@ type LiveSignal = {
   trigger_price?: number | null;
 };
 
-type BarStats = { p25: number | null; p50: number | null; p75: number | null; n: number };
+type BarStats = {
+  p25: number | null; p50: number | null; p75: number | null;
+  n: number; wr: number | null; pf: number | null;
+};
 type StatsResult = {
   ok: boolean;
   n: number;
@@ -36,6 +40,14 @@ type StatsResult = {
   source?: string;
   note?: string;
   error?: string;
+};
+
+type SummaryRow = {
+  coin: string; pattern: string; tf: string; side: string;
+  btc_score: number; n: number;
+  wr10: number | null; pf10: number | null; med10: number | null;
+  wr20: number | null; pf20: number | null; med20: number | null;
+  wr30: number | null; pf30: number | null; med30: number | null;
 };
 
 // ── Costanti ──────────────────────────────────────────────────────────────
@@ -48,8 +60,6 @@ const COINS = [
 ];
 
 const PATTERNS = [
-  { value: 'engulfing_bull',       label: 'Engulfing rialzista' },
-  { value: 'engulfing_bear',       label: 'Engulfing ribassista' },
   { value: 'hammer',               label: 'Hammer' },
   { value: 'shooting_star',        label: 'Shooting Star' },
   { value: 'morning_star',         label: 'Morning Star' },
@@ -60,10 +70,17 @@ const PATTERNS = [
   { value: 'tweezer_top',          label: 'Tweezer Top' },
   { value: 'harami_bull',          label: 'Harami rialzista' },
   { value: 'harami_bear',          label: 'Harami ribassista' },
-  { value: 'dark_cloud',           label: 'Dark Cloud Cover' },
+  { value: 'dark_cloud_cover',     label: 'Dark Cloud Cover' },
+  { value: 'piercing_line',        label: 'Piercing Line' },
 ];
 
-const TF_OPTIONS = ['15m', '1h', '4h', '1d'];
+const TF_OPTIONS = ['1m', '3m', '5m'];
+
+const SIDE_OPTIONS: { value: string; label: string }[] = [
+  { value: '',      label: 'Tutti' },
+  { value: 'LONG',  label: 'Rialzista' },
+  { value: 'SHORT', label: 'Ribassista' },
+];
 
 const TIER_NAMES: Record<Tier, string> = {
   orione:    'Croce del Sud',
@@ -72,6 +89,14 @@ const TIER_NAMES: Record<Tier, string> = {
 };
 
 const LS_KEY = 'cassandra_costellazioni_stelle';
+
+const SORT_OPTIONS = [
+  { value: 'wr10',  label: 'WR 10 barre' },
+  { value: 'wr20',  label: 'WR 20 barre' },
+  { value: 'wr30',  label: 'WR 30 barre' },
+  { value: 'pf10',  label: 'PF 10 barre' },
+  { value: 'n',     label: 'N occorrenze' },
+];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
@@ -87,17 +112,31 @@ function saveStelle(s: Stella[]) {
   localStorage.setItem(LS_KEY, JSON.stringify(s));
 }
 
-function uid() {
-  return Math.random().toString(36).slice(2, 10);
-}
+function uid() { return Math.random().toString(36).slice(2, 10); }
 
 function patternLabel(v: string) {
   return PATTERNS.find(p => p.value === v)?.label ?? v;
 }
 
 function fmtTime(ms: number) {
-  const d = new Date(ms);
-  return d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+  return new Date(ms).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+}
+
+function fmtPct(v: number | null | undefined) {
+  if (v == null) return '—';
+  return `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
+}
+
+function colorPct(v: number | null | undefined) {
+  if (v == null) return 'var(--color-text-dim)';
+  return v > 0 ? 'var(--color-long-bright, #4a9)' : v < 0 ? 'var(--color-short-bright, #a44)' : 'var(--color-text-dim)';
+}
+
+function colorWr(wr: number | null | undefined) {
+  if (wr == null) return 'var(--color-text-dim)';
+  if (wr >= 65) return 'var(--color-long-bright, #4a9)';
+  if (wr <= 45) return 'var(--color-short-bright, #a44)';
+  return 'var(--color-text)';
 }
 
 // ── Stili condivisi ───────────────────────────────────────────────────────
@@ -147,7 +186,6 @@ const panelHeaderSt: React.CSSProperties = {
 export default function CostellazioniPage() {
   const { user } = useUser();
 
-  // Tier da Clerk metadata — default: orione
   const tier: Tier = (() => {
     const m = user?.publicMetadata?.tier as string | undefined;
     if (m === 'agema') return 'agema';
@@ -157,14 +195,14 @@ export default function CostellazioniPage() {
 
   const tierTotal = getTierTotal(tier);
 
-  // Stelle salvate
   const [stelle, setStelle] = useState<Stella[]>([]);
   useEffect(() => { setStelle(loadStelle()); }, []);
 
   // Form nuova stella
   const [coin, setCoin] = useState('BTC');
-  const [pattern, setPattern] = useState('engulfing_bull');
-  const [tf, setTf] = useState('1h');
+  const [pattern, setPattern] = useState('hammer');
+  const [tf, setTf] = useState('1m');
+  const [side, setSide] = useState<'LONG' | 'SHORT' | ''>('LONG');
   const [btcRegime, setBtcRegime] = useState('');
   const [thirdToken, setThirdToken] = useState(false);
 
@@ -172,13 +210,12 @@ export default function CostellazioniPage() {
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
 
-  // Fetch stats quando cambiano i filtri
   useEffect(() => {
     let cancelled = false;
     setStatsLoading(true);
     setStats(null);
 
-    const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime });
+    const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime, tf, side });
     if (thirdToken) params.set('has_third', 'true');
 
     fetch(`/api/tifide/stats?${params}`)
@@ -188,7 +225,7 @@ export default function CostellazioniPage() {
       .finally(() => { if (!cancelled) setStatsLoading(false); });
 
     return () => { cancelled = true; };
-  }, [coin, pattern, btcRegime, thirdToken]);
+  }, [coin, pattern, btcRegime, tf, side, thirdToken]);
 
   // Segnali live
   const [signals, setSignals] = useState<LiveSignal[]>([]);
@@ -201,8 +238,7 @@ export default function CostellazioniPage() {
       const res = await fetch('/api/orione2/matches?limit=40');
       if (res.ok) {
         const data = await res.json();
-        const rows: LiveSignal[] = Array.isArray(data?.matches) ? data.matches : [];
-        setSignals(rows);
+        setSignals(Array.isArray(data?.matches) ? data.matches : []);
       }
     } catch { /* ignore */ }
     finally { setSigLoading(false); }
@@ -214,23 +250,66 @@ export default function CostellazioniPage() {
     return () => { if (sigTimer.current) clearInterval(sigTimer.current); };
   }, [fetchSignals]);
 
-  // Filtro segnali per stelle configurate (match su coin)
+  // Toggle pannello destra-basso
+  const [rightTab, setRightTab] = useState<'signals' | 'grid'>('signals');
+
+  // Griglia summary
+  const [gridRows, setGridRows] = useState<SummaryRow[]>([]);
+  const [gridLoading, setGridLoading] = useState(false);
+  const [gridFilters, setGridFilters] = useState({ coin: '', pattern: '', tf: '', side: '', sortBy: 'wr10' });
+  const [gridLoaded, setGridLoaded] = useState(false);
+
+  const loadGrid = useCallback(async () => {
+    setGridLoading(true);
+    try {
+      const p = new URLSearchParams({
+        min_n: '30',
+        sort_by: gridFilters.sortBy,
+        limit: '150',
+      });
+      if (gridFilters.coin)    p.set('coin', gridFilters.coin);
+      if (gridFilters.pattern) p.set('pattern', gridFilters.pattern);
+      if (gridFilters.tf)      p.set('tf', gridFilters.tf);
+      if (gridFilters.side)    p.set('side', gridFilters.side);
+      const res = await fetch(`/api/tifide/summary?${p}`);
+      if (res.ok) {
+        const data = await res.json();
+        setGridRows(data.rows ?? []);
+        setGridLoaded(true);
+      }
+    } catch { /* ignore */ }
+    finally { setGridLoading(false); }
+  }, [gridFilters]);
+
+  useEffect(() => {
+    if (rightTab === 'grid') {
+      loadGrid();
+    }
+  }, [rightTab, loadGrid]);
+
+  // Filtro segnali per stelle configurate
   const matchedSignals = signals.filter(sig => {
     if (stelle.length === 0) return true;
-    const sigCoin = sig.coin?.replace(/USDT$/i, '').replace(/USDT$/i, '');
+    const sigCoin = sig.coin?.replace(/USDT$/i, '');
     return stelle.some(s => sigCoin === s.coin);
   });
 
   function addStella() {
     if (stelle.length >= tierTotal) return;
     const already = stelle.some(
-      s => s.coin === coin && s.pattern === pattern && s.tf === tf,
+      s => s.coin === coin && s.pattern === pattern && s.tf === tf && s.side === side,
     );
     if (already) return;
-    const next = [
-      ...stelle,
-      { id: uid(), coin, pattern, tf, btcRegime, thirdToken },
-    ];
+    const next = [...stelle, { id: uid(), coin, pattern, tf, side, btcRegime, thirdToken }];
+    setStelle(next);
+    saveStelle(next);
+  }
+
+  function addStellaFromGrid(row: SummaryRow) {
+    if (stelle.length >= tierTotal) return;
+    const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side);
+    if (already) return;
+    const next = [...stelle, { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: '', thirdToken: false }];
     setStelle(next);
     saveStelle(next);
   }
@@ -259,7 +338,7 @@ export default function CostellazioniPage() {
 
         <div style={{ padding: '16px', display: 'flex', flexDirection: 'column', gap: '12px', flex: 1 }}>
 
-          {/* Form */}
+          {/* Form — riga 1: coin + TF */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
             <div>
               <label style={labelSt}>Coin</label>
@@ -271,27 +350,20 @@ export default function CostellazioniPage() {
               <label style={labelSt}>Timeframe</label>
               <div style={{ display: 'flex', gap: '4px' }}>
                 {TF_OPTIONS.map(t => (
-                  <button
-                    key={t}
-                    onClick={() => setTf(t)}
-                    style={{
-                      flex: 1,
-                      fontFamily: 'var(--font-mono)', fontSize: '10px',
-                      letterSpacing: '0.1em',
-                      background: tf === t ? 'var(--color-void)' : 'var(--color-surface)',
-                      color: tf === t ? 'var(--color-gold)' : 'var(--color-text-dim)',
-                      border: `1px solid ${tf === t ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
-                      padding: '5px 0',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    {t}
-                  </button>
+                  <button key={t} onClick={() => setTf(t)} style={{
+                    flex: 1, fontFamily: 'var(--font-mono)', fontSize: '10px',
+                    letterSpacing: '0.1em',
+                    background: tf === t ? 'var(--color-void)' : 'var(--color-surface)',
+                    color: tf === t ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                    border: `1px solid ${tf === t ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
+                    padding: '5px 0', cursor: 'pointer',
+                  }}>{t}</button>
                 ))}
               </div>
             </div>
           </div>
 
+          {/* Pattern */}
           <div>
             <label style={labelSt}>Pattern</label>
             <select value={pattern} onChange={e => setPattern(e.target.value)} style={inputSt}>
@@ -299,7 +371,24 @@ export default function CostellazioniPage() {
             </select>
           </div>
 
+          {/* Side + BTC Regime */}
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '10px' }}>
+            <div>
+              <label style={labelSt}>Direzione</label>
+              <div style={{ display: 'flex', gap: '4px' }}>
+                {SIDE_OPTIONS.map(s => (
+                  <button key={s.value} onClick={() => setSide(s.value as 'LONG' | 'SHORT' | '')} style={{
+                    flex: 1, fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.05em',
+                    background: side === s.value ? 'var(--color-void)' : 'var(--color-surface)',
+                    color: side === s.value
+                      ? (s.value === 'LONG' ? 'var(--color-long-bright, #4a9)' : s.value === 'SHORT' ? 'var(--color-short-bright, #a44)' : 'var(--color-gold)')
+                      : 'var(--color-text-dim)',
+                    border: `1px solid ${side === s.value ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
+                    padding: '5px 2px', cursor: 'pointer',
+                  }}>{s.label}</button>
+                ))}
+              </div>
+            </div>
             <div>
               <label style={labelSt}>BTC Regime</label>
               <select value={btcRegime} onChange={e => setBtcRegime(e.target.value)} style={inputSt}>
@@ -308,40 +397,22 @@ export default function CostellazioniPage() {
                 <option value="bear">Ribassista</option>
               </select>
             </div>
-            <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'flex-end' }}>
-              <label style={{ ...labelSt, marginBottom: '6px' }}>Third token</label>
-              <label style={{
-                display: 'flex', alignItems: 'center', gap: '7px',
-                fontFamily: 'var(--font-mono)', fontSize: '10px',
-                color: 'var(--color-text)', cursor: 'pointer',
-              }}>
-                <input
-                  type="checkbox"
-                  checked={thirdToken}
-                  onChange={e => setThirdToken(e.target.checked)}
-                  style={{ accentColor: 'var(--color-gold)' }}
-                />
-                Richiesto
-              </label>
-            </div>
+          </div>
+
+          {/* Third token */}
+          <div>
+            <label style={{ ...labelSt, marginBottom: '6px' }}>Third token</label>
+            <label style={{ display: 'flex', alignItems: 'center', gap: '7px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text)', cursor: 'pointer' }}>
+              <input type="checkbox" checked={thirdToken} onChange={e => setThirdToken(e.target.checked)} style={{ accentColor: 'var(--color-gold)' }} />
+              Richiesto
+            </label>
           </div>
 
           {/* Distribuzione storica */}
-          <div style={{
-            border: '1px solid var(--color-border)',
-            padding: '12px',
-            background: 'rgba(201,168,76,0.03)',
-          }}>
-            <div style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              marginBottom: '8px',
-            }}>
+          <div style={{ border: '1px solid var(--color-border)', padding: '12px', background: 'rgba(201,168,76,0.03)' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px' }}>
               <span style={labelSt}>Distribuzione storica</span>
-              {statsLoading && (
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', opacity: 0.5 }}>
-                  …
-                </span>
-              )}
+              {statsLoading && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', opacity: 0.5 }}>…</span>}
               {stats?.n != null && !statsLoading && (
                 <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', opacity: 0.5 }}>
                   {stats.n} occ.
@@ -349,35 +420,33 @@ export default function CostellazioniPage() {
               )}
             </div>
             <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', lineHeight: 1.8 }}>
-              <div style={{ display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr', gap: '4px', marginBottom: '4px' }}>
-                {['', 'p25', 'p50', 'p75'].map(h => (
+              {/* Intestazione colonne */}
+              <div style={{ display: 'grid', gridTemplateColumns: '55px 38px 40px 1fr 1fr 1fr', gap: '4px', marginBottom: '4px' }}>
+                {['', 'WR', 'PF', 'p25', 'p50', 'p75'].map(h => (
                   <span key={h} style={{ fontSize: '9px', color: 'var(--color-text-dim)' }}>{h}</span>
                 ))}
               </div>
               {([10, 20, 30] as const).map(bar => {
                 const bs = stats?.[`bar${bar}` as 'bar10' | 'bar20' | 'bar30'];
                 const hasData = bs && bs.n > 0;
-                const fmt = (v: number | null) =>
-                  v == null ? '—' : `${v > 0 ? '+' : ''}${v.toFixed(2)}%`;
-                const colorFor = (v: number | null) =>
-                  v == null ? 'var(--color-text-dim)'
-                  : v > 0 ? 'var(--color-long-bright, #4a9)'
-                  : v < 0 ? 'var(--color-short-bright, #a44)'
-                  : 'var(--color-text-dim)';
                 return (
                   <div key={bar} style={{
-                    display: 'grid', gridTemplateColumns: '70px 1fr 1fr 1fr',
+                    display: 'grid', gridTemplateColumns: '55px 38px 40px 1fr 1fr 1fr',
                     gap: '4px', padding: '3px 0',
                     borderTop: '1px solid var(--color-border)',
                     opacity: statsLoading ? 0.35 : hasData ? 1 : 0.4,
                     transition: 'opacity 200ms',
                   }}>
                     <span style={{ color: 'var(--color-text)' }}>{bar} barre</span>
-                    <span style={{ color: colorFor(bs?.p25 ?? null) }}>{fmt(bs?.p25 ?? null)}</span>
-                    <span style={{ color: colorFor(bs?.p50 ?? null), fontWeight: hasData ? 500 : 400 }}>
-                      {fmt(bs?.p50 ?? null)}
+                    <span style={{ color: colorWr(bs?.wr) }}>
+                      {bs?.wr != null ? `${bs.wr.toFixed(0)}%` : '—'}
                     </span>
-                    <span style={{ color: colorFor(bs?.p75 ?? null) }}>{fmt(bs?.p75 ?? null)}</span>
+                    <span style={{ color: bs?.pf != null && bs.pf >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                      {bs?.pf != null ? bs.pf.toFixed(2) : '—'}
+                    </span>
+                    <span style={{ color: colorPct(bs?.p25) }}>{fmtPct(bs?.p25)}</span>
+                    <span style={{ color: colorPct(bs?.p50), fontWeight: hasData ? 500 : 400 }}>{fmtPct(bs?.p50)}</span>
+                    <span style={{ color: colorPct(bs?.p75) }}>{fmtPct(bs?.p75)}</span>
                   </div>
                 );
               })}
@@ -395,21 +464,15 @@ export default function CostellazioniPage() {
           </div>
 
           {/* Bottone aggiungi */}
-          <button
-            onClick={addStella}
-            disabled={!canAdd}
-            style={{
-              fontFamily: 'var(--font-mono)', fontSize: '10px',
-              letterSpacing: '0.25em', textTransform: 'uppercase',
-              background: canAdd ? 'var(--color-void)' : 'transparent',
-              color: canAdd ? 'var(--color-gold)' : 'var(--color-text-dim)',
-              border: `1px solid ${canAdd ? 'rgba(201,168,76,0.4)' : 'var(--color-border)'}`,
-              padding: '9px',
-              cursor: canAdd ? 'pointer' : 'not-allowed',
-              opacity: canAdd ? 1 : 0.4,
-              transition: 'opacity 200ms',
-            }}
-          >
+          <button onClick={addStella} disabled={!canAdd} style={{
+            fontFamily: 'var(--font-mono)', fontSize: '10px',
+            letterSpacing: '0.25em', textTransform: 'uppercase',
+            background: canAdd ? 'var(--color-void)' : 'transparent',
+            color: canAdd ? 'var(--color-gold)' : 'var(--color-text-dim)',
+            border: `1px solid ${canAdd ? 'rgba(201,168,76,0.4)' : 'var(--color-border)'}`,
+            padding: '9px', cursor: canAdd ? 'pointer' : 'not-allowed',
+            opacity: canAdd ? 1 : 0.4, transition: 'opacity 200ms',
+          }}>
             {canAdd ? '+ Aggiungi stella' : `Costellazione completa (${tierTotal}/${tierTotal})`}
           </button>
 
@@ -421,42 +484,24 @@ export default function CostellazioniPage() {
                 {stelle.map((s, i) => (
                   <div key={s.id} style={{
                     display: 'flex', alignItems: 'center', gap: '8px',
-                    border: '1px solid var(--color-border)',
-                    padding: '7px 10px',
-                    fontSize: '10px',
-                    fontFamily: 'var(--font-mono)',
+                    border: '1px solid var(--color-border)', padding: '7px 10px',
+                    fontSize: '10px', fontFamily: 'var(--font-mono)',
                   }}>
-                    <span style={{ color: 'var(--color-gold)', opacity: 0.7, fontSize: '8px', flexShrink: 0 }}>
-                      ★ {i + 1}
-                    </span>
+                    <span style={{ color: 'var(--color-gold)', opacity: 0.7, fontSize: '8px', flexShrink: 0 }}>★ {i + 1}</span>
                     <span style={{ flex: 1, color: 'var(--color-text)' }}>
                       {s.coin} · {patternLabel(s.pattern)} · {s.tf}
+                      {s.side && <span style={{ color: s.side === 'LONG' ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)' }}> · {s.side === 'LONG' ? 'rialzista' : 'ribassista'}</span>}
                       {s.btcRegime && <span style={{ color: 'var(--color-text-dim)' }}> · {s.btcRegime}</span>}
                       {s.thirdToken && <span style={{ color: 'var(--color-text-dim)' }}> · 3T</span>}
                     </span>
-                    <button
-                      onClick={() => removeStella(s.id)}
-                      style={{
-                        background: 'transparent', border: 'none',
-                        color: 'var(--color-text-dim)', cursor: 'pointer',
-                        fontSize: '11px', padding: '0 2px',
-                      }}
-                    >
-                      ✕
-                    </button>
+                    <button onClick={() => removeStella(s.id)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-dim)', cursor: 'pointer', fontSize: '11px', padding: '0 2px' }}>✕</button>
                   </div>
                 ))}
               </div>
             </div>
           )}
 
-          {/* Disclaimer */}
-          <p style={{
-            fontFamily: 'var(--font-mono)', fontSize: '9px',
-            color: 'var(--color-text-dim)', lineHeight: 1.6,
-            borderTop: '1px solid var(--color-border)', paddingTop: '10px',
-            marginTop: 'auto',
-          }}>
+          <p style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)', lineHeight: 1.6, borderTop: '1px solid var(--color-border)', paddingTop: '10px', marginTop: 'auto' }}>
             Le distribuzioni storiche mostrano il comportamento passato del pattern — non garantiscono risultati futuri.
           </p>
         </div>
@@ -464,92 +509,189 @@ export default function CostellazioniPage() {
 
       {/* ── DESTRA ALTO: costellazione ───────────────────────────────────── */}
       <div style={panelSt}>
-        <div style={panelHeaderSt}>
-          La tua costellazione — {TIER_NAMES[tier]}
-        </div>
+        <div style={panelHeaderSt}>La tua costellazione — {TIER_NAMES[tier]}</div>
         <div style={{ flex: 1, position: 'relative', padding: '12px', minHeight: 0 }}>
-          <TierConstellation
-            tier={tier}
-            starsUsed={stelle.length}
-            showNames
-            style={{ height: '100%' }}
-          />
+          <TierConstellation tier={tier} starsUsed={stelle.length} showNames style={{ height: '100%' }} />
         </div>
       </div>
 
-      {/* ── DESTRA BASSO: segnali live ───────────────────────────────────── */}
+      {/* ── DESTRA BASSO: segnali live | griglia ─────────────────────────── */}
       <div style={panelSt}>
-        <div style={{
-          ...panelHeaderSt,
-          display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-        }}>
-          <span>Segnali in corso</span>
-          <span style={{ opacity: 0.5, fontSize: '8px' }}>
-            {sigLoading ? '…' : `${matchedSignals.length} match`}
-          </span>
-        </div>
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {matchedSignals.length === 0 ? (
-            <div style={{
-              fontFamily: 'var(--font-mono)', fontSize: '10px',
-              color: 'var(--color-text-dim)', padding: '14px',
-              opacity: 0.5,
-            }}>
-              {stelle.length === 0
-                ? 'Configura almeno una stella per vedere i segnali corrispondenti.'
-                : 'Nessun segnale recente per le stelle configurate.'}
-            </div>
-          ) : (
-            <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {['Ora', 'Coin', 'Pattern', 'Dir', 'Prezzo'].map(h => (
-                    <th key={h} style={{
-                      fontFamily: 'var(--font-mono)', fontSize: '8px',
-                      letterSpacing: '0.2em', textTransform: 'uppercase',
-                      color: 'var(--color-text-dim)', fontWeight: 400,
-                      padding: '6px 10px', textAlign: 'left',
-                    }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {matchedSignals.slice(0, 30).map((s, i) => (
-                  <tr
-                    key={i}
-                    style={{
-                      borderBottom: '1px solid rgba(201,168,76,0.06)',
-                      fontFamily: 'var(--font-mono)', fontSize: '10px',
-                    }}
-                  >
-                    <td style={{ padding: '5px 10px', color: 'var(--color-text-dim)', whiteSpace: 'nowrap' }}>
-                      {fmtTime(s.ts_ms)}
-                    </td>
-                    <td style={{ padding: '5px 10px', color: 'var(--color-gold)' }}>
-                      {s.coin?.replace('USDT', '')}
-                    </td>
-                    <td style={{ padding: '5px 10px', color: 'var(--color-text)' }}>
-                      {patternLabel(s.scenario)}
-                    </td>
-                    <td style={{
-                      padding: '5px 10px',
-                      color: s.side === 'long'
-                        ? 'var(--color-long-bright, #4a9)'
-                        : 'var(--color-short-bright, #a44)',
-                    }}>
-                      {s.side === 'long' ? 'rialzista' : 'ribassista'}
-                    </td>
-                    <td style={{ padding: '5px 10px', color: 'var(--color-text-dim)' }}>
-                      {s.trigger_price != null
-                        ? Number(s.trigger_price).toLocaleString('it-IT', { maximumFractionDigits: 4 })
-                        : '—'}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+        {/* Header con toggle tab */}
+        <div style={{ ...panelHeaderSt, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', gap: '0' }}>
+            {(['signals', 'grid'] as const).map(tab => (
+              <button key={tab} onClick={() => setRightTab(tab)} style={{
+                fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em',
+                textTransform: 'uppercase', border: 'none',
+                background: rightTab === tab ? 'rgba(201,168,76,0.12)' : 'transparent',
+                color: rightTab === tab ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                padding: '0 12px', cursor: 'pointer', height: '100%',
+                borderBottom: rightTab === tab ? '1px solid var(--color-gold-dim)' : '1px solid transparent',
+              }}>
+                {tab === 'signals' ? 'Segnali' : 'Griglia'}
+              </button>
+            ))}
+          </div>
+          {rightTab === 'signals' && (
+            <span style={{ opacity: 0.5, fontSize: '8px' }}>
+              {sigLoading ? '…' : `${matchedSignals.length} match`}
+            </span>
+          )}
+          {rightTab === 'grid' && (
+            <button onClick={loadGrid} disabled={gridLoading} style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', background: 'transparent', border: '1px solid var(--color-border)', color: gridLoading ? 'var(--color-text-dim)' : 'var(--color-gold)', padding: '2px 8px', cursor: gridLoading ? 'default' : 'pointer' }}>
+              {gridLoading ? '…' : 'Aggiorna'}
+            </button>
           )}
         </div>
+
+        {/* ── Segnali live ── */}
+        {rightTab === 'signals' && (
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {matchedSignals.length === 0 ? (
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', padding: '14px', opacity: 0.5 }}>
+                {stelle.length === 0
+                  ? 'Configura almeno una stella per vedere i segnali corrispondenti.'
+                  : 'Nessun segnale recente per le stelle configurate.'}
+              </div>
+            ) : (
+              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    {['Ora', 'Coin', 'Pattern', 'Dir', 'Prezzo'].map(h => (
+                      <th key={h} style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.2em', textTransform: 'uppercase', color: 'var(--color-text-dim)', fontWeight: 400, padding: '6px 10px', textAlign: 'left' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {matchedSignals.slice(0, 30).map((s, i) => (
+                    <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.06)', fontFamily: 'var(--font-mono)', fontSize: '10px' }}>
+                      <td style={{ padding: '5px 10px', color: 'var(--color-text-dim)', whiteSpace: 'nowrap' }}>{fmtTime(s.ts_ms)}</td>
+                      <td style={{ padding: '5px 10px', color: 'var(--color-gold)' }}>{s.coin?.replace('USDT', '')}</td>
+                      <td style={{ padding: '5px 10px', color: 'var(--color-text)' }}>{patternLabel(s.scenario)}</td>
+                      <td style={{ padding: '5px 10px', color: s.side === 'long' ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)' }}>
+                        {s.side === 'long' ? 'rialzista' : 'ribassista'}
+                      </td>
+                      <td style={{ padding: '5px 10px', color: 'var(--color-text-dim)' }}>
+                        {s.trigger_price != null ? Number(s.trigger_price).toLocaleString('it-IT', { maximumFractionDigits: 4 }) : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            )}
+          </div>
+        )}
+
+        {/* ── Griglia WR/PF ── */}
+        {rightTab === 'grid' && (
+          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+            {/* Filtri griglia */}
+            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
+              <select value={gridFilters.coin} onChange={e => setGridFilters(f => ({ ...f, coin: e.target.value }))}
+                style={{ ...inputSt, width: '80px', padding: '3px 6px', fontSize: '9px' }}>
+                <option value="">Coin</option>
+                {COINS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
+              <select value={gridFilters.pattern} onChange={e => setGridFilters(f => ({ ...f, pattern: e.target.value }))}
+                style={{ ...inputSt, width: '130px', padding: '3px 6px', fontSize: '9px' }}>
+                <option value="">Pattern</option>
+                {PATTERNS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
+              </select>
+              <select value={gridFilters.tf} onChange={e => setGridFilters(f => ({ ...f, tf: e.target.value }))}
+                style={{ ...inputSt, width: '60px', padding: '3px 6px', fontSize: '9px' }}>
+                <option value="">TF</option>
+                {TF_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
+              </select>
+              <select value={gridFilters.side} onChange={e => setGridFilters(f => ({ ...f, side: e.target.value }))}
+                style={{ ...inputSt, width: '90px', padding: '3px 6px', fontSize: '9px' }}>
+                <option value="">Direzione</option>
+                <option value="LONG">Rialzista</option>
+                <option value="SHORT">Ribassista</option>
+              </select>
+              <select value={gridFilters.sortBy} onChange={e => setGridFilters(f => ({ ...f, sortBy: e.target.value }))}
+                style={{ ...inputSt, width: '110px', padding: '3px 6px', fontSize: '9px' }}>
+                {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
+              </select>
+              <button onClick={loadGrid} disabled={gridLoading} style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em', background: 'var(--color-void)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)', padding: '3px 12px', cursor: gridLoading ? 'default' : 'pointer', opacity: gridLoading ? 0.5 : 1 }}>
+                Cerca
+              </button>
+            </div>
+
+            {/* Tabella griglia */}
+            <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
+              {!gridLoaded && !gridLoading && (
+                <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>
+                  Premi Cerca per caricare la griglia.
+                </div>
+              )}
+              {gridLoading && (
+                <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>Caricamento…</div>
+              )}
+              {!gridLoading && gridLoaded && gridRows.length === 0 && (
+                <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>Nessun risultato.</div>
+              )}
+              {!gridLoading && gridRows.length > 0 && (
+                <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
+                  <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
+                    <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                      {['Coin', 'Pattern', 'TF', 'Dir', 'BTC', 'N', 'WR10', 'PF10', 'WR30', 'PF30', '+'].map(h => (
+                        <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {gridRows.map((r, i) => {
+                      const alreadyAdded = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side);
+                      return (
+                        <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 150ms' }}
+                          onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(201,168,76,0.04)'; }}
+                          onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}>
+                          <td style={{ padding: '4px 8px', color: 'var(--color-gold)', whiteSpace: 'nowrap' }}>{r.coin}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--color-text)', whiteSpace: 'nowrap', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{patternLabel(r.pattern)}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.tf}</td>
+                          <td style={{ padding: '4px 8px', color: r.side === 'LONG' ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)', whiteSpace: 'nowrap' }}>
+                            {r.side === 'LONG' ? 'rialz.' : 'ribass.'}
+                          </td>
+                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.btc_score}</td>
+                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.n}</td>
+                          <td style={{ padding: '4px 8px', color: colorWr(r.wr10), fontWeight: 500 }}>
+                            {r.wr10 != null ? `${r.wr10.toFixed(0)}%` : '—'}
+                          </td>
+                          <td style={{ padding: '4px 8px', color: r.pf10 != null && r.pf10 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                            {r.pf10 != null ? r.pf10.toFixed(2) : '—'}
+                          </td>
+                          <td style={{ padding: '4px 8px', color: colorWr(r.wr30) }}>
+                            {r.wr30 != null ? `${r.wr30.toFixed(0)}%` : '—'}
+                          </td>
+                          <td style={{ padding: '4px 8px', color: r.pf30 != null && r.pf30 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                            {r.pf30 != null ? r.pf30.toFixed(2) : '—'}
+                          </td>
+                          <td style={{ padding: '4px 8px' }}>
+                            <button
+                              onClick={() => addStellaFromGrid(r)}
+                              disabled={alreadyAdded || !canAdd}
+                              title={alreadyAdded ? 'Già aggiunta' : !canAdd ? 'Costellazione piena' : 'Aggiungi stella'}
+                              style={{
+                                background: 'transparent', border: '1px solid',
+                                borderColor: alreadyAdded ? 'var(--color-border)' : 'rgba(201,168,76,0.3)',
+                                color: alreadyAdded ? 'var(--color-text-dim)' : 'var(--color-gold)',
+                                cursor: alreadyAdded || !canAdd ? 'default' : 'pointer',
+                                padding: '1px 6px', fontSize: '9px', opacity: alreadyAdded || !canAdd ? 0.3 : 1,
+                              }}
+                            >
+                              {alreadyAdded ? '✓' : '+'}
+                            </button>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          </div>
+        )}
       </div>
     </div>
   );
