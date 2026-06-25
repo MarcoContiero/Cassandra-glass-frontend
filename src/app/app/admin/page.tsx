@@ -75,6 +75,7 @@ export default function AdminPage() {
   const [gate, setGate]             = useState<GateMonitorResponse | null>(null);
   const [gateLoading, setGateLoading] = useState(false);
   const [runMsg, setRunMsg]         = useState('');
+  const [genomeMsg, setGenomeMsg]   = useState('');
   const [error, setError]           = useState('');
 
   const loadStatus = useCallback(async () => {
@@ -116,6 +117,15 @@ export default function AdminPage() {
     const data = await r.json();
     setRunMsg(data.message ?? (data.ok ? 'Avviato' : 'Errore'));
     if (data.ok) setTimeout(loadStatus, 2000);
+  }
+
+  async function triggerGenomeRebuild(mode: 'full' | 'update', extraCoins?: string) {
+    setGenomeMsg('');
+    const params = new URLSearchParams({ mode });
+    if (extraCoins) params.set('extra_coins', extraCoins);
+    const r = await fetch(`/api/tradedb/rebuild-genome?${params}`, { method: 'POST' });
+    const data = await r.json();
+    setGenomeMsg(data.msg ?? (data.ok ? 'Avviato' : `Errore ${r.status}`));
   }
 
   const sortedResults = gate?.results
@@ -177,6 +187,28 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Genome Rebuild */}
+        <div className="cassandra-card cassandra-card-corners" style={{ padding: '28px', marginBottom: '32px' }}>
+          <span className="cassandra-panel-header">GENOME REBUILD</span>
+          <div style={{ marginTop: '16px', display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={() => triggerGenomeRebuild('update')}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'transparent', color: 'var(--color-cyan)', border: '1px solid var(--color-cyan)', padding: '8px 16px', cursor: 'pointer' }}>
+              Update OHLCV (~90s)
+            </button>
+            <button onClick={() => triggerGenomeRebuild('full')}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'transparent', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.4)', padding: '8px 16px', cursor: 'pointer' }}>
+              Full Rebuild (~20min)
+            </button>
+            <button onClick={() => triggerGenomeRebuild('full', 'XLM,RENDER,AERO,SKY')}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'transparent', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.4)', padding: '8px 16px', cursor: 'pointer' }}>
+              + Nuove Coin (XLM RENDER AERO SKY)
+            </button>
+            {genomeMsg && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>{genomeMsg}</span>
+            )}
           </div>
         </div>
 
