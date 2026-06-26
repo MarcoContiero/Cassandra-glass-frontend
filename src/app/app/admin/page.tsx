@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -71,6 +72,7 @@ function fmtDate(iso: string | null) {
 // ── Page ──────────────────────────────────────────────────────────────────────
 
 export default function AdminPage() {
+  const { user, isLoaded } = useUser();
   const [status, setStatus]         = useState<StatusResponse | null>(null);
   const [gate, setGate]             = useState<GateMonitorResponse | null>(null);
   const [gateLoading, setGateLoading] = useState(false);
@@ -132,6 +134,25 @@ export default function AdminPage() {
     ? [...gate.results].sort((a, b) =>
         (STATUS_ORDER[worstStatus(a)] ?? 9) - (STATUS_ORDER[worstStatus(b)] ?? 9))
     : [];
+
+  // Gate: stesso privilegio di Tifi 4.0 (tifide_access: true in Clerk public metadata)
+  if (!isLoaded) {
+    return <div style={{ background: 'var(--color-void)', minHeight: '100vh' }} />;
+  }
+  if (user?.publicMetadata?.tifide_access !== true) {
+    return (
+      <div style={{ background: 'var(--color-void)', minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+        <div style={{ textAlign: 'center' }}>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.5em', color: 'var(--color-short-bright)', textTransform: 'uppercase', display: 'block', marginBottom: '16px' }}>
+            Accesso non autorizzato
+          </span>
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-text-dim)' }}>
+            Questa pagina richiede privilegi amministratore.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div style={{ background: 'var(--color-void)', minHeight: '100vh', padding: '80px 32px', color: 'var(--color-text)' }}>
