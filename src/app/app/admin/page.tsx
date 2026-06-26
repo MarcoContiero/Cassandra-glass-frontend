@@ -78,6 +78,7 @@ export default function AdminPage() {
   const [gateLoading, setGateLoading] = useState(false);
   const [runMsg, setRunMsg]         = useState('');
   const [genomeMsg, setGenomeMsg]   = useState('');
+  const [importMsg, setImportMsg]   = useState('');
   const [error, setError]           = useState('');
 
   const loadStatus = useCallback(async () => {
@@ -128,6 +129,21 @@ export default function AdminPage() {
     const r = await fetch(`/api/tradedb/rebuild-genome?${params}`, { method: 'POST' });
     const data = await r.json();
     setGenomeMsg(data.msg ?? (data.ok ? 'Avviato' : `Errore ${r.status}`));
+  }
+
+  async function triggerImportNewCoins() {
+    setImportMsg('Importazione in corso...');
+    try {
+      const r = await fetch('/api/tradedb/import-new-coins-trades', { method: 'POST' });
+      const data = await r.json();
+      if (data.ok) {
+        setImportMsg(`OK — ${data.imported} trade importati (${(data.coins ?? []).join(', ')})`);
+      } else {
+        setImportMsg(`Errore: ${data.detail ?? r.status}`);
+      }
+    } catch (e) {
+      setImportMsg(`Errore: ${String(e)}`);
+    }
   }
 
   const sortedResults = gate?.results
@@ -208,6 +224,23 @@ export default function AdminPage() {
                 </div>
               )}
             </div>
+          </div>
+        </div>
+
+        {/* Import Nuove Coin */}
+        <div className="cassandra-card cassandra-card-corners" style={{ padding: '28px', marginBottom: '32px' }}>
+          <span className="cassandra-panel-header">IMPORT NUOVE COIN</span>
+          <div style={{ marginTop: '8px', marginBottom: '16px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)' }}>
+            Importa i trade da bt_new_coins_2y.parquet nel DB (XLM · RENDER · AERO · SKY)
+          </div>
+          <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', alignItems: 'center' }}>
+            <button onClick={triggerImportNewCoins}
+              style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'transparent', color: 'var(--color-cyan)', border: '1px solid var(--color-cyan)', padding: '8px 16px', cursor: 'pointer' }}>
+              Import Nuove Coin
+            </button>
+            {importMsg && (
+              <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>{importMsg}</span>
+            )}
           </div>
         </div>
 
