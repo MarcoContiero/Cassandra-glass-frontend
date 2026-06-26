@@ -40,6 +40,7 @@ type StatsResult = {
   source?: string;
   note?: string;
   error?: string;
+  low_n?: boolean;
 };
 
 type SummaryRow = {
@@ -450,6 +451,18 @@ export default function CostellazioniPage() {
                   </div>
                 );
               })}
+              {/* Avviso campione ridotto — spec: mostrare sempre quando n<20 */}
+              {!statsLoading && stats?.ok && stats.low_n && stats.n > 0 && (
+                <div style={{
+                  marginTop: '8px', padding: '6px 8px',
+                  border: '1px solid rgba(201,168,76,0.25)',
+                  background: 'rgba(201,168,76,0.04)',
+                  fontSize: '9px', fontFamily: 'var(--font-mono)',
+                  color: 'rgba(201,168,76,0.7)', lineHeight: 1.5,
+                }}>
+                  Campione ridotto (n={stats.n}) — i dati mostrati hanno scarsa significatività statistica.
+                </div>
+              )}
               {stats?.note && !statsLoading && (
                 <div style={{ marginTop: '6px', fontSize: '9px', color: 'rgba(201,168,76,0.45)', fontStyle: 'italic' }}>
                   {stats.note}
