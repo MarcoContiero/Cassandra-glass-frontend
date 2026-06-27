@@ -232,11 +232,14 @@ export default function CostellazioniPage() {
       try {
         const r = await fetch(url, { signal: controller.signal });
         clearTimeout(timer);
-        if (!r.ok) {
-          const body = await r.text().catch(() => '');
-          throw new Error(`HTTP ${r.status}: ${body.slice(0, 200)}`);
+        const bodyText = await r.text();
+        if (!r.ok) throw new Error(`HTTP ${r.status}: ${bodyText.slice(0, 200)}`);
+        let data: StatsResult;
+        try {
+          data = JSON.parse(bodyText);
+        } catch {
+          throw new Error(`body non-JSON [${r.status}]: ${bodyText.slice(0, 200)}`);
         }
-        const data = await r.json();
         if (!cancelled) {
           setStats(data as StatsResult);
           setStatsError(false);
