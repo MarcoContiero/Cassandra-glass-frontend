@@ -6,7 +6,7 @@ import TierConstellation, { getTierTotal } from './TierConstellation';
 
 // ── Tipi ──────────────────────────────────────────────────────────────────
 
-type Tier = 'orione' | 'argonauta' | 'agema';
+type Tier = 'orione' | 'argonauta' | 'agema' | 'galassia';
 
 type Stella = {
   id: string;
@@ -87,6 +87,7 @@ const TIER_NAMES: Record<Tier, string> = {
   orione:    'Croce del Sud',
   argonauta: 'Cigno',
   agema:     'Sagittario',
+  galassia:  'Galassia',
 };
 
 const LS_KEY = 'cassandra_costellazioni_stelle';
@@ -240,6 +241,7 @@ export default function CostellazioniPage() {
 
   const tier: Tier = (() => {
     const m = user?.publicMetadata?.tier as string | undefined;
+    if (m === 'galassia') return 'galassia';
     if (m === 'agema') return 'agema';
     if (m === 'argonauta') return 'argonauta';
     return 'orione';
@@ -607,7 +609,7 @@ export default function CostellazioniPage() {
             padding: '9px', cursor: canAdd ? 'pointer' : 'not-allowed',
             opacity: canAdd ? 1 : 0.4, transition: 'opacity 200ms',
           }}>
-            {canAdd ? '+ Aggiungi stella' : `Costellazione completa (${tierTotal}/${tierTotal})`}
+            {canAdd ? '+ Aggiungi stella' : `Costellazione completa (${tierTotal === Infinity ? '∞' : `${tierTotal}/${tierTotal}`})`}
           </button>
 
           {/* Lista stelle salvate */}

@@ -51,6 +51,51 @@ const CIGNO: ConstellationDef = {
   lines: [[0,1],[1,2],[3,1],[1,4],[0,5],[1,6],[2,7],[3,9]],
 };
 
+// Galassia — 25 stelle (spirale galattica)
+const GALASSIA: ConstellationDef = {
+  name: 'Galassia',
+  stars: [
+    // Nucleo centrale
+    { name: 'Nucleo',   bayer: 'α Gal',  x: 0.50, y: 0.50, size: 5.0 },
+    { name: 'Bulge A',  bayer: 'β Gal',  x: 0.47, y: 0.47, size: 3.5 },
+    { name: 'Bulge B',  bayer: 'γ Gal',  x: 0.54, y: 0.53, size: 3.5 },
+    { name: 'Bulge C',  bayer: 'δ Gal',  x: 0.54, y: 0.44, size: 3.0 },
+    // Braccio 1 (NE)
+    { name: 'Arm1-A',  bayer: 'ε Gal',  x: 0.60, y: 0.40, size: 2.5 },
+    { name: 'Arm1-B',  bayer: 'ζ Gal',  x: 0.70, y: 0.32, size: 2.0 },
+    { name: 'Arm1-C',  bayer: 'η Gal',  x: 0.80, y: 0.24, size: 1.8 },
+    { name: 'Arm1-D',  bayer: 'θ Gal',  x: 0.88, y: 0.38, size: 1.5 },
+    { name: 'Arm1-E',  bayer: 'ι Gal',  x: 0.82, y: 0.51, size: 1.5 },
+    // Braccio 2 (SW)
+    { name: 'Arm2-A',  bayer: 'κ Gal',  x: 0.40, y: 0.60, size: 2.5 },
+    { name: 'Arm2-B',  bayer: 'λ Gal',  x: 0.30, y: 0.68, size: 2.0 },
+    { name: 'Arm2-C',  bayer: 'μ Gal',  x: 0.20, y: 0.76, size: 1.8 },
+    { name: 'Arm2-D',  bayer: 'ν Gal',  x: 0.12, y: 0.62, size: 1.5 },
+    { name: 'Arm2-E',  bayer: 'ξ Gal',  x: 0.18, y: 0.49, size: 1.5 },
+    // Braccio 3 (SE)
+    { name: 'Arm3-A',  bayer: 'ο Gal',  x: 0.58, y: 0.62, size: 2.2 },
+    { name: 'Arm3-B',  bayer: 'π Gal',  x: 0.65, y: 0.74, size: 1.8 },
+    { name: 'Arm3-C',  bayer: 'ρ Gal',  x: 0.72, y: 0.83, size: 1.5 },
+    // Braccio 4 (NW)
+    { name: 'Arm4-A',  bayer: 'σ Gal',  x: 0.42, y: 0.38, size: 2.2 },
+    { name: 'Arm4-B',  bayer: 'τ Gal',  x: 0.35, y: 0.26, size: 1.8 },
+    { name: 'Arm4-C',  bayer: 'υ Gal',  x: 0.28, y: 0.17, size: 1.5 },
+    // Halo galattico
+    { name: 'Halo A',  bayer: 'φ Gal',  x: 0.15, y: 0.28, size: 1.3 },
+    { name: 'Halo B',  bayer: 'χ Gal',  x: 0.85, y: 0.15, size: 1.3 },
+    { name: 'Halo C',  bayer: 'ψ Gal',  x: 0.90, y: 0.70, size: 1.3 },
+    { name: 'Halo D',  bayer: 'ω Gal',  x: 0.10, y: 0.80, size: 1.3 },
+    { name: 'Halo E',  bayer: 'ω² Gal', x: 0.50, y: 0.08, size: 1.2 },
+  ],
+  lines: [
+    [0,1],[0,2],[0,3],
+    [0,4],[4,5],[5,6],[6,7],[7,8],
+    [0,9],[9,10],[10,11],[11,12],[12,13],
+    [0,14],[14,15],[15,16],
+    [0,17],[17,18],[18,19],
+  ],
+};
+
 // Sagittario — 15 stelle (forma a teiera)
 const SAGITTARIO: ConstellationDef = {
   name: 'Sagittario',
@@ -81,12 +126,13 @@ const CONSTELLATIONS: Record<string, ConstellationDef> = {
   orione:    CRUCE,
   argonauta: CIGNO,
   agema:     SAGITTARIO,
+  galassia:  GALASSIA,
 };
 
 // ── Componente ────────────────────────────────────────────────────────────
 
 interface TierConstellationProps {
-  tier: 'orione' | 'argonauta' | 'agema';
+  tier: 'orione' | 'argonauta' | 'agema' | 'galassia';
   starsUsed: number;
   /** Se true, mostra i nomi delle stelle al hover (SVG statico, no canvas) */
   showNames?: boolean;
@@ -113,7 +159,8 @@ export default function TierConstellation({
 
   const constell = CONSTELLATIONS[tier] ?? CRUCE;
   const total = constell.stars.length;
-  const lit   = Math.min(starsUsed, total);
+  const isGalassia = tier === 'galassia';
+  const lit   = isGalassia ? total : Math.min(starsUsed, total);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -229,9 +276,11 @@ export default function TierConstellation({
           : 'var(--color-text-dim)',
         pointerEvents: 'none',
       }}>
-        {lit === total && total > 0
-          ? `${constell.name} — completa`
-          : `${lit} / ${total} stelle`}
+        {isGalassia
+          ? `${starsUsed} stelle — ∞`
+          : lit === total && total > 0
+            ? `${constell.name} — completa`
+            : `${lit} / ${total} stelle`}
       </div>
 
       {/* Nomi stelle (opzionale) */}
@@ -263,10 +312,11 @@ export default function TierConstellation({
 }
 
 // Esporta la lista stelle per uso esterno (es. per sapere quante stelle ha un tier)
-export function getTierStars(tier: 'orione' | 'argonauta' | 'agema'): StarDef[] {
+export function getTierStars(tier: 'orione' | 'argonauta' | 'agema' | 'galassia'): StarDef[] {
   return (CONSTELLATIONS[tier] ?? CRUCE).stars;
 }
 
-export function getTierTotal(tier: 'orione' | 'argonauta' | 'agema'): number {
+export function getTierTotal(tier: 'orione' | 'argonauta' | 'agema' | 'galassia'): number {
+  if (tier === 'galassia') return Infinity;
   return getTierStars(tier).length;
 }
