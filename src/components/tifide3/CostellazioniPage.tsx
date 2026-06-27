@@ -227,11 +227,14 @@ export default function CostellazioniPage() {
     const url = `/api/tifide/stats?${params}`;
 
     const attemptFetch = async (attemptsLeft: number): Promise<void> => {
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), 50_000);
       try {
-        const r = await fetch(url, { signal: AbortSignal.timeout(45_000) });
+        const r = await fetch(url, { signal: controller.signal });
+        clearTimeout(timer);
         if (!r.ok) {
           const body = await r.text().catch(() => '');
-          throw new Error(`HTTP ${r.status}: ${body.slice(0, 120)}`);
+          throw new Error(`HTTP ${r.status}: ${body.slice(0, 200)}`);
         }
         const data = await r.json();
         if (!cancelled) {
@@ -241,10 +244,11 @@ export default function CostellazioniPage() {
           setStatsLoading(false);
         }
       } catch (err) {
+        clearTimeout(timer);
         if (cancelled) return;
         const msg = err instanceof Error ? err.message : String(err);
         if (attemptsLeft > 0) {
-          await new Promise(res => setTimeout(res, 3000));
+          await new Promise(res => setTimeout(res, 4000));
           if (!cancelled) await attemptFetch(attemptsLeft - 1);
         } else {
           setStats(null);
