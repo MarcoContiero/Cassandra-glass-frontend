@@ -463,9 +463,25 @@ export default function CostellazioniPage() {
 
   function addStellaFromGrid(row: SummaryRow) {
     if (stelle.length >= tierTotal) return;
-    const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side);
+    const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side && s.btcRegime === '');
     if (already) return;
     const next = [...stelle, { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: '', thirdToken: false }];
+    setStelle(next);
+    saveStelle(next);
+  }
+
+  function scoreToBtcRegime(score: number): '' | 'bull' | 'bear' {
+    if (score >= 3) return 'bull';
+    if (score >= 0) return 'bear';
+    return '';
+  }
+
+  function addStellaFromGridWithRegime(row: SummaryRow) {
+    if (stelle.length >= tierTotal) return;
+    const targetRegime = scoreToBtcRegime(row.btc_score);
+    const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side && s.btcRegime === targetRegime);
+    if (already) return;
+    const next = [...stelle, { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: targetRegime, thirdToken: false }];
     setStelle(next);
     saveStelle(next);
   }
@@ -955,14 +971,16 @@ export default function CostellazioniPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      {['Coin', 'Pattern', 'TF', 'Dir', 'BTC', 'N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30', '+'].map(h => (
+                      {['Coin', 'Pattern', 'TF', 'Dir', 'BTC', 'N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30', '+', '+BTC'].map(h => (
                         <th key={h} style={{ padding: '4px 4px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {displayRows.map((r, i) => {
-                      const alreadyAdded = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side);
+                      const alreadyAdded = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side && s.btcRegime === '');
+                      const targetRegime = scoreToBtcRegime(r.btc_score);
+                      const alreadyAddedWithRegime = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side && s.btcRegime === targetRegime);
                       const isLong = r.side === 'LONG';
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 150ms' }}
@@ -998,7 +1016,7 @@ export default function CostellazioniPage() {
                             <button
                               onClick={() => addStellaFromGrid(r)}
                               disabled={alreadyAdded || !canAdd}
-                              title={alreadyAdded ? 'Già aggiunta' : !canAdd ? 'Costellazione piena' : 'Aggiungi stella'}
+                              title={alreadyAdded ? 'Già aggiunta (qualsiasi BTC)' : !canAdd ? 'Costellazione piena' : 'Aggiungi — qualsiasi BTC regime'}
                               style={{
                                 background: 'transparent', border: '1px solid',
                                 borderColor: alreadyAdded ? 'var(--color-border)' : 'rgba(201,168,76,0.3)',
@@ -1008,6 +1026,22 @@ export default function CostellazioniPage() {
                               }}
                             >
                               {alreadyAdded ? '✓' : '+'}
+                            </button>
+                          </td>
+                          <td style={{ padding: '3px 4px' }}>
+                            <button
+                              onClick={() => addStellaFromGridWithRegime(r)}
+                              disabled={alreadyAddedWithRegime || !canAdd}
+                              title={alreadyAddedWithRegime ? `Già aggiunta (${targetRegime})` : !canAdd ? 'Costellazione piena' : `Aggiungi — solo BTC ${targetRegime} (score ${r.btc_score})`}
+                              style={{
+                                background: 'transparent', border: '1px solid',
+                                borderColor: alreadyAddedWithRegime ? 'var(--color-border)' : targetRegime === 'bull' ? 'rgba(45,122,79,0.4)' : 'rgba(122,45,45,0.4)',
+                                color: alreadyAddedWithRegime ? 'var(--color-text-dim)' : targetRegime === 'bull' ? 'var(--color-long-bright)' : 'var(--color-short-bright)',
+                                cursor: alreadyAddedWithRegime || !canAdd ? 'default' : 'pointer',
+                                padding: '1px 5px', fontSize: '9px', opacity: alreadyAddedWithRegime || !canAdd ? 0.3 : 1,
+                              }}
+                            >
+                              {alreadyAddedWithRegime ? '✓' : '+'}
                             </button>
                           </td>
                         </tr>
