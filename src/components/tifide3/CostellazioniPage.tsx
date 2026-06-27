@@ -267,6 +267,16 @@ export default function CostellazioniPage() {
   const [statsErrMsg, setStatsErrMsg] = useState('');
   const [retryKey, setRetryKey] = useState(0);
 
+  // Stats aggregate costellazione
+  type CostellStats = {
+    n: number;
+    wr10: number | null; pf10: number | null;
+    wr20: number | null; pf20: number | null;
+    wr30: number | null; pf30: number | null;
+  };
+  const [costellStats, setCostellStats] = useState<CostellStats | null>(null);
+  const [costellStatsLoading, setCostellStatsLoading] = useState(false);
+
   useEffect(() => {
     if (!clerkLoaded) return;
     let cancelled = false;
@@ -323,6 +333,53 @@ export default function CostellazioniPage() {
 
     return () => { cancelled = true; };
   }, [coin, pattern, btcRegime, tf, side, thirdToken, retryKey, clerkLoaded]);
+
+  // Fetch aggregato per tutte le stelle della costellazione
+  useEffect(() => {
+    if (!clerkLoaded || stelle.length === 0) {
+      setCostellStats(null);
+      return;
+    }
+    let cancelled = false;
+    setCostellStatsLoading(true);
+    const backendBase = (process.env.NEXT_PUBLIC_BACKEND_BASE || '').replace(/\/+$/, '');
+
+    const fetchOne = async (s: Stella): Promise<StatsResult | null> => {
+      try {
+        const p = new URLSearchParams({ coin: s.coin, pattern: s.pattern, btc_regime: s.btcRegime, tf: s.tf, side: s.side });
+        if (s.thirdToken) p.set('has_third', 'true');
+        const url = backendBase ? `${backendBase}/api/tifide/stats?${p}` : `/api/tifide/stats?${p}`;
+        const ctrl = new AbortController();
+        const t = setTimeout(() => ctrl.abort(), 30_000);
+        const r = await fetch(url, { signal: ctrl.signal });
+        clearTimeout(t);
+        if (!r.ok) return null;
+        return await r.json();
+      } catch { return null; }
+    };
+
+    Promise.all(stelle.map(fetchOne)).then(results => {
+      if (cancelled) return;
+      const valid = results.filter((r): r is StatsResult => r != null && r.ok && r.n > 0);
+      if (valid.length === 0) { setCostellStats(null); setCostellStatsLoading(false); return; }
+      const totalN = valid.reduce((s, r) => s + r.n, 0);
+      const wAvg = (key: 'wr' | 'pf', bar: 10 | 20 | 30): number | null => {
+        const bk = `bar${bar}` as 'bar10' | 'bar20' | 'bar30';
+        let num = 0, den = 0;
+        for (const r of valid) { const v = r[bk][key]; if (v != null) { num += r.n * v; den += r.n; } }
+        return den > 0 ? num / den : null;
+      };
+      setCostellStats({
+        n: totalN,
+        wr10: wAvg('wr', 10), pf10: wAvg('pf', 10),
+        wr20: wAvg('wr', 20), pf20: wAvg('pf', 20),
+        wr30: wAvg('wr', 30), pf30: wAvg('pf', 30),
+      });
+      setCostellStatsLoading(false);
+    });
+
+    return () => { cancelled = true; };
+  }, [stelle, clerkLoaded]);
 
   // Segnali live
   const [signals, setSignals] = useState<LiveSignal[]>([]);
@@ -648,6 +705,31 @@ export default function CostellazioniPage() {
         <div style={panelHeaderSt}>La tua costellazione — {TIER_NAMES[tier]}</div>
         <div style={{ flex: 1, position: 'relative', padding: '12px', minHeight: 0 }}>
           <TierConstellation tier={tier} starsUsed={stelle.length} showNames style={{ height: '100%' }} />
+        </div>
+        {/* Performance aggregate delle stelle */}
+        <div style={{ borderTop: '1px solid var(--color-border)', padding: '8px 12px', flexShrink: 0 }}>
+          {stelle.length === 0 ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', textAlign: 'center', opacity: 0.5 }}>
+              Aggiungi stelle per vedere le performance aggregate
+            </div>
+          ) : costellStatsLoading ? (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', textAlign: 'center' }}>…</div>
+          ) : costellStats ? (
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(7, 1fr)', textAlign: 'center', rowGap: '3px' }}>
+              {(['N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30'] as const).map(h => (
+                <div key={h} style={{ fontFamily: 'var(--font-mono)', fontSize: '7px', letterSpacing: '0.12em', color: 'var(--color-text-dim)', textTransform: 'uppercase' }}>{h}</div>
+              ))}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text)' }}>{costellStats.n.toLocaleString('it-IT')}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: colorWr(costellStats.wr10) }}>{costellStats.wr10 != null ? `${costellStats.wr10.toFixed(0)}%` : '—'}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: (costellStats.pf10 ?? 0) >= 1 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text)' }}>{costellStats.pf10 != null ? costellStats.pf10.toFixed(2) : '—'}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: colorWr(costellStats.wr20) }}>{costellStats.wr20 != null ? `${costellStats.wr20.toFixed(0)}%` : '—'}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: (costellStats.pf20 ?? 0) >= 1 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text)' }}>{costellStats.pf20 != null ? costellStats.pf20.toFixed(2) : '—'}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: colorWr(costellStats.wr30) }}>{costellStats.wr30 != null ? `${costellStats.wr30.toFixed(0)}%` : '—'}</div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: (costellStats.pf30 ?? 0) >= 1 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text)' }}>{costellStats.pf30 != null ? costellStats.pf30.toFixed(2) : '—'}</div>
+            </div>
+          ) : (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', textAlign: 'center', opacity: 0.5 }}>Nessun dato disponibile</div>
+          )}
         </div>
       </div>
 
