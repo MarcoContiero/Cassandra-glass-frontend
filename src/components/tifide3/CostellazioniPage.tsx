@@ -210,23 +210,47 @@ export default function CostellazioniPage() {
   // Stats storiche
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
+  const [statsError, setStatsError] = useState(false);
+  const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
     setStatsLoading(true);
     setStats(null);
+    setStatsError(false);
 
     const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime, tf, side });
     if (thirdToken) params.set('has_third', 'true');
 
-    fetch(`/api/tifide/stats?${params}`)
-      .then(r => r.json())
-      .then(data => { if (!cancelled) setStats(data as StatsResult); })
-      .catch(() => { if (!cancelled) setStats(null); })
-      .finally(() => { if (!cancelled) setStatsLoading(false); });
+    const url = `/api/tifide/stats?${params}`;
+
+    const attemptFetch = async (attemptsLeft: number): Promise<void> => {
+      try {
+        const r = await fetch(url, { signal: AbortSignal.timeout(45_000) });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        const data = await r.json();
+        if (!cancelled) {
+          setStats(data as StatsResult);
+          setStatsError(false);
+          setStatsLoading(false);
+        }
+      } catch {
+        if (cancelled) return;
+        if (attemptsLeft > 0) {
+          await new Promise(res => setTimeout(res, 3000));
+          if (!cancelled) await attemptFetch(attemptsLeft - 1);
+        } else {
+          setStats(null);
+          setStatsError(true);
+          setStatsLoading(false);
+        }
+      }
+    };
+
+    attemptFetch(2);
 
     return () => { cancelled = true; };
-  }, [coin, pattern, btcRegime, tf, side, thirdToken]);
+  }, [coin, pattern, btcRegime, tf, side, thirdToken, retryKey]);
 
   // Segnali live
   const [signals, setSignals] = useState<LiveSignal[]>([]);
@@ -468,7 +492,25 @@ export default function CostellazioniPage() {
                   {stats.note}
                 </div>
               )}
-              {!statsLoading && (stats == null || stats.n === 0) && (
+              {!statsLoading && statsError && (
+                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                  <span style={{ fontSize: '9px', color: 'rgba(201,168,76,0.5)', fontStyle: 'italic' }}>
+                    Errore di connessione.
+                  </span>
+                  <button
+                    onClick={() => setRetryKey(k => k + 1)}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.15em',
+                      background: 'transparent', color: 'var(--color-gold)',
+                      border: '1px solid rgba(201,168,76,0.3)', padding: '1px 7px',
+                      cursor: 'pointer',
+                    }}
+                  >
+                    Riprova
+                  </button>
+                </div>
+              )}
+              {!statsLoading && !statsError && (stats == null || stats.n === 0) && (
                 <div style={{ marginTop: '6px', fontSize: '9px', color: 'rgba(201,168,76,0.35)', fontStyle: 'italic' }}>
                   {stats?.error ?? 'Nessun dato per questa combinazione.'}
                 </div>
