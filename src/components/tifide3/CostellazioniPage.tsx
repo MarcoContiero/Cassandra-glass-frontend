@@ -101,6 +101,54 @@ const SORT_OPTIONS = [
   { value: 'n',     label: 'N occ.' },
 ];
 
+type NumOp = '>' | '>=' | '<' | '<=';
+type ColKey = 'n' | 'wr10' | 'pf10' | 'wr20' | 'pf20' | 'wr30' | 'pf30';
+type AdvFilters = {
+  coins: string[];
+  patterns: string[];
+  tfs: string[];
+  dirs: string[];
+  num: Record<ColKey, { op: NumOp | ''; val: string }>;
+};
+
+const NUM_COLS: { key: ColKey; label: string; pct?: boolean }[] = [
+  { key: 'n',    label: 'N' },
+  { key: 'wr10', label: 'WR10', pct: true },
+  { key: 'pf10', label: 'PF10' },
+  { key: 'wr20', label: 'WR20', pct: true },
+  { key: 'pf20', label: 'PF20' },
+  { key: 'wr30', label: 'WR30', pct: true },
+  { key: 'pf30', label: 'PF30' },
+];
+
+function initAdvFilters(): AdvFilters {
+  const num = {} as AdvFilters['num'];
+  for (const c of NUM_COLS) num[c.key] = { op: '', val: '' };
+  return { coins: [], patterns: [], tfs: [], dirs: [], num };
+}
+
+function applyAdvFilters(rows: SummaryRow[], f: AdvFilters): SummaryRow[] {
+  return rows.filter(r => {
+    if (f.coins.length > 0 && !f.coins.includes(r.coin)) return false;
+    if (f.patterns.length > 0 && !f.patterns.includes(r.pattern)) return false;
+    if (f.tfs.length > 0 && !f.tfs.includes(r.tf)) return false;
+    if (f.dirs.length > 0 && !f.dirs.includes(r.side)) return false;
+    for (const c of NUM_COLS) {
+      const { op, val } = f.num[c.key];
+      if (!op || val === '') continue;
+      const rv = r[c.key] as number | null;
+      if (rv == null) return false;
+      const fv = parseFloat(val);
+      if (isNaN(fv)) continue;
+      if (op === '>'  && !(rv >  fv)) return false;
+      if (op === '>=' && !(rv >= fv)) return false;
+      if (op === '<'  && !(rv <  fv)) return false;
+      if (op === '<=' && !(rv <= fv)) return false;
+    }
+    return true;
+  });
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────
 
 function loadStelle(): Stella[] {
@@ -304,6 +352,8 @@ export default function CostellazioniPage() {
   const [gridLoading, setGridLoading] = useState(false);
   const [gridFilters, setGridFilters] = useState({ coin: '', pattern: '', tf: '', side: '', sortBy: 'wr10' });
   const [gridLoaded, setGridLoaded] = useState(false);
+  const [advFilters, setAdvFilters] = useState<AdvFilters>(initAdvFilters);
+  const [showAdv, setShowAdv] = useState(false);
 
   const loadGrid = useCallback(async () => {
     setGridLoading(true);
@@ -667,54 +717,156 @@ export default function CostellazioniPage() {
         )}
 
         {/* ── Griglia WR/PF ── */}
-        {rightTab === 'grid' && (
+        {rightTab === 'grid' && (() => {
+          const displayRows = applyAdvFilters(gridRows, advFilters);
+
+          const toggleCat = (field: 'coins' | 'patterns' | 'tfs' | 'dirs', val: string) =>
+            setAdvFilters(f => {
+              const cur = f[field];
+              return { ...f, [field]: cur.includes(val) ? cur.filter(v => v !== val) : [...cur, val] };
+            });
+
+          const setNum = (col: ColKey, part: 'op' | 'val', v: string) =>
+            setAdvFilters(f => ({ ...f, num: { ...f.num, [col]: { ...f.num[col], [part]: v } } }));
+
+          const hasActiveAdv = advFilters.coins.length > 0 || advFilters.patterns.length > 0 ||
+            advFilters.tfs.length > 0 || advFilters.dirs.length > 0 ||
+            NUM_COLS.some(c => advFilters.num[c.key].op && advFilters.num[c.key].val !== '');
+
+          const chipSt = (active: boolean, color?: string): React.CSSProperties => ({
+            fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.05em',
+            padding: '2px 5px', cursor: 'pointer', border: '1px solid',
+            borderColor: active ? (color || 'rgba(201,168,76,0.5)') : 'var(--color-border)',
+            background: active ? 'rgba(201,168,76,0.1)' : 'transparent',
+            color: active ? (color || 'var(--color-gold)') : 'var(--color-text-dim)',
+          });
+
+          const opSt: React.CSSProperties = {
+            ...inputSt, width: '34px', padding: '1px 2px', fontSize: '9px',
+            textAlign: 'center' as const,
+          };
+          const valSt: React.CSSProperties = {
+            ...inputSt, width: '38px', padding: '1px 3px', fontSize: '9px',
+          };
+
+          return (
           <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
-            {/* Filtri griglia */}
-            <div style={{ padding: '8px 12px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '8px', flexWrap: 'wrap', flexShrink: 0 }}>
-              <select value={gridFilters.coin} onChange={e => setGridFilters(f => ({ ...f, coin: e.target.value }))}
-                style={{ ...inputSt, width: '80px', padding: '3px 6px', fontSize: '9px' }}>
-                <option value="">Coin</option>
-                {COINS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
-              <select value={gridFilters.pattern} onChange={e => setGridFilters(f => ({ ...f, pattern: e.target.value }))}
-                style={{ ...inputSt, width: '130px', padding: '3px 6px', fontSize: '9px' }}>
-                <option value="">Pattern</option>
-                {PATTERNS.map(p => <option key={p.value} value={p.value}>{p.label}</option>)}
-              </select>
-              <select value={gridFilters.tf} onChange={e => setGridFilters(f => ({ ...f, tf: e.target.value }))}
-                style={{ ...inputSt, width: '60px', padding: '3px 6px', fontSize: '9px' }}>
-                <option value="">TF</option>
-                {TF_OPTIONS.map(t => <option key={t} value={t}>{t}</option>)}
-              </select>
-              <select value={gridFilters.side} onChange={e => setGridFilters(f => ({ ...f, side: e.target.value }))}
-                style={{ ...inputSt, width: '90px', padding: '3px 6px', fontSize: '9px' }}>
-                <option value="">Direzione</option>
-                <option value="LONG">Rialzista</option>
-                <option value="SHORT">Ribassista</option>
-              </select>
+            {/* Filtri base */}
+            <div style={{ padding: '6px 10px', borderBottom: '1px solid var(--color-border)', display: 'flex', gap: '6px', flexWrap: 'wrap', flexShrink: 0, alignItems: 'center' }}>
               <select value={gridFilters.sortBy} onChange={e => setGridFilters(f => ({ ...f, sortBy: e.target.value }))}
-                style={{ ...inputSt, width: '110px', padding: '3px 6px', fontSize: '9px' }}>
+                style={{ ...inputSt, width: '90px', padding: '2px 4px', fontSize: '9px' }}>
                 {SORT_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
               </select>
-              <button onClick={loadGrid} disabled={gridLoading} style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em', background: 'var(--color-void)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)', padding: '3px 12px', cursor: gridLoading ? 'default' : 'pointer', opacity: gridLoading ? 0.5 : 1 }}>
-                Cerca
+              <button onClick={loadGrid} disabled={gridLoading} style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.15em', background: 'var(--color-void)', color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.3)', padding: '2px 10px', cursor: gridLoading ? 'default' : 'pointer', opacity: gridLoading ? 0.5 : 1 }}>
+                {gridLoading ? '…' : 'Carica'}
               </button>
+              <button onClick={() => setShowAdv(v => !v)} style={{
+                fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em',
+                background: showAdv || hasActiveAdv ? 'rgba(201,168,76,0.1)' : 'transparent',
+                color: hasActiveAdv ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                border: `1px solid ${hasActiveAdv ? 'rgba(201,168,76,0.4)' : 'var(--color-border)'}`,
+                padding: '2px 8px', cursor: 'pointer',
+              }}>
+                {hasActiveAdv ? `Filtri (attivi)` : 'Filtri'}
+              </button>
+              {hasActiveAdv && (
+                <button onClick={() => setAdvFilters(initAdvFilters)} style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', background: 'transparent', color: 'var(--color-text-dim)', border: '1px solid var(--color-border)', padding: '2px 6px', cursor: 'pointer' }}>
+                  ✕ reset
+                </button>
+              )}
+              {gridLoaded && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', marginLeft: 'auto', opacity: 0.6 }}>
+                  {displayRows.length}/{gridRows.length}
+                </span>
+              )}
             </div>
+
+            {/* Pannello filtri avanzati */}
+            {showAdv && (
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)', background: 'rgba(201,168,76,0.02)', flexShrink: 0 }}>
+
+                {/* Categorici */}
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px', marginBottom: '8px' }}>
+                  {/* Coin */}
+                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ ...labelSt, marginBottom: 0, width: '40px', flexShrink: 0 }}>Coin</span>
+                    {COINS.map(c => (
+                      <button key={c} onClick={() => toggleCat('coins', c)} style={chipSt(advFilters.coins.includes(c))}>
+                        {c}
+                      </button>
+                    ))}
+                  </div>
+                  {/* Pattern */}
+                  <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
+                    <span style={{ ...labelSt, marginBottom: 0, width: '40px', flexShrink: 0 }}>Pattern</span>
+                    {PATTERNS.map(p => (
+                      <button key={p.value} onClick={() => toggleCat('patterns', p.value)} style={chipSt(advFilters.patterns.includes(p.value))}>
+                        {p.label}
+                      </button>
+                    ))}
+                  </div>
+                  {/* TF + Dir */}
+                  <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                      <span style={{ ...labelSt, marginBottom: 0, width: '40px', flexShrink: 0 }}>TF</span>
+                      {TF_OPTIONS.map(t => (
+                        <button key={t} onClick={() => toggleCat('tfs', t)} style={chipSt(advFilters.tfs.includes(t))}>
+                          {t}
+                        </button>
+                      ))}
+                    </div>
+                    <div style={{ display: 'flex', gap: '3px', alignItems: 'center' }}>
+                      <span style={{ ...labelSt, marginBottom: 0, width: '24px', flexShrink: 0 }}>Dir</span>
+                      <button onClick={() => toggleCat('dirs', 'LONG')} style={chipSt(advFilters.dirs.includes('LONG'), 'var(--color-long-bright, #4a9)')}>↑</button>
+                      <button onClick={() => toggleCat('dirs', 'SHORT')} style={chipSt(advFilters.dirs.includes('SHORT'), 'var(--color-short-bright, #a44)')}>↓</button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Numerici */}
+                <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap', alignItems: 'center' }}>
+                  {NUM_COLS.map(c => (
+                    <div key={c.key} style={{ display: 'flex', alignItems: 'center', gap: '2px' }}>
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', minWidth: '28px' }}>{c.label}</span>
+                      <select
+                        value={advFilters.num[c.key].op}
+                        onChange={e => setNum(c.key, 'op', e.target.value)}
+                        style={opSt}
+                      >
+                        <option value="">—</option>
+                        <option value=">">{'>'}</option>
+                        <option value=">=">{'>='}</option>
+                        <option value="<">{'<'}</option>
+                        <option value="<=">{'<='}</option>
+                      </select>
+                      <input
+                        type="number"
+                        placeholder="—"
+                        value={advFilters.num[c.key].val}
+                        onChange={e => setNum(c.key, 'val', e.target.value)}
+                        style={valSt}
+                      />
+                      {c.pct && <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)' }}>%</span>}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Tabella griglia */}
             <div style={{ flex: 1, overflowY: 'auto', overflowX: 'auto' }}>
               {!gridLoaded && !gridLoading && (
                 <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>
-                  Premi Cerca per caricare la griglia.
+                  Premi Carica per caricare la griglia.
                 </div>
               )}
               {gridLoading && (
                 <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>Caricamento…</div>
               )}
-              {!gridLoading && gridLoaded && gridRows.length === 0 && (
-                <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>Nessun risultato.</div>
+              {!gridLoading && gridLoaded && displayRows.length === 0 && (
+                <div style={{ padding: '16px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>Nessun risultato con i filtri attivi.</div>
               )}
-              {!gridLoading && gridRows.length > 0 && (
+              {!gridLoading && displayRows.length > 0 && (
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
@@ -724,7 +876,7 @@ export default function CostellazioniPage() {
                     </tr>
                   </thead>
                   <tbody>
-                    {gridRows.map((r, i) => {
+                    {displayRows.map((r, i) => {
                       const alreadyAdded = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side);
                       const isLong = r.side === 'LONG';
                       return (
@@ -781,7 +933,8 @@ export default function CostellazioniPage() {
               )}
             </div>
           </div>
-        )}
+          );
+        })()}
       </div>
     </div>
   );
