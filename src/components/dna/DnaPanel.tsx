@@ -135,31 +135,31 @@ function wr(v: number | null | undefined) {
 }
 
 function pfColor(v: number | null | undefined) {
-  if (v == null) return 'text-white/40';
+  if (v == null) return 'text-[var(--color-text-dim)]';
   if (v >= 1.1) return 'text-emerald-400';
   if (v >= 1.0) return 'text-yellow-400';
   return 'text-red-400';
 }
 
 function wrColor(v: number | null | undefined) {
-  if (v == null) return 'text-white/40';
+  if (v == null) return 'text-[var(--color-text-dim)]';
   if (v >= 57) return 'text-emerald-400';
   if (v >= 53) return 'text-yellow-400';
   return 'text-red-400';
 }
 
 function corrColor(v: number | null | undefined) {
-  if (v == null) return 'text-white/50';
+  if (v == null) return 'text-[var(--color-text-dim)]';
   const abs = Math.abs(v);
   if (abs >= 0.7) return 'text-cyan-300';
   if (abs >= 0.5) return 'text-cyan-500';
-  return 'text-white/60';
+  return 'text-[var(--color-text-dim)]';
 }
 
 function hurstLabel(h: number): { label: string; color: string } {
   if (h < 0.40) return { label: 'mean-rev forte', color: 'text-violet-400' };
   if (h < 0.47) return { label: 'mean-reverting', color: 'text-violet-300' };
-  if (h < 0.53) return { label: 'random walk',    color: 'text-white/50'   };
+  if (h < 0.53) return { label: 'random walk',    color: 'text-[var(--color-text-dim)]' };
   if (h < 0.60) return { label: 'trending',       color: 'text-emerald-400' };
   return              { label: 'trend forte',     color: 'text-emerald-300' };
 }
@@ -167,7 +167,7 @@ function hurstLabel(h: number): { label: string; color: string } {
 function autocorrLabel(v: number): { label: string; color: string } {
   if (v < -0.10) return { label: 'choppy',    color: 'text-orange-400' };
   if (v >  0.10) return { label: 'momentum',  color: 'text-emerald-400' };
-  return               { label: 'neutro',    color: 'text-white/40' };
+  return               { label: 'neutro',    color: 'text-[var(--color-text-dim)]' };
 }
 
 function fmtVol(v: number | undefined): string {

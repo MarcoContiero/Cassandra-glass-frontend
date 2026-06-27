@@ -55,10 +55,12 @@
 :root {
   --bg-section-main:   rgba(2, 2, 14, 0.87);
   --bg-section-accent: rgba(6, 6, 15, 0.90);
+  color-scheme: dark;
 }
 
 /* ── Light mode override ── */
 [data-theme="light"] {
+  color-scheme: light;
   --bg-section-main:   transparent;
   --bg-section-accent: transparent;
   --color-void:        #f8f6f0;

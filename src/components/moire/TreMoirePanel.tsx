@@ -1656,16 +1656,16 @@ export default function TreMoirePanel({ onPiziaContext }: TreMoirePanelProps) {
                 <span style={{ fontFamily: 'var(--font-decorative)', fontSize: 13, color: m.active ? 'var(--color-gold)' : 'var(--color-text-dim)', fontWeight: 300 }}>
                   {m.name}
                 </span>
-                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.6, textTransform: 'uppercase', letterSpacing: '0.1em' }}>
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', textTransform: 'uppercase', letterSpacing: '0.1em' }}>
                   {m.sub}
                 </span>
                 {!m.active && (
-                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.3, marginLeft: 'auto' }}>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.5, marginLeft: 'auto' }}>
                     wip
                   </span>
                 )}
               </div>
-              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: m.active ? 0.7 : 0.35, marginTop: 4 }}>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: m.active ? 1 : 0.6, marginTop: 4 }}>
                 {m.desc}
               </div>
             </div>
@@ -1689,7 +1689,7 @@ export default function TreMoirePanel({ onPiziaContext }: TreMoirePanelProps) {
                 ? `1px solid ${b.color}`
                 : '1px solid var(--color-border-dim)',
               cursor: 'pointer',
-              opacity: filter === b.key ? 1 : 0.6,
+              opacity: filter === b.key ? 1 : 0.85,
               transition: 'all 150ms',
             }}>
             {b.label}
