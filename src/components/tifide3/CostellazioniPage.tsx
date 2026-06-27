@@ -92,11 +92,13 @@ const TIER_NAMES: Record<Tier, string> = {
 const LS_KEY = 'cassandra_costellazioni_stelle';
 
 const SORT_OPTIONS = [
-  { value: 'wr10',  label: 'WR 10 barre' },
-  { value: 'wr20',  label: 'WR 20 barre' },
-  { value: 'wr30',  label: 'WR 30 barre' },
-  { value: 'pf10',  label: 'PF 10 barre' },
-  { value: 'n',     label: 'N occorrenze' },
+  { value: 'wr10',  label: 'WR 10b' },
+  { value: 'wr20',  label: 'WR 20b' },
+  { value: 'wr30',  label: 'WR 30b' },
+  { value: 'pf10',  label: 'PF 10b' },
+  { value: 'pf20',  label: 'PF 20b' },
+  { value: 'pf30',  label: 'PF 30b' },
+  { value: 'n',     label: 'N occ.' },
 ];
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -716,39 +718,46 @@ export default function CostellazioniPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      {['Coin', 'Pattern', 'TF', 'Dir', 'BTC', 'N', 'WR10', 'PF10', 'WR30', 'PF30', '+'].map(h => (
-                        <th key={h} style={{ padding: '5px 8px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.2em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                      {['Coin', 'Pattern', 'TF', '▲▼', 'BTC', 'N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30', '+'].map(h => (
+                        <th key={h} style={{ padding: '4px 4px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
                   </thead>
                   <tbody>
                     {gridRows.map((r, i) => {
                       const alreadyAdded = stelle.some(s => s.coin === r.coin && s.pattern === r.pattern && s.tf === r.tf && s.side === r.side);
+                      const isLong = r.side === 'LONG';
                       return (
                         <tr key={i} style={{ borderBottom: '1px solid rgba(201,168,76,0.05)', transition: 'background 150ms' }}
                           onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(201,168,76,0.04)'; }}
                           onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}>
-                          <td style={{ padding: '4px 8px', color: 'var(--color-gold)', whiteSpace: 'nowrap' }}>{r.coin}</td>
-                          <td style={{ padding: '4px 8px', color: 'var(--color-text)', whiteSpace: 'nowrap', maxWidth: '120px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{patternLabel(r.pattern)}</td>
-                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.tf}</td>
-                          <td style={{ padding: '4px 8px', color: r.side === 'LONG' ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)', whiteSpace: 'nowrap' }}>
-                            {r.side === 'LONG' ? 'rialz.' : 'ribass.'}
+                          <td style={{ padding: '3px 5px 3px 4px', color: 'var(--color-gold)', whiteSpace: 'nowrap', minWidth: '28px' }}>{r.coin}</td>
+                          <td style={{ padding: '3px 4px', color: 'var(--color-text)', whiteSpace: 'nowrap', maxWidth: '100px', overflow: 'hidden', textOverflow: 'ellipsis' }}>{patternLabel(r.pattern)}</td>
+                          <td style={{ padding: '3px 4px', color: 'var(--color-text-dim)' }}>{r.tf}</td>
+                          <td style={{ padding: '3px 4px', fontSize: '11px', lineHeight: 1, color: isLong ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)' }}>
+                            {isLong ? '↑' : '↓'}
                           </td>
-                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.btc_score}</td>
-                          <td style={{ padding: '4px 8px', color: 'var(--color-text-dim)' }}>{r.n}</td>
-                          <td style={{ padding: '4px 8px', color: colorWr(r.wr10), fontWeight: 500 }}>
+                          <td style={{ padding: '3px 4px', color: 'var(--color-text-dim)' }}>{r.btc_score}</td>
+                          <td style={{ padding: '3px 4px', color: 'var(--color-text-dim)' }}>{r.n}</td>
+                          <td style={{ padding: '3px 4px', color: colorWr(r.wr10), fontWeight: 500 }}>
                             {r.wr10 != null ? `${r.wr10.toFixed(0)}%` : '—'}
                           </td>
-                          <td style={{ padding: '4px 8px', color: r.pf10 != null && r.pf10 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                          <td style={{ padding: '3px 4px', color: r.pf10 != null && r.pf10 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
                             {r.pf10 != null ? r.pf10.toFixed(2) : '—'}
                           </td>
-                          <td style={{ padding: '4px 8px', color: colorWr(r.wr30) }}>
+                          <td style={{ padding: '3px 4px', color: colorWr(r.wr20) }}>
+                            {r.wr20 != null ? `${r.wr20.toFixed(0)}%` : '—'}
+                          </td>
+                          <td style={{ padding: '3px 4px', color: r.pf20 != null && r.pf20 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                            {r.pf20 != null ? r.pf20.toFixed(2) : '—'}
+                          </td>
+                          <td style={{ padding: '3px 4px', color: colorWr(r.wr30) }}>
                             {r.wr30 != null ? `${r.wr30.toFixed(0)}%` : '—'}
                           </td>
-                          <td style={{ padding: '4px 8px', color: r.pf30 != null && r.pf30 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
+                          <td style={{ padding: '3px 4px', color: r.pf30 != null && r.pf30 >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>
                             {r.pf30 != null ? r.pf30.toFixed(2) : '—'}
                           </td>
-                          <td style={{ padding: '4px 8px' }}>
+                          <td style={{ padding: '3px 4px' }}>
                             <button
                               onClick={() => addStellaFromGrid(r)}
                               disabled={alreadyAdded || !canAdd}
@@ -758,7 +767,7 @@ export default function CostellazioniPage() {
                                 borderColor: alreadyAdded ? 'var(--color-border)' : 'rgba(201,168,76,0.3)',
                                 color: alreadyAdded ? 'var(--color-text-dim)' : 'var(--color-gold)',
                                 cursor: alreadyAdded || !canAdd ? 'default' : 'pointer',
-                                padding: '1px 6px', fontSize: '9px', opacity: alreadyAdded || !canAdd ? 0.3 : 1,
+                                padding: '1px 5px', fontSize: '9px', opacity: alreadyAdded || !canAdd ? 0.3 : 1,
                               }}
                             >
                               {alreadyAdded ? '✓' : '+'}
