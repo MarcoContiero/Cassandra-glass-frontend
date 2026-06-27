@@ -211,6 +211,7 @@ export default function CostellazioniPage() {
   const [stats, setStats] = useState<StatsResult | null>(null);
   const [statsLoading, setStatsLoading] = useState(false);
   const [statsError, setStatsError] = useState(false);
+  const [statsErrMsg, setStatsErrMsg] = useState('');
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
@@ -218,6 +219,7 @@ export default function CostellazioniPage() {
     setStatsLoading(true);
     setStats(null);
     setStatsError(false);
+    setStatsErrMsg('');
 
     const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime, tf, side });
     if (thirdToken) params.set('has_third', 'true');
@@ -227,21 +229,27 @@ export default function CostellazioniPage() {
     const attemptFetch = async (attemptsLeft: number): Promise<void> => {
       try {
         const r = await fetch(url, { signal: AbortSignal.timeout(45_000) });
-        if (!r.ok) throw new Error(`HTTP ${r.status}`);
+        if (!r.ok) {
+          const body = await r.text().catch(() => '');
+          throw new Error(`HTTP ${r.status}: ${body.slice(0, 120)}`);
+        }
         const data = await r.json();
         if (!cancelled) {
           setStats(data as StatsResult);
           setStatsError(false);
+          setStatsErrMsg('');
           setStatsLoading(false);
         }
-      } catch {
+      } catch (err) {
         if (cancelled) return;
+        const msg = err instanceof Error ? err.message : String(err);
         if (attemptsLeft > 0) {
           await new Promise(res => setTimeout(res, 3000));
           if (!cancelled) await attemptFetch(attemptsLeft - 1);
         } else {
           setStats(null);
           setStatsError(true);
+          setStatsErrMsg(msg);
           setStatsLoading(false);
         }
       }
@@ -493,21 +501,28 @@ export default function CostellazioniPage() {
                 </div>
               )}
               {!statsLoading && statsError && (
-                <div style={{ marginTop: '6px', display: 'flex', alignItems: 'center', gap: '8px' }}>
-                  <span style={{ fontSize: '9px', color: 'rgba(201,168,76,0.5)', fontStyle: 'italic' }}>
-                    Errore di connessione.
-                  </span>
-                  <button
-                    onClick={() => setRetryKey(k => k + 1)}
-                    style={{
-                      fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.15em',
-                      background: 'transparent', color: 'var(--color-gold)',
-                      border: '1px solid rgba(201,168,76,0.3)', padding: '1px 7px',
-                      cursor: 'pointer',
-                    }}
-                  >
-                    Riprova
-                  </button>
+                <div style={{ marginTop: '6px' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '3px' }}>
+                    <span style={{ fontSize: '9px', color: 'rgba(201,168,76,0.5)', fontStyle: 'italic' }}>
+                      Errore di connessione.
+                    </span>
+                    <button
+                      onClick={() => setRetryKey(k => k + 1)}
+                      style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '8px', letterSpacing: '0.15em',
+                        background: 'transparent', color: 'var(--color-gold)',
+                        border: '1px solid rgba(201,168,76,0.3)', padding: '1px 7px',
+                        cursor: 'pointer',
+                      }}
+                    >
+                      Riprova
+                    </button>
+                  </div>
+                  {statsErrMsg && (
+                    <div style={{ fontSize: '8px', color: 'rgba(201,168,76,0.35)', wordBreak: 'break-all', lineHeight: 1.4 }}>
+                      {statsErrMsg}
+                    </div>
+                  )}
                 </div>
               )}
               {!statsLoading && !statsError && (stats == null || stats.n === 0) && (
