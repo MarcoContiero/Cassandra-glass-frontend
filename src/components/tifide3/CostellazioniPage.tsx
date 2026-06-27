@@ -185,7 +185,7 @@ const panelHeaderSt: React.CSSProperties = {
 // ── Componente principale ─────────────────────────────────────────────────
 
 export default function CostellazioniPage() {
-  const { user } = useUser();
+  const { user, isLoaded: clerkLoaded } = useUser();
 
   const tier: Tier = (() => {
     const m = user?.publicMetadata?.tier as string | undefined;
@@ -215,6 +215,7 @@ export default function CostellazioniPage() {
   const [retryKey, setRetryKey] = useState(0);
 
   useEffect(() => {
+    if (!clerkLoaded) return;
     let cancelled = false;
     setStatsLoading(true);
     setStats(null);
@@ -224,7 +225,10 @@ export default function CostellazioniPage() {
     const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime, tf, side });
     if (thirdToken) params.set('has_third', 'true');
 
-    const url = `/api/tifide/stats?${params}`;
+    const backendBase = (process.env.NEXT_PUBLIC_BACKEND_BASE || '').replace(/\/+$/, '');
+    const url = backendBase
+      ? `${backendBase}/api/tifide/stats?${params}`
+      : `/api/tifide/stats?${params}`;
 
     const attemptFetch = async (attemptsLeft: number): Promise<void> => {
       const controller = new AbortController();
@@ -265,7 +269,7 @@ export default function CostellazioniPage() {
     attemptFetch(2);
 
     return () => { cancelled = true; };
-  }, [coin, pattern, btcRegime, tf, side, thirdToken, retryKey]);
+  }, [coin, pattern, btcRegime, tf, side, thirdToken, retryKey, clerkLoaded]);
 
   // Segnali live
   const [signals, setSignals] = useState<LiveSignal[]>([]);
