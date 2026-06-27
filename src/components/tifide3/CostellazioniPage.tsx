@@ -102,7 +102,7 @@ const SORT_OPTIONS = [
 ];
 
 type NumOp = '>' | '>=' | '<' | '<=';
-type ColKey = 'n' | 'wr10' | 'pf10' | 'wr20' | 'pf20' | 'wr30' | 'pf30';
+type ColKey = 'n' | 'btc_score' | 'wr10' | 'pf10' | 'wr20' | 'pf20' | 'wr30' | 'pf30';
 type AdvFilters = {
   coins: string[];
   patterns: string[];
@@ -112,13 +112,14 @@ type AdvFilters = {
 };
 
 const NUM_COLS: { key: ColKey; label: string; pct?: boolean }[] = [
-  { key: 'n',    label: 'N' },
-  { key: 'wr10', label: 'WR10', pct: true },
-  { key: 'pf10', label: 'PF10' },
-  { key: 'wr20', label: 'WR20', pct: true },
-  { key: 'pf20', label: 'PF20' },
-  { key: 'wr30', label: 'WR30', pct: true },
-  { key: 'pf30', label: 'PF30' },
+  { key: 'n',         label: 'N' },
+  { key: 'btc_score', label: 'BTC' },
+  { key: 'wr10',      label: 'WR10', pct: true },
+  { key: 'pf10',      label: 'PF10' },
+  { key: 'wr20',      label: 'WR20', pct: true },
+  { key: 'pf20',      label: 'PF20' },
+  { key: 'wr30',      label: 'WR30', pct: true },
+  { key: 'pf30',      label: 'PF30' },
 ];
 
 function initAdvFilters(): AdvFilters {
@@ -870,7 +871,7 @@ export default function CostellazioniPage() {
                 <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
                   <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
                     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                      {['Coin', 'Pattern', 'TF', '▲▼', 'BTC', 'N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30', '+'].map(h => (
+                      {['Coin', 'Pattern', 'TF', 'Dir', 'BTC', 'N', 'WR10', 'PF10', 'WR20', 'PF20', 'WR30', 'PF30', '+'].map(h => (
                         <th key={h} style={{ padding: '4px 4px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
                       ))}
                     </tr>
