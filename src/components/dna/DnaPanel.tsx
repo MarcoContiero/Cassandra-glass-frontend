@@ -352,6 +352,224 @@ function Section({ title, children }: { title: string; children: React.ReactNode
   );
 }
 
+// ── BB Breakout Types ────────────────────────────────────────────────────────
+
+interface BbCategory {
+  label: string;
+  shadow_range: [number, number | null];
+  n: number;
+  ret10_p43: number | null; ret10_p50: number | null; ret10_p57: number | null;
+  ret20_p43: number | null; ret20_p50: number | null; ret20_p57: number | null;
+  ret30_p43: number | null; ret30_p50: number | null; ret30_p57: number | null;
+  cond_b10: number; cond_b10_lo: number; cond_b10_hi: number;
+  cond_b20: number; cond_b20_lo: number; cond_b20_hi: number;
+  cond_b30: number; cond_b30_lo: number; cond_b30_hi: number;
+  shadow_p25: number; shadow_p50: number; shadow_p75: number;
+  opp_exit_rate: number; opp_exit_rate_lo: number; opp_exit_rate_hi: number;
+  opp_exit_bars_p43: number | null; opp_exit_bars_p50: number | null; opp_exit_bars_p57: number | null;
+}
+interface BbDirection { n: number; n_doji: number; categories: BbCategory[] }
+interface BbStatsData { bull?: BbDirection; bear?: BbDirection }
+interface BbStatsResponse { ok: boolean; error?: string; data?: BbStatsData }
+
+const BB_TFS = ['1m', '3m', '5m'] as const;
+type BbTf = typeof BB_TFS[number];
+
+function fmtPct(v: number | null | undefined): string {
+  if (v == null) return '—';
+  return `${(v * 100).toFixed(1)}%`;
+}
+function fmtPctRange(lo: number, hi: number): string {
+  return `${(lo * 100).toFixed(1)}–${(hi * 100).toFixed(1)}%`;
+}
+
+function BbBreakoutSection({ coin }: { coin: string }) {
+  const [tf, setTf]   = React.useState<BbTf>('1m');
+  const [dir, setDir] = React.useState<'bull' | 'bear'>('bull');
+  const [resp, setResp]     = React.useState<BbStatsResponse | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [fetchErr, setFetchErr] = React.useState<string | null>(null);
+
+  React.useEffect(() => {
+    setLoading(true);
+    setFetchErr(null);
+    fetch(`/api/tifide/bb-stats?coin=${encodeURIComponent(coin)}&tf=${tf}`)
+      .then(r => r.json())
+      .then((j: BbStatsResponse) => { setResp(j); setLoading(false); })
+      .catch(e => { setFetchErr(String(e)); setLoading(false); });
+  }, [coin, tf]);
+
+  const dirData = resp?.data?.[dir];
+  const cats = dirData?.categories?.filter(c => c.n > 0) ?? [];
+
+  return (
+    <div className="cassandra-card p-3 space-y-3">
+      <div className="flex items-center justify-between flex-wrap gap-2">
+        <span className="section-tag">BB Breakout</span>
+        <div className="flex gap-1">
+          {BB_TFS.map(t => (
+            <button key={t} onClick={() => setTf(t)}
+              className="px-2 py-0.5 text-[10px] font-mono rounded-sm transition-all"
+              style={{
+                background: tf === t ? 'rgba(201,168,76,0.12)' : 'transparent',
+                color:      tf === t ? 'var(--color-gold)'     : 'var(--color-text-dim)',
+                border:     tf === t ? '1px solid rgba(201,168,76,0.3)' : '1px solid rgba(255,255,255,0.08)',
+              }}>
+              {t}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+          Carico...
+        </div>
+      )}
+      {fetchErr && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-short-bright)' }}>
+          {fetchErr}
+        </div>
+      )}
+      {resp && !resp.ok && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
+          {resp.error ?? 'Nessun dato BB disponibile'}
+        </div>
+      )}
+
+      {resp?.ok && resp.data && (
+        <>
+          <div className="flex gap-1.5">
+            {(['bull', 'bear'] as const).map(d => {
+              const n = resp.data?.[d]?.n ?? 0;
+              const active = dir === d;
+              return (
+                <button key={d} onClick={() => setDir(d)}
+                  className="flex-1 py-1 text-[10px] font-mono tracking-widest uppercase transition-all"
+                  style={{
+                    background: active
+                      ? (d === 'bull' ? 'rgba(45,122,79,0.15)' : 'rgba(122,45,45,0.15)')
+                      : 'transparent',
+                    color: active
+                      ? (d === 'bull' ? 'var(--color-long-bright)' : 'var(--color-short-bright)')
+                      : 'var(--color-text-dim)',
+                    border: `1px solid ${active
+                      ? (d === 'bull' ? 'rgba(45,168,102,0.3)' : 'rgba(168,45,45,0.3)')
+                      : 'var(--color-border-dim)'}`,
+                  }}>
+                  {d === 'bull' ? 'rialzista' : 'ribassista'} · {n.toLocaleString()}
+                </button>
+              );
+            })}
+          </div>
+
+          {dirData && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)' }}>
+              BB20 2σ · doji esclusi: {dirData.n_doji.toLocaleString()} · shadow opposta al breakout
+            </div>
+          )}
+
+          {cats.length === 0 && (
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</div>
+          )}
+
+          {cats.map(cat => {
+            const cb10Color = cat.cond_b10 >= 0.45 ? 'var(--color-long-bright)' : cat.cond_b10 >= 0.35 ? 'var(--color-gold)' : 'var(--color-short-bright)';
+            const cb20Color = cat.cond_b20 >= 0.35 ? 'var(--color-long-bright)' : cat.cond_b20 >= 0.25 ? 'var(--color-gold)' : 'var(--color-short-bright)';
+            const cb30Color = cat.cond_b30 >= 0.30 ? 'var(--color-long-bright)' : cat.cond_b30 >= 0.20 ? 'var(--color-gold)' : 'var(--color-short-bright)';
+            const oeColor   = cat.opp_exit_rate >= 0.7 ? 'var(--color-short-bright)' : cat.opp_exit_rate >= 0.5 ? 'var(--color-gold)' : 'var(--color-long-bright)';
+            const ret10Color = (cat.ret10_p50 ?? 0) >= 0 ? 'var(--color-long-bright)' : 'var(--color-short-bright)';
+
+            return (
+              <div key={cat.label} className="space-y-2 pt-2" style={{ borderTop: '1px solid var(--color-border-dim)' }}>
+                <div className="flex items-baseline gap-3">
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: 'var(--color-text)', fontWeight: 500 }}>
+                    {cat.label}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
+                    n={cat.n.toLocaleString()}
+                  </span>
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
+                    shadow {cat.shadow_p25.toFixed(2)}–{cat.shadow_p75.toFixed(2)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-3 gap-x-4 gap-y-2.5">
+                  {[
+                    { label: 'tenuta 10b', v: cat.cond_b10, lo: cat.cond_b10_lo, hi: cat.cond_b10_hi, color: cb10Color },
+                    { label: 'tenuta 20b', v: cat.cond_b20, lo: cat.cond_b20_lo, hi: cat.cond_b20_hi, color: cb20Color },
+                    { label: 'tenuta 30b', v: cat.cond_b30, lo: cat.cond_b30_lo, hi: cat.cond_b30_hi, color: cb30Color },
+                  ].map(({ label, v, lo, hi, color }) => (
+                    <div key={label}>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 2 }}>
+                        {label}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color, lineHeight: 1 }}>
+                        {fmtPct(v)}
+                      </div>
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
+                        [{fmtPctRange(lo, hi)}]
+                      </div>
+                    </div>
+                  ))}
+
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 2 }}>
+                      uscita opp. 60b
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: oeColor, lineHeight: 1 }}>
+                      {fmtPct(cat.opp_exit_rate)}
+                    </div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
+                      [{fmtPctRange(cat.opp_exit_rate_lo, cat.opp_exit_rate_hi)}]
+                    </div>
+                  </div>
+
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 2 }}>
+                      barre p/uscita opp.
+                    </div>
+                    {cat.opp_exit_bars_p50 != null ? (
+                      <>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text)', lineHeight: 1 }}>
+                          {cat.opp_exit_bars_p50}
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
+                          [{cat.opp_exit_bars_p43}–{cat.opp_exit_bars_p57}]
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text-dim)', lineHeight: 1 }}>—</div>
+                    )}
+                  </div>
+
+                  <div>
+                    <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 2 }}>
+                      rend. 10b
+                    </div>
+                    {cat.ret10_p50 != null ? (
+                      <>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: ret10Color, lineHeight: 1 }}>
+                          {cat.ret10_p50.toFixed(2)}%
+                        </div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
+                          [{cat.ret10_p43?.toFixed(2)}–{cat.ret10_p57?.toFixed(2)}%]
+                        </div>
+                      </>
+                    ) : (
+                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text-dim)', lineHeight: 1 }}>—</div>
+                    )}
+                  </div>
+                </div>
+              </div>
+            );
+          })}
+        </>
+      )}
+    </div>
+  );
+}
+
 // ── Gravità Section ──────────────────────────────────────────────────────────
 
 const GRAVITY_TFS = ['15m', '1h', '4h', '1d'] as const;
@@ -741,6 +959,9 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
         {(genome.ema200_pull || genome.bb_return) && (
           <GravitaSection pull={genome.ema200_pull} bb={genome.bb_return} />
         )}
+
+        {/* BB Breakout */}
+        <BbBreakoutSection coin={genome.coin} />
 
         {/* Session profile */}
         {genome.session_profile && Object.keys(genome.session_profile).length > 0 && (

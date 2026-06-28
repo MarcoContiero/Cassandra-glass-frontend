@@ -259,6 +259,7 @@ export default function CostellazioniPage() {
   const [side, setSide] = useState<'LONG' | 'SHORT' | ''>('LONG');
   const [btcRegime, setBtcRegime] = useState('');
   const [thirdToken, setThirdToken] = useState(false);
+  const [statsPeriod, setStatsPeriod] = useState(0); // 0=tutto, 1/3/6/12/18/24 mesi
 
   // Stats storiche
   const [stats, setStats] = useState<StatsResult | null>(null);
@@ -287,6 +288,7 @@ export default function CostellazioniPage() {
 
     const params = new URLSearchParams({ coin, pattern, btc_regime: btcRegime, tf, side });
     if (thirdToken) params.set('has_third', 'true');
+    if (statsPeriod > 0) params.set('months', String(statsPeriod));
 
     const backendBase = (process.env.NEXT_PUBLIC_BACKEND_BASE || '').replace(/\/+$/, '');
     const url = backendBase
@@ -332,7 +334,7 @@ export default function CostellazioniPage() {
     attemptFetch(2);
 
     return () => { cancelled = true; };
-  }, [coin, pattern, btcRegime, tf, side, thirdToken, retryKey, clerkLoaded]);
+  }, [coin, pattern, btcRegime, tf, side, thirdToken, statsPeriod, retryKey, clerkLoaded]);
 
   // Fetch aggregato per tutte le stelle della costellazione
   useEffect(() => {
@@ -578,6 +580,29 @@ export default function CostellazioniPage() {
               <input type="checkbox" checked={thirdToken} onChange={e => setThirdToken(e.target.checked)} style={{ accentColor: 'var(--color-gold)' }} />
               Richiesto
             </label>
+          </div>
+
+          {/* Periodo storico */}
+          <div>
+            <label style={labelSt}>Periodo</label>
+            <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
+              {([0, 1, 3, 6, 12, 18, 24] as const).map(m => (
+                <button
+                  key={m}
+                  onClick={() => setStatsPeriod(m)}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '9px',
+                    padding: '3px 6px', cursor: 'pointer',
+                    border: `1px solid ${statsPeriod === m ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
+                    background: statsPeriod === m ? 'rgba(201,168,76,0.08)' : 'transparent',
+                    color: statsPeriod === m ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                    transition: 'all 150ms',
+                  }}
+                >
+                  {m === 0 ? 'Tutto' : `${m}m`}
+                </button>
+              ))}
+            </div>
           </div>
 
           {/* Distribuzione storica */}
