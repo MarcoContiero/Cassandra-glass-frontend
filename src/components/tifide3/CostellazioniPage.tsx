@@ -660,8 +660,16 @@ export default function CostellazioniPage() {
                 </div>
               )}
               {stats?.note && !statsLoading && (
-                <div style={{ marginTop: '6px', fontSize: '9px', color: 'rgba(201,168,76,0.45)', fontStyle: 'italic' }}>
-                  {stats.note}
+                <div style={{
+                  marginTop: '6px', fontSize: '9px', fontFamily: 'var(--font-mono)',
+                  color: stats.note.includes('filtro periodo n/d')
+                    ? 'rgba(201,168,76,0.75)'
+                    : 'rgba(201,168,76,0.45)',
+                  fontStyle: stats.note.includes('filtro periodo n/d') ? 'normal' : 'italic',
+                }}>
+                  {stats.note.includes('filtro periodo n/d')
+                    ? '⚠ filtro periodo non disponibile — mostro storico completo'
+                    : stats.note}
                 </div>
               )}
               {!statsLoading && statsError && (

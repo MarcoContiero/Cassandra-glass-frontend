@@ -81,6 +81,18 @@ async function handler(req: Request, ctx: Ctx) {
     );
   }
 
+  // Se non SSE e il backend ha risposto con non-JSON (es. HTML 500), wrappa in JSON
+  if (!isSSE) {
+    const ct = upstream.headers.get("content-type") ?? "";
+    if (!ct.includes("application/json") && !ct.includes("text/plain")) {
+      return new Response(
+        JSON.stringify({ ok: false, error: "backend_error", status: upstream.status }),
+        { status: upstream.status >= 400 ? upstream.status : 502,
+          headers: { "content-type": "application/json" } }
+      );
+    }
+  }
+
   const respHeaders = new Headers(upstream.headers);
 
   // no-cache forte (utile su Render / proxy vari)
