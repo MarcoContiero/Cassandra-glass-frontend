@@ -320,7 +320,7 @@ export default function CostellazioniPage() {
           if (periodNA) {
             setPeriodFilterAvailable(false);
             setStatsPeriod(0);
-          } else if (periodFilterAvailable === null) {
+          } else {
             setPeriodFilterAvailable(true);
           }
         }
