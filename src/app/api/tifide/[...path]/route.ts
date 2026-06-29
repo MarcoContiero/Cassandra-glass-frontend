@@ -63,15 +63,23 @@ async function handler(req: Request, ctx: Ctx) {
     if (!headers.get("accept")) headers.set("accept", "application/json");
   }
 
-  const upstream = await fetch(upstreamUrl, {
-    method: req.method,
-    headers,
-    body:
-      req.method === "GET" || req.method === "HEAD"
-        ? undefined
-        : await req.arrayBuffer(),
-    cache: "no-store",
-  });
+  let upstream: Response;
+  try {
+    upstream = await fetch(upstreamUrl, {
+      method: req.method,
+      headers,
+      body:
+        req.method === "GET" || req.method === "HEAD"
+          ? undefined
+          : await req.arrayBuffer(),
+      cache: "no-store",
+    });
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: "backend_unavailable", detail: String(err) }),
+      { status: 503, headers: { "content-type": "application/json" } }
+    );
+  }
 
   const respHeaders = new Headers(upstream.headers);
 
