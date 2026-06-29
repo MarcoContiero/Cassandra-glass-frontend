@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useEffect, useState, useMemo } from 'react';
+import { useUser } from '@clerk/nextjs';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -1101,6 +1102,9 @@ interface DnaPanelProps {
 }
 
 export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
+  const { user, isLoaded } = useUser();
+  const isOwner = isLoaded && user?.publicMetadata?.is_owner === true;
+
   const [cache,     setCache]    = useState<GenomeFull[]>([]);
   const [loading,   setLoading]  = useState(true);
   const [error,     setError]    = useState<string | null>(null);
@@ -1207,13 +1211,15 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
           )}
         </div>
         <div className="flex gap-1.5 flex-wrap items-center">
-          <button
-            onClick={triggerRebuild}
-            disabled={rebuilding}
-            className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
-          >
-            {rebuilding ? 'Avvio...' : 'Rebuild genome'}
-          </button>
+          {isOwner && (
+            <button
+              onClick={triggerRebuild}
+              disabled={rebuilding}
+              className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
+            >
+              {rebuilding ? 'Avvio...' : 'Rebuild genome'}
+            </button>
+          )}
           <button
             onClick={loadCache}
             disabled={loading}

@@ -599,7 +599,7 @@ export default function CostellazioniPage() {
                     transition: 'all 150ms',
                   }}
                 >
-                  {m === 0 ? 'Tutto' : `${m}m`}
+                  {m === 0 ? 'Tutto' : `${m}M`}
                 </button>
               ))}
             </div>
