@@ -24,54 +24,35 @@ function authHeaders() {
   return h;
 }
 
-// Hop-by-hop headers (da non inoltrare)
-function stripHopByHop(headers: Headers) {
-  headers.delete("host");
-  headers.delete("connection");
-  headers.delete("keep-alive");
-  headers.delete("proxy-authenticate");
-  headers.delete("proxy-authorization");
-  headers.delete("te");
-  headers.delete("trailer");
-  headers.delete("transfer-encoding");
-  headers.delete("upgrade");
-  headers.delete("content-length");
-  headers.delete("accept-encoding"); // evita gzip su stream
-}
-
 type Ctx = { params: Promise<{ path?: string[] }> };
 
 async function handler(req: Request, ctx: Ctx) {
-  const { path = [] } = await ctx.params;   // ✅ Next 15: params va awaited
+  const { path = [] } = await ctx.params;
   const isSSE = path[0] === "events";
 
   const url = new URL(req.url);
   const upstreamUrl = `${backendBase()}/api/tifide/${path.join("/")}${url.search}`;
 
-  const headers = new Headers(req.headers);
-  stripHopByHop(headers);
-
-  // Auth server-side verso BE
-  const ah = authHeaders();
-  for (const [k, v] of Object.entries(ah)) headers.set(k, v);
+  // Costruisci header di forwarding minimali
+  const fwdHeaders: Record<string, string> = { ...authHeaders() };
+  const xUserId = req.headers.get("x-user-id");
+  if (xUserId) fwdHeaders["x-user-id"] = xUserId;
+  const ct = req.headers.get("content-type");
+  if (ct) fwdHeaders["content-type"] = ct;
 
   if (isSSE) {
-    headers.set("accept", "text/event-stream");
-    headers.set("cache-control", "no-cache");
-    headers.set("connection", "keep-alive");
+    fwdHeaders["accept"] = "text/event-stream";
+    fwdHeaders["cache-control"] = "no-cache";
   } else {
-    if (!headers.get("accept")) headers.set("accept", "application/json");
+    fwdHeaders["accept"] = "application/json";
   }
 
   let upstream: Response;
   try {
     upstream = await fetch(upstreamUrl, {
       method: req.method,
-      headers,
-      body:
-        req.method === "GET" || req.method === "HEAD"
-          ? undefined
-          : await req.arrayBuffer(),
+      headers: fwdHeaders,
+      body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
       cache: "no-store",
     });
   } catch (err) {
@@ -81,33 +62,44 @@ async function handler(req: Request, ctx: Ctx) {
     );
   }
 
-  // Se non SSE e il backend ha risposto con non-JSON (es. HTML 500), wrappa in JSON
-  if (!isSSE) {
-    const ct = upstream.headers.get("content-type") ?? "";
-    if (!ct.includes("application/json") && !ct.includes("text/plain")) {
-      return new Response(
-        JSON.stringify({ ok: false, error: "backend_error", status: upstream.status }),
-        { status: upstream.status >= 400 ? upstream.status : 502,
-          headers: { "content-type": "application/json" } }
-      );
-    }
-  }
-
-  const respHeaders = new Headers(upstream.headers);
-
-  // no-cache forte (utile su Render / proxy vari)
-  respHeaders.set("cache-control", "no-store, no-cache, no-transform");
-  respHeaders.set("x-accel-buffering", "no");
-
+  // SSE: passa body come stream
   if (isSSE) {
-    respHeaders.set("content-type", "text/event-stream; charset=utf-8");
-    respHeaders.set("connection", "keep-alive");
-    respHeaders.delete("content-length");
+    return new Response(upstream.body, {
+      status: upstream.status,
+      headers: {
+        "content-type": "text/event-stream; charset=utf-8",
+        "cache-control": "no-store, no-cache",
+        "x-accel-buffering": "no",
+      },
+    });
   }
 
-  return new Response(upstream.body, {
+  // JSON: bufferizza per evitare problemi con transfer-encoding/content-length
+  let body: string;
+  try {
+    body = await upstream.text();
+  } catch (err) {
+    return new Response(
+      JSON.stringify({ ok: false, error: "body_read_error", detail: String(err) }),
+      { status: 502, headers: { "content-type": "application/json" } }
+    );
+  }
+
+  // Se il backend ha risposto con HTML (pagina di errore), wrappa in JSON
+  if (body.trimStart().startsWith("<")) {
+    return new Response(
+      JSON.stringify({ ok: false, error: "backend_error", status: upstream.status }),
+      { status: upstream.status >= 400 ? upstream.status : 502,
+        headers: { "content-type": "application/json" } }
+    );
+  }
+
+  return new Response(body, {
     status: upstream.status,
-    headers: respHeaders,
+    headers: {
+      "content-type": upstream.headers.get("content-type") || "application/json",
+      "cache-control": "no-store, no-cache",
+    },
   });
 }
 
