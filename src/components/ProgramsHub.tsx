@@ -268,8 +268,8 @@ export default function ProgramsHub() {
       <main
         style={
           isWide
-            ? { flex: 1, width: '100%', padding: '12px 8px' }
-            : { maxWidth: '1600px', margin: '0 auto', flex: 1, padding: '24px 20px', width: '100%' }
+            ? { position: 'relative', zIndex: 1, flex: 1, width: '100%', padding: '12px 8px' }
+            : { position: 'relative', zIndex: 1, maxWidth: '1600px', margin: '0 auto', flex: 1, padding: '24px 20px', width: '100%' }
         }
       >
         {content}
