@@ -91,6 +91,7 @@ const TIER_NAMES: Record<Tier, string> = {
 };
 
 const LS_KEY = 'cassandra_costellazioni_stelle';
+const LS_MIGRATED_KEY = 'cassandra_stelle_migrated';
 
 const SORT_OPTIONS = [
   { value: 'wr10',  label: 'WR 10b' },
@@ -153,16 +154,8 @@ function applyAdvFilters(rows: SummaryRow[], f: AdvFilters): SummaryRow[] {
 
 // ── Helpers ───────────────────────────────────────────────────────────────
 
-function loadStelle(): Stella[] {
-  try {
-    return JSON.parse(localStorage.getItem(LS_KEY) || '[]');
-  } catch {
-    return [];
-  }
-}
-
-function saveStelle(s: Stella[]) {
-  localStorage.setItem(LS_KEY, JSON.stringify(s));
+function loadStelleLocal(): Stella[] {
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '[]'); } catch { return []; }
 }
 
 function uid() { return Math.random().toString(36).slice(2, 10); }
@@ -250,7 +243,43 @@ export default function CostellazioniPage() {
   const tierTotal = getTierTotal(tier);
 
   const [stelle, setStelle] = useState<Stella[]>([]);
-  useEffect(() => { setStelle(loadStelle()); }, []);
+  const [stelleLoaded, setStelleLoaded] = useState(false);
+
+  // Carica stelle dal backend; migra da localStorage se necessario
+  useEffect(() => {
+    if (!clerkLoaded || !user?.id) return;
+    const userId = user.id;
+    (async () => {
+      try {
+        const res = await fetch('/api/tifide/stelle', { headers: { 'x-user-id': userId } });
+        const data = await res.json();
+        if (data.ok && Array.isArray(data.stelle)) {
+          if (data.stelle.length === 0 && !localStorage.getItem(LS_MIGRATED_KEY)) {
+            const local = loadStelleLocal();
+            if (local.length > 0) {
+              await Promise.all(local.map(s =>
+                fetch('/api/tifide/stelle', {
+                  method: 'POST',
+                  headers: { 'content-type': 'application/json', 'x-user-id': userId },
+                  body: JSON.stringify(s),
+                }).catch(() => {})
+              ));
+              setStelle(local);
+              localStorage.setItem(LS_MIGRATED_KEY, '1');
+              localStorage.removeItem(LS_KEY);
+            } else {
+              setStelle([]);
+            }
+          } else {
+            setStelle(data.stelle);
+          }
+        }
+      } catch {
+        setStelle(loadStelleLocal());
+      }
+      setStelleLoaded(true);
+    })();
+  }, [clerkLoaded, user?.id]);
 
   // Form nuova stella
   const [coin, setCoin] = useState('BTC');
@@ -461,24 +490,41 @@ export default function CostellazioniPage() {
     return stelle.some(s => sigCoin === s.coin);
   });
 
+  function apiPost(s: Stella) {
+    if (!user?.id) return;
+    fetch('/api/tifide/stelle', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json', 'x-user-id': user.id },
+      body: JSON.stringify(s),
+    }).catch(() => {});
+  }
+
+  function apiDelete(id: string) {
+    if (!user?.id) return;
+    fetch(`/api/tifide/stelle/${id}`, {
+      method: 'DELETE',
+      headers: { 'x-user-id': user.id },
+    }).catch(() => {});
+  }
+
   function addStella() {
     if (stelle.length >= tierTotal) return;
     const already = stelle.some(
       s => s.coin === coin && s.pattern === pattern && s.tf === tf && s.side === side,
     );
     if (already) return;
-    const next = [...stelle, { id: uid(), coin, pattern, tf, side, btcRegime, thirdToken }];
-    setStelle(next);
-    saveStelle(next);
+    const s = { id: uid(), coin, pattern, tf, side, btcRegime, thirdToken };
+    setStelle(prev => [...prev, s]);
+    apiPost(s);
   }
 
   function addStellaFromGrid(row: SummaryRow) {
     if (stelle.length >= tierTotal) return;
     const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side && s.btcRegime === '');
     if (already) return;
-    const next = [...stelle, { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: '', thirdToken: false }];
-    setStelle(next);
-    saveStelle(next);
+    const s = { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: '', thirdToken: false };
+    setStelle(prev => [...prev, s]);
+    apiPost(s);
   }
 
   function scoreToBtcRegime(score: number): '' | 'bull' | 'bear' {
@@ -492,15 +538,14 @@ export default function CostellazioniPage() {
     const targetRegime = scoreToBtcRegime(row.btc_score);
     const already = stelle.some(s => s.coin === row.coin && s.pattern === row.pattern && s.tf === row.tf && s.side === row.side && s.btcRegime === targetRegime);
     if (already) return;
-    const next = [...stelle, { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: targetRegime, thirdToken: false }];
-    setStelle(next);
-    saveStelle(next);
+    const s = { id: uid(), coin: row.coin, pattern: row.pattern, tf: row.tf, side: row.side, btcRegime: targetRegime, thirdToken: false };
+    setStelle(prev => [...prev, s]);
+    apiPost(s);
   }
 
   function removeStella(id: string) {
-    const next = stelle.filter(s => s.id !== id);
-    setStelle(next);
-    saveStelle(next);
+    setStelle(prev => prev.filter(s => s.id !== id));
+    apiDelete(id);
   }
 
   const canAdd = stelle.length < tierTotal;
