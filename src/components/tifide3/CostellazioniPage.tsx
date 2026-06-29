@@ -260,6 +260,7 @@ export default function CostellazioniPage() {
   const [btcRegime, setBtcRegime] = useState('');
   const [thirdToken, setThirdToken] = useState(false);
   const [statsPeriod, setStatsPeriod] = useState(0); // 0=tutto, 1/3/6/12/18/24 mesi
+  const [periodFilterAvailable, setPeriodFilterAvailable] = useState<boolean | null>(null);
 
   // Stats storiche
   const [stats, setStats] = useState<StatsResult | null>(null);
@@ -314,6 +315,14 @@ export default function CostellazioniPage() {
           setStatsError(false);
           setStatsErrMsg('');
           setStatsLoading(false);
+          // Rileva se il filtro periodo è disponibile
+          const periodNA = typeof data.note === 'string' && data.note.includes('filtro periodo n/d');
+          if (periodNA) {
+            setPeriodFilterAvailable(false);
+            setStatsPeriod(0);
+          } else if (periodFilterAvailable === null) {
+            setPeriodFilterAvailable(true);
+          }
         }
       } catch (err) {
         clearTimeout(timer);
@@ -584,24 +593,38 @@ export default function CostellazioniPage() {
 
           {/* Periodo storico */}
           <div>
-            <label style={labelSt}>Periodo</label>
+            <label style={labelSt}>
+              Periodo
+              {periodFilterAvailable === false && (
+                <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(201,168,76,0.45)', marginLeft: '6px' }}>
+                  (n/d)
+                </span>
+              )}
+            </label>
             <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap' }}>
-              {([0, 1, 3, 6, 12, 18, 24] as const).map(m => (
-                <button
-                  key={m}
-                  onClick={() => setStatsPeriod(m)}
-                  style={{
-                    fontFamily: 'var(--font-mono)', fontSize: '9px',
-                    padding: '3px 6px', cursor: 'pointer',
-                    border: `1px solid ${statsPeriod === m ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
-                    background: statsPeriod === m ? 'rgba(201,168,76,0.08)' : 'transparent',
-                    color: statsPeriod === m ? 'var(--color-gold)' : 'var(--color-text-dim)',
-                    transition: 'all 150ms',
-                  }}
-                >
-                  {m === 0 ? 'Tutto' : `${m}M`}
-                </button>
-              ))}
+              {([0, 1, 3, 6, 12, 18, 24] as const).map(m => {
+                const disabled = m !== 0 && periodFilterAvailable === false;
+                return (
+                  <button
+                    key={m}
+                    disabled={disabled}
+                    onClick={() => !disabled && setStatsPeriod(m)}
+                    title={disabled ? 'Filtro periodo non disponibile senza dataset storico completo' : undefined}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '9px',
+                      padding: '3px 6px',
+                      cursor: disabled ? 'not-allowed' : 'pointer',
+                      border: `1px solid ${statsPeriod === m ? 'var(--color-gold-dim)' : 'var(--color-border)'}`,
+                      background: statsPeriod === m ? 'rgba(201,168,76,0.08)' : 'transparent',
+                      color: disabled ? 'rgba(255,255,255,0.15)' : statsPeriod === m ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                      opacity: disabled ? 0.4 : 1,
+                      transition: 'all 150ms',
+                    }}
+                  >
+                    {m === 0 ? 'Tutto' : `${m}M`}
+                  </button>
+                );
+              })}
             </div>
           </div>
 
@@ -659,17 +682,9 @@ export default function CostellazioniPage() {
                   Campione ridotto (n={stats.n}) — i dati mostrati hanno scarsa significatività statistica.
                 </div>
               )}
-              {stats?.note && !statsLoading && (
-                <div style={{
-                  marginTop: '6px', fontSize: '9px', fontFamily: 'var(--font-mono)',
-                  color: stats.note.includes('filtro periodo n/d')
-                    ? 'rgba(201,168,76,0.75)'
-                    : 'rgba(201,168,76,0.45)',
-                  fontStyle: stats.note.includes('filtro periodo n/d') ? 'normal' : 'italic',
-                }}>
-                  {stats.note.includes('filtro periodo n/d')
-                    ? '⚠ filtro periodo non disponibile — mostro storico completo'
-                    : stats.note}
+              {stats?.note && !statsLoading && !stats.note.includes('filtro periodo n/d') && (
+                <div style={{ marginTop: '6px', fontSize: '9px', fontFamily: 'var(--font-mono)', color: 'rgba(201,168,76,0.45)', fontStyle: 'italic' }}>
+                  {stats.note}
                 </div>
               )}
               {!statsLoading && statsError && (
