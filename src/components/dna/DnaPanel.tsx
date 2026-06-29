@@ -372,7 +372,7 @@ interface BbDirection { n: number; n_doji: number; categories: BbCategory[] }
 interface BbStatsData { bull?: BbDirection; bear?: BbDirection }
 interface BbStatsResponse { ok: boolean; error?: string; data?: BbStatsData }
 
-const BB_TFS = ['1m', '3m', '5m'] as const;
+const BB_TFS = ['1m', '3m', '5m', '15m', '1h', '4h', '1d'] as const;
 type BbTf = typeof BB_TFS[number];
 
 function fmtPct(v: number | null | undefined): string {
