@@ -425,6 +425,31 @@ export async function GET(req: NextRequest) {
     return ea - eb;
   });
 
+  // Hook alert Agema — fire-and-forget, non blocca la risposta
+  void (async () => {
+    try {
+      for (let i = 0; i < rows.length; i++) {
+        const row = rows[i];
+        const dir = (row.direction || '').toUpperCase();
+        const direzione =
+          dir === 'LONG' ? 'rialzista' : dir === 'SHORT' ? 'ribassista' : 'neutrale';
+        await callBackend('/api/alerts/check', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            modulo: 'agema',
+            event: {
+              coin: row.coin,
+              score: row.score ?? 0,
+              posizione: i + 1,
+              direzione,
+            },
+          }),
+        });
+      }
+    } catch { /* ignore */ }
+  })();
+
   const payload: AgemaResponse = {
     updated_at: new Date().toISOString(),
     threshold: minScoreParam,

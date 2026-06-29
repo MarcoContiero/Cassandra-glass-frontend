@@ -5,6 +5,17 @@ import { useUser } from '@clerk/nextjs';
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
+interface AddCoinStatus {
+  running: boolean;
+  coin: string | null;
+  step: string | null;
+  steps_done: string[];
+  error: string | null;
+  started_at: string | null;
+  log: string[];
+  steps_total: string[];
+}
+
 interface DailyStatus {
   last_run: string | null;
   last_run_coins_ok: number | null;
@@ -73,13 +84,16 @@ function fmtDate(iso: string | null) {
 
 export default function AdminPage() {
   const { user, isLoaded } = useUser();
-  const [status, setStatus]         = useState<StatusResponse | null>(null);
-  const [gate, setGate]             = useState<GateMonitorResponse | null>(null);
-  const [gateLoading, setGateLoading] = useState(false);
-  const [runMsg, setRunMsg]         = useState('');
-  const [genomeMsg, setGenomeMsg]   = useState('');
-  const [importMsg, setImportMsg]   = useState('');
-  const [error, setError]           = useState('');
+  const [status, setStatus]             = useState<StatusResponse | null>(null);
+  const [gate, setGate]                 = useState<GateMonitorResponse | null>(null);
+  const [gateLoading, setGateLoading]   = useState(false);
+  const [runMsg, setRunMsg]             = useState('');
+  const [genomeMsg, setGenomeMsg]       = useState('');
+  const [importMsg, setImportMsg]       = useState('');
+  const [error, setError]               = useState('');
+  const [newCoin, setNewCoin]           = useState('');
+  const [addCoinStatus, setAddCoinStatus] = useState<AddCoinStatus | null>(null);
+  const [addCoinPolling, setAddCoinPolling] = useState(false);
 
   const loadStatus = useCallback(async () => {
     try {
@@ -129,6 +143,44 @@ export default function AdminPage() {
     const r = await fetch(`/api/tradedb/rebuild-genome?${params}`, { method: 'POST' });
     const data = await r.json();
     setGenomeMsg(data.msg ?? (data.ok ? 'Avviato' : `Errore ${r.status}`));
+  }
+
+  const pollAddCoin = useCallback(async () => {
+    try {
+      const r = await fetch('/api/admin/add-coin/status');
+      if (r.ok) {
+        const data = await r.json();
+        setAddCoinStatus(data);
+        if (!data.running) setAddCoinPolling(false);
+      }
+    } catch { /* ignore */ }
+  }, []);
+
+  useEffect(() => {
+    if (!addCoinPolling) return;
+    const iv = setInterval(pollAddCoin, 4000);
+    return () => clearInterval(iv);
+  }, [addCoinPolling, pollAddCoin]);
+
+  async function triggerAddCoin() {
+    const coin = newCoin.trim().toUpperCase();
+    if (!coin) return;
+    try {
+      const r = await fetch('/api/admin/add-coin', {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ coin }),
+      });
+      const data = await r.json();
+      if (data.ok) {
+        setAddCoinPolling(true);
+        await pollAddCoin();
+      } else {
+        setAddCoinStatus(prev => prev ? { ...prev, error: data.detail ?? 'Errore' } : null);
+      }
+    } catch (e) {
+      setAddCoinStatus(prev => prev ? { ...prev, error: String(e) } : null);
+    }
   }
 
   async function triggerImportNewCoins() {
@@ -225,6 +277,121 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Aggiungi Nuova Coin */}
+        <div className="cassandra-card cassandra-card-corners" style={{ padding: '28px', marginBottom: '32px' }}>
+          <span className="cassandra-panel-header">AGGIUNGI NUOVA COIN</span>
+          <div style={{ marginTop: '8px', marginBottom: '16px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)', lineHeight: 1.8 }}>
+            Download OHLCV 2y → backtest → import trade → genome update
+          </div>
+          <div style={{ marginBottom: '20px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-gold)', opacity: 0.7, lineHeight: 1.7, padding: '10px 14px', border: '1px solid rgba(201,168,76,0.2)', background: 'rgba(201,168,76,0.04)' }}>
+            Nota: le statistiche Tifide/Costellazioni non vengono aggiornate automaticamente — dopo l&apos;aggiunta della coin bisogna rieseguire export_period_summary.py localmente e caricare via upload-period-summary. Il download può durare 20-40 min per 2 anni di dati.
+          </div>
+
+          {/* Input + button */}
+          {!addCoinStatus?.running && (
+            <div style={{ display: 'flex', gap: '12px', alignItems: 'center', marginBottom: '16px' }}>
+              <input
+                value={newCoin}
+                onChange={e => setNewCoin(e.target.value.toUpperCase())}
+                onKeyDown={e => e.key === 'Enter' && triggerAddCoin()}
+                placeholder="Es. KPEPE"
+                maxLength={12}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '13px',
+                  background: 'var(--color-surface)', color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)', padding: '8px 14px',
+                  outline: 'none', width: '140px', letterSpacing: '0.05em', textTransform: 'uppercase',
+                }}
+              />
+              <button
+                onClick={triggerAddCoin}
+                disabled={!newCoin.trim()}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em',
+                  textTransform: 'uppercase', background: 'var(--color-cyan)',
+                  color: 'var(--color-void)', border: 'none', padding: '10px 20px',
+                  cursor: newCoin.trim() ? 'pointer' : 'default',
+                  opacity: newCoin.trim() ? 1 : 0.4, transition: 'background 200ms ease',
+                }}
+                onMouseEnter={e => { if (newCoin.trim()) e.currentTarget.style.background = 'var(--color-cyan-bright)'; }}
+                onMouseLeave={e => { e.currentTarget.style.background = 'var(--color-cyan)'; }}
+              >
+                Avvia pipeline
+              </button>
+            </div>
+          )}
+
+          {/* Progress */}
+          {addCoinStatus && (
+            <div style={{ marginTop: '12px' }}>
+              {/* Steps */}
+              <div style={{ display: 'flex', gap: '8px', flexWrap: 'wrap', marginBottom: '16px' }}>
+                {(addCoinStatus.steps_total ?? ['download_ohlcv', 'backtest', 'import_trades', 'genome']).map(step => {
+                  const done  = addCoinStatus.steps_done.includes(step);
+                  const active = addCoinStatus.step === step && addCoinStatus.running;
+                  const color  = done
+                    ? 'var(--color-long-bright)'
+                    : active
+                      ? 'var(--color-gold)'
+                      : 'var(--color-text-faint)';
+                  return (
+                    <div key={step} style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: color, display: 'inline-block', flexShrink: 0, animation: active ? 'cassandraPulse 1.6s ease-in-out infinite' : 'none' }} />
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em', textTransform: 'uppercase', color }}>{step.replace(/_/g, ' ')}</span>
+                    </div>
+                  );
+                })}
+                {addCoinStatus.step === 'done' && (
+                  <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-long-bright)', letterSpacing: '0.2em' }}>
+                    ✓ COMPLETATO{addCoinStatus.coin ? ` — ${addCoinStatus.coin}` : ''}
+                  </span>
+                )}
+              </div>
+
+              {/* Error */}
+              {addCoinStatus.error && (
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-short-bright)', padding: '10px 14px', border: '1px solid rgba(168,61,61,0.3)', marginBottom: '12px', whiteSpace: 'pre-wrap' }}>
+                  {addCoinStatus.error}
+                </div>
+              )}
+
+              {/* Log */}
+              {addCoinStatus.log.length > 0 && (
+                <div style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)',
+                  background: 'rgba(0,0,0,0.3)', border: '1px solid var(--color-border-dim)',
+                  padding: '12px', maxHeight: '200px', overflowY: 'auto',
+                  lineHeight: 1.7, whiteSpace: 'pre-wrap',
+                }}>
+                  {addCoinStatus.log.slice(-60).join('\n')}
+                </div>
+              )}
+
+              {/* Restart button if done or error */}
+              {!addCoinStatus.running && (addCoinStatus.step === 'done' || addCoinStatus.error) && (
+                <div style={{ marginTop: '12px', display: 'flex', gap: '12px', alignItems: 'center' }}>
+                  <input
+                    value={newCoin}
+                    onChange={e => setNewCoin(e.target.value.toUpperCase())}
+                    placeholder="Nuova coin..."
+                    maxLength={12}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '13px',
+                      background: 'var(--color-surface)', color: 'var(--color-text)',
+                      border: '1px solid var(--color-border)', padding: '8px 14px',
+                      outline: 'none', width: '140px', textTransform: 'uppercase',
+                    }}
+                  />
+                  <button onClick={triggerAddCoin} disabled={!newCoin.trim()}
+                    style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em', textTransform: 'uppercase', background: 'transparent', color: 'var(--color-cyan)', border: '1px solid var(--color-cyan)', padding: '8px 16px', cursor: 'pointer' }}>
+                    Avvia nuova
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Import Nuove Coin */}
