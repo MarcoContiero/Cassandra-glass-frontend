@@ -71,9 +71,14 @@ export default function ProgramsHub() {
   // Ottimistico: mentre Clerk carica teniamo il tab visibile per evitare il flash.
   // Solo dopo il caricamento completo filtriamo in base a tifide_access.
   const hasTifideAccess = !isLoaded || user?.publicMetadata?.tifide_access === true;
+  const hasOrione2Access = isLoaded && user?.primaryEmailAddress?.emailAddress === 'marcopd80@gmail.com';
   const visibleApps = useMemo(
-    () => APPS.filter(a => a.key !== 'tifide3' || hasTifideAccess),
-    [hasTifideAccess],
+    () => APPS.filter(a => {
+      if (a.key === 'tifide3') return hasTifideAccess;
+      if (a.key === 'orione2') return hasOrione2Access;
+      return true;
+    }),
+    [hasTifideAccess, hasOrione2Access],
   );
 
   const handleUnreadChange = useCallback((count: number) => {

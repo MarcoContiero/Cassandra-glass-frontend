@@ -72,12 +72,17 @@ function parseMd(md: string): React.ReactNode {
 
 function SteleDecor() {
   return (
-    <svg width="48" height="68" viewBox="0 0 48 68" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <path d="M6,18 C6,4 42,4 42,18 L42,64 L6,64 Z"
-        stroke="rgba(201,168,76,0.5)" strokeWidth="1.5" fill="rgba(201,168,76,0.04)" strokeLinejoin="round"/>
-      <line x1="12" y1="26" x2="36" y2="26" stroke="rgba(201,168,76,0.3)" strokeWidth="0.8"/>
-      <line x1="12" y1="28" x2="36" y2="28" stroke="rgba(201,168,76,0.15)" strokeWidth="0.5"/>
-      <line x1="12" y1="56" x2="36" y2="56" stroke="rgba(201,168,76,0.2)" strokeWidth="0.5"/>
+    <svg width="200" height="36" viewBox="0 0 200 36" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M8,2 L192,2 C197,2 198,8 196,18 C198,28 197,34 192,34 L8,34 C3,34 2,28 4,18 C2,8 3,2 8,2 Z"
+        stroke="rgba(201,168,76,0.45)" strokeWidth="1.2" fill="rgba(201,168,76,0.04)"/>
+      <line x1="10" y1="18" x2="190" y2="18" stroke="rgba(201,168,76,0.3)" strokeWidth="0.7"/>
+      <path d="M100,11 L105,18 L100,25 L95,18 Z" stroke="rgba(201,168,76,0.65)" strokeWidth="1" fill="rgba(201,168,76,0.12)"/>
+      <path d="M60,14 L63,18 L60,22 L57,18 Z" stroke="rgba(201,168,76,0.35)" strokeWidth="0.8" fill="none"/>
+      <path d="M140,14 L143,18 L140,22 L137,18 Z" stroke="rgba(201,168,76,0.35)" strokeWidth="0.8" fill="none"/>
+      <circle cx="30" cy="18" r="1.5" fill="rgba(201,168,76,0.3)"/>
+      <circle cx="170" cy="18" r="1.5" fill="rgba(201,168,76,0.3)"/>
+      <circle cx="18" cy="18" r="0.8" fill="rgba(201,168,76,0.2)"/>
+      <circle cx="182" cy="18" r="0.8" fill="rgba(201,168,76,0.2)"/>
     </svg>
   );
 }
@@ -149,12 +154,12 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
         </button>
 
         {/* Header stele */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: 16, marginBottom: 20 }}>
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 22 }}>
           <SteleDecor />
-          <div>
+          <div style={{ textAlign: 'center' }}>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.35em',
-              color: 'var(--color-text-dim)', textTransform: 'uppercase', marginBottom: 6,
+              color: 'var(--color-text-dim)', textTransform: 'uppercase', marginBottom: 8,
             }}>
               CONOSCI CASSANDRA
             </div>
