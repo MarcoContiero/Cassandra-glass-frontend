@@ -129,7 +129,9 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
       onClick={onBackdrop}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(2,2,14,0.18)',
+        background: 'rgba(2,2,14,0.52)',
+        backdropFilter: 'blur(3px)',
+        WebkitBackdropFilter: 'blur(3px)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
         padding: '72px 20px 40px',
         overflowY: 'auto',
