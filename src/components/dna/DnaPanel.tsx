@@ -749,7 +749,8 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
 
 // ── Genome Detail Modal ───────────────────────────────────────────────────────
 
-function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => void }) {
+function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose: () => void; months: number }) {
+  const periodLabel = months === 0 ? '2y' : `${months}M`;
   const hurst = genome.hurst_exp;
   const hurstInfo = hurst != null ? hurstLabel(hurst) : null;
 
@@ -775,7 +776,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
             }}>{genome.coin}</span>
             <span className="ml-3 uppercase tracking-widest"
               style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
-              genoma 2y
+              genoma {periodLabel}
             </span>
           </div>
           <button onClick={onClose}
@@ -808,7 +809,7 @@ function GenomeDetail({ genome, onClose }: { genome: GenomeFull; onClose: () => 
 
         {/* Nota metodologica WR/PF */}
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, lineHeight: 1.6, padding: '6px 10px', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
-          Win Rate e Profit Factor sono calcolati su un periodo di circa 2 anni con pattern e incroci EMA calibrati dai programmatori in base a dati statistici storici. Non rappresentano garanzie di risultati futuri.
+          Win Rate e Profit Factor sono calcolati su {months === 0 ? 'circa 2 anni di storico' : `gli ultimi ${months} ${months === 1 ? 'mese' : 'mesi'}`} con pattern e incroci EMA calibrati dai programmatori in base a dati statistici storici. Non rappresentano garanzie di risultati futuri.
         </div>
 
         {/* Market profile */}
@@ -1110,13 +1111,16 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
   const [error,     setError]    = useState<string | null>(null);
   const [selected,  setSelected] = useState<GenomeFull | null>(null);
   const [sort,      setSort]     = useState<SortKey>('win_rate');
+  const [months,    setMonths]   = useState<number>(0);
   const [rebuilding, setRebuilding] = useState(false);
   const [rebuildMsg, setRebuildMsg] = useState<string | null>(null);
 
-  function loadCache() {
+  function loadCache(m?: number) {
+    const mo = m ?? months;
     setLoading(true);
     setError(null);
-    fetch('/api/tradedb/genome-cache')
+    const url = mo > 0 ? `/api/tradedb/genome-cache?months=${mo}` : '/api/tradedb/genome-cache';
+    fetch(url)
       .then(async r => {
         if (!r.ok) {
           const txt = await r.text();
@@ -1128,7 +1132,13 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
       .catch(e => { setError(String(e)); setLoading(false); });
   }
 
-  useEffect(() => { loadCache(); }, []);
+  useEffect(() => { loadCache(0); }, []);
+
+  function changeMonths(m: number) {
+    setMonths(m);
+    setSelected(null);
+    loadCache(m);
+  }
 
   useEffect(() => {
     if (!onPiziaContext) return;
@@ -1160,6 +1170,21 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
       const j = await r.json();
       if (!r.ok) throw new Error(j.detail ?? `HTTP ${r.status}`);
       setRebuildMsg(`Rebuild avviato (PID ${j.pid}) — ricarica tra qualche minuto`);
+    } catch (e: any) {
+      setRebuildMsg(`Errore: ${e?.message ?? String(e)}`);
+    } finally {
+      setRebuilding(false);
+    }
+  }
+
+  async function triggerRebuildPeriods() {
+    setRebuilding(true);
+    setRebuildMsg(null);
+    try {
+      const r = await fetch('/api/tradedb/rebuild-genome-periods', { method: 'POST' });
+      const j = await r.json();
+      if (!r.ok) throw new Error(j.detail ?? `HTTP ${r.status}`);
+      setRebuildMsg(`Period summary avviato (PID ${j.pid}) — 2-5 min`);
     } catch (e: any) {
       setRebuildMsg(`Errore: ${e?.message ?? String(e)}`);
     } finally {
@@ -1202,7 +1227,7 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
           }}>DNA Coin</h2>
           <p className="mt-0.5 uppercase tracking-[0.3em]"
             style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>
-            Genoma 2y — {cache.length} coin · backtest storico
+            {months === 0 ? 'Genoma 2y' : `Genoma ${months}M`} — {cache.length} coin · backtest storico
           </p>
           {rebuildMsg && (
             <p className="mt-1" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-cyan)' }}>
@@ -1211,19 +1236,41 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
           )}
         </div>
         <div className="flex gap-1.5 flex-wrap items-center">
+          {/* Period filter */}
+          {([0, 1, 3, 6, 12, 18, 24] as const).map(m => (
+            <button key={m} onClick={() => changeMonths(m)}
+              className="font-mono text-[10px] tracking-[0.15em] uppercase rounded-none transition-all px-2 py-1"
+              style={{
+                background: months === m ? 'rgba(201,168,76,0.10)' : 'transparent',
+                border: months === m ? '1px solid var(--color-gold-dim)' : '1px solid var(--color-border-dim)',
+                color: months === m ? 'var(--color-gold)' : 'var(--color-text-dim)',
+              }}>
+              {m === 0 ? 'ALL' : `${m}M`}
+            </button>
+          ))}
+          <div style={{ width: 1, height: 18, background: 'var(--color-border-dim)', margin: '0 2px' }} />
           {isOwner && (
             <button
               onClick={triggerRebuild}
               disabled={rebuilding}
-              className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
+              className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-3 py-1.5 disabled:opacity-40"
             >
-              {rebuilding ? 'Avvio...' : 'Rebuild genome'}
+              {rebuilding ? 'Avvio...' : 'Rebuild'}
+            </button>
+          )}
+          {isOwner && (
+            <button
+              onClick={triggerRebuildPeriods}
+              disabled={rebuilding}
+              className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-3 py-1.5 disabled:opacity-40"
+            >
+              {rebuilding ? 'Avvio...' : 'Rebuild periodi'}
             </button>
           )}
           <button
-            onClick={loadCache}
+            onClick={() => loadCache()}
             disabled={loading}
-            className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-4 py-1.5 disabled:opacity-40"
+            className="bg-transparent border border-[var(--color-border)] text-[var(--color-text-dim)] font-mono text-[10px] tracking-[0.25em] uppercase rounded-none hover:text-[var(--color-gold)] hover:border-[var(--color-gold-dim)] transition-all px-3 py-1.5 disabled:opacity-40"
           >
             {loading ? '...' : 'Ricarica'}
           </button>
@@ -1264,7 +1311,7 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
         </div>
       )}
 
-      {selected && <GenomeDetail genome={selected} onClose={() => setSelected(null)} />}
+      {selected && <GenomeDetail genome={selected} onClose={() => setSelected(null)} months={months} />}
     </div>
   );
 }
