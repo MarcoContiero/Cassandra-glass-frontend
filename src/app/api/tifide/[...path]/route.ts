@@ -37,6 +37,8 @@ async function handler(req: Request, ctx: Ctx) {
   const fwdHeaders: Record<string, string> = { ...authHeaders() };
   const xUserId = req.headers.get("x-user-id");
   if (xUserId) fwdHeaders["x-user-id"] = xUserId;
+  const xUserTier = req.headers.get("x-user-tier");
+  if (xUserTier) fwdHeaders["x-user-tier"] = xUserTier;
   const ct = req.headers.get("content-type");
   if (ct) fwdHeaders["content-type"] = ct;
 

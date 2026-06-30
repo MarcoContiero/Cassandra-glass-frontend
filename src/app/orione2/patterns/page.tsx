@@ -42,41 +42,11 @@ const ACTIVE_SCENARIO_TOKENS = new Set<string>([
   "THREE_BLACK_CROWS_CONFIRMED",
 ]);
 
-const ACTIVE_TIFIDE_COINS = new Set<string>([
-  "BTC",
-  "SOL",
-  "ETH",
-  "DOGE",
-  "ADA",
-  "LTC",
-  "XRP",
-
-  "HYPE",
-  "WIF",
-  "PUMPFUN",
-  "FARTCOIN",
-  "OP",
-  "LINK",
-  "AVAX",
-  "APT",
-  "ARB",
-  "AAVE",
-  "ATOM",
-  "CRV",
-
-  "TAO",
-  "UNI",
-  "PEPE",
-  "SUI",
-  "SEI",
-  "TON",
-  "INJ",
-  "NEAR",
-  "LDO",
-
-  "JUP",
-  "ENA",
-  "ONDO",
+const _DEFAULT_TIFIDE_COINS = new Set<string>([
+  "BTC","SOL","ETH","DOGE","ADA","LTC","XRP",
+  "HYPE","WIF","PUMPFUN","FARTCOIN","OP","LINK","AVAX","APT","ARB","AAVE","ATOM","CRV",
+  "TAO","UNI","PEPE","SUI","SEI","TON","INJ","NEAR","LDO",
+  "JUP","ENA","ONDO","ZEC","WLD","XLM","RENDER","AERO","SKY",
 ]);
 
 function isScenarioToken(token?: string | null) {
@@ -91,9 +61,9 @@ function isScenarioToken(token?: string | null) {
   return ACTIVE_SCENARIO_TOKENS.has(base);
 }
 
-function isActiveCoin(coin?: string | null) {
+function isActiveCoin(coin?: string | null, activeCoinSet?: Set<string>) {
   const c = String(coin || "").trim().toUpperCase();
-  return ACTIVE_TIFIDE_COINS.has(c);
+  return (activeCoinSet ?? _DEFAULT_TIFIDE_COINS).has(c);
 }
 type Orione2Item = {
   ts_ms: number;
@@ -130,6 +100,14 @@ export default function Orione2Page() {
   const [data, setData] = useState<Orione2RecentPatternsResp | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
+  const [activeCoinSet, setActiveCoinSet] = useState<Set<string>>(_DEFAULT_TIFIDE_COINS);
+
+  useEffect(() => {
+    fetch('/api/config/coins')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.coins?.length) setActiveCoinSet(new Set<string>(d.coins)); })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let alive = true;
@@ -168,7 +146,7 @@ export default function Orione2Page() {
     let emaCrossHits = 0;
 
     for (const [coin, block] of Object.entries(coins)) {
-      if (!isActiveCoin(coin)) continue;
+      if (!isActiveCoin(coin, activeCoinSet)) continue;
 
       const items = Array.isArray(block?.items) ? block.items : [];
       for (const it of items) {
@@ -189,14 +167,14 @@ export default function Orione2Page() {
       allowedHits,
       emaCrossHits,
     };
-  }, [data]);
+  }, [data, activeCoinSet]);
 
   const tokenSamples = useMemo(() => {
     const coins = data?.coins || {};
     const samples: string[] = [];
 
     for (const [coin, block] of Object.entries(coins)) {
-      if (!isActiveCoin(coin)) continue;
+      if (!isActiveCoin(coin, activeCoinSet)) continue;
       const items = Array.isArray(block?.items) ? block.items : [];
       for (const it of items) {
         const tok = String(it?.token || "").trim();
@@ -209,7 +187,7 @@ export default function Orione2Page() {
     }
 
     return samples;
-  }, [data]);
+  }, [data, activeCoinSet]);
 
   const rows = useMemo(() => {
     const coins = data?.coins || {};
@@ -217,7 +195,7 @@ export default function Orione2Page() {
 
     for (const [coin, block] of Object.entries(coins)) {
       const coinUp = String(coin || "").toUpperCase();
-      if (!isActiveCoin(coinUp)) continue;
+      if (!isActiveCoin(coinUp, activeCoinSet)) continue;
 
       const items = Array.isArray(block?.items) ? block.items : [];
       if (!items.length) continue;
@@ -238,7 +216,7 @@ export default function Orione2Page() {
     // righe coin ordinate per "ultimo hit" più recente
     out.sort((a, b) => (b.latestTs || 0) - (a.latestTs || 0));
     return out;
-  }, [data]);
+  }, [data, activeCoinSet]);
 
   return (
     <div style={{ padding: 18 }}>

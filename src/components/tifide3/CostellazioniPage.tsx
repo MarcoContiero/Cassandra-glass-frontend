@@ -53,11 +53,11 @@ type SummaryRow = {
 
 // ── Costanti ──────────────────────────────────────────────────────────────
 
-const COINS = [
+const COINS_DEFAULT = [
   'BTC','SOL','ETH','DOGE','ADA','LTC','XRP','HYPE','WIF','OP',
   'LINK','AVAX','APT','ARB','AAVE','ATOM','CRV','TAO','UNI','PEPE',
   'SUI','SEI','TON','INJ','NEAR','LDO','JUP','ENA','ONDO','ZEC','WLD',
-  'FARTCOIN','XLM','RENDER','AERO','SKY',
+  'FARTCOIN','PUMPFUN','XLM','RENDER','AERO','SKY',
 ];
 
 const PATTERNS = [
@@ -242,6 +242,14 @@ export default function CostellazioniPage() {
 
   const tierTotal = getTierTotal(tier);
 
+  const [coins, setCoins] = useState<string[]>(COINS_DEFAULT);
+  useEffect(() => {
+    fetch('/api/config/coins')
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (d?.coins?.length) setCoins(d.coins); })
+      .catch(() => {});
+  }, []);
+
   const [stelle, setStelle] = useState<Stella[]>([]);
   const [stelleLoaded, setStelleLoaded] = useState(false);
 
@@ -251,7 +259,7 @@ export default function CostellazioniPage() {
     const userId = user.id;
     (async () => {
       try {
-        const res = await fetch('/api/tifide/stelle', { headers: { 'x-user-id': userId } });
+        const res = await fetch('/api/tifide/stelle', { headers: { 'x-user-id': userId, 'x-user-tier': tier } });
         const data = await res.json();
         if (data.ok && Array.isArray(data.stelle)) {
           if (data.stelle.length === 0 && !localStorage.getItem(LS_MIGRATED_KEY)) {
@@ -260,7 +268,7 @@ export default function CostellazioniPage() {
               await Promise.all(local.map(s =>
                 fetch('/api/tifide/stelle', {
                   method: 'POST',
-                  headers: { 'content-type': 'application/json', 'x-user-id': userId },
+                  headers: { 'content-type': 'application/json', 'x-user-id': userId, 'x-user-tier': tier },
                   body: JSON.stringify(s),
                 }).catch(() => {})
               ));
@@ -571,7 +579,7 @@ export default function CostellazioniPage() {
             <div>
               <label style={labelSt}>Coin</label>
               <select value={coin} onChange={e => setCoin(e.target.value)} style={inputSt}>
-                {COINS.map(c => <option key={c} value={c}>{c}</option>)}
+                {coins.map((c: string) => <option key={c} value={c}>{c}</option>)}
               </select>
             </div>
             <div>
@@ -984,7 +992,7 @@ export default function CostellazioniPage() {
                   {/* Coin */}
                   <div style={{ display: 'flex', gap: '3px', flexWrap: 'wrap', alignItems: 'center' }}>
                     <span style={{ ...labelSt, marginBottom: 0, width: '40px', flexShrink: 0 }}>Coin</span>
-                    {COINS.map(c => (
+                    {coins.map((c: string) => (
                       <button key={c} onClick={() => toggleCat('coins', c)} style={chipSt(advFilters.coins.includes(c))}>
                         {c}
                       </button>
