@@ -32,6 +32,8 @@ import { mockCiclica } from "@/lib/ciclica/mockCiclica";
 import { buildPiziaContextText } from "@/lib/buildPiziaContext";
 
 
+import HelpButton from './help/HelpButton';
+
 // UI
 import { Button } from '@/components/ui/button';
 
@@ -830,13 +832,20 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
                 {/* Pulsing dot onboarding indicator */}
                 {isOnboardingTarget && (
                   <span style={{
-                    position: 'absolute', top: '8px', right: '8px',
+                    position: 'absolute', top: '8px', right: '36px',
                     width: '7px', height: '7px', borderRadius: '50%',
                     background: 'var(--color-gold)',
                     boxShadow: '0 0 8px rgba(201,168,76,0.8)',
                     animation: 'cassandraPulse 1.5s ease-in-out infinite',
                   }} />
                 )}
+                {/* Help button */}
+                <span
+                  style={{ position: 'absolute', top: 6, right: 6 }}
+                  onClick={e => e.stopPropagation()}
+                >
+                  <HelpButton helpKey={`cassandra/${key}`} label={label} variant="section" />
+                </span>
                 <span
                   className="text-base leading-none"
                   style={{ color: 'var(--color-gold-dim)' }}

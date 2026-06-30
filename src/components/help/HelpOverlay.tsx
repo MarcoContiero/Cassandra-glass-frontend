@@ -2,15 +2,12 @@
 
 import React, { useEffect, useState, useCallback } from 'react';
 
-// colori fissi light-on-dark — il pannello è sempre scuro indipendentemente dal tema
-const C = {
-  gold:     'rgb(201,168,76)',
-  goldDim:  'rgba(201,168,76,0.55)',
-  text:     'rgba(230,220,195,0.92)',
-  textDim:  'rgba(200,188,158,0.72)',
-  textFaint:'rgba(180,168,130,0.35)',
-  border:   'rgba(201,168,76,0.15)',
-};
+const SHADOW = '0 2px 18px rgba(2,2,14,0.95), 0 0 40px rgba(2,2,14,0.8)';
+const GOLD   = 'rgb(201,168,76)';
+const GOLDDIM= 'rgba(201,168,76,0.6)';
+const TEXT   = 'rgba(230,220,195,0.92)';
+const TEXTDIM= 'rgba(200,188,158,0.78)';
+const FAINT  = 'rgba(200,188,158,0.35)';
 
 // ── Markdown renderer minimale ────────────────────────────────────────────────
 
@@ -18,9 +15,9 @@ function inlineFmt(text: string): React.ReactNode {
   const parts = text.split(/(\*\*[^*]+\*\*|\*[^*]+\*)/g);
   return parts.map((p, i) => {
     if (p.startsWith('**') && p.endsWith('**'))
-      return <strong key={i} style={{ color: C.text, fontWeight: 600 }}>{p.slice(2, -2)}</strong>;
+      return <strong key={i} style={{ color: TEXT, fontWeight: 600, textShadow: SHADOW }}>{p.slice(2, -2)}</strong>;
     if (p.startsWith('*') && p.endsWith('*'))
-      return <em key={i} style={{ color: C.goldDim }}>{p.slice(1, -1)}</em>;
+      return <em key={i} style={{ color: GOLDDIM, textShadow: SHADOW }}>{p.slice(1, -1)}</em>;
     return p;
   });
 }
@@ -36,15 +33,15 @@ function parseMd(md: string): React.ReactNode {
     if (line.startsWith('# ')) {
       out.push(
         <h2 key={i} style={{ fontFamily: 'var(--font-decorative)', fontSize: 20, fontWeight: 300,
-          color: C.gold, margin: '16px 0 6px' }}>
+          color: GOLD, margin: '16px 0 6px', textShadow: SHADOW }}>
           {line.slice(2)}
         </h2>
       );
     } else if (line.startsWith('## ')) {
       out.push(
         <h3 key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
-          color: C.goldDim, letterSpacing: '0.2em', textTransform: 'uppercase',
-          margin: '14px 0 4px' }}>
+          color: GOLDDIM, letterSpacing: '0.2em', textTransform: 'uppercase',
+          margin: '14px 0 4px', textShadow: SHADOW }}>
           {line.slice(3)}
         </h3>
       );
@@ -58,7 +55,7 @@ function parseMd(md: string): React.ReactNode {
         <ul key={`ul-${i}`} style={{ margin: '6px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {items.map((item, j) => (
             <li key={j} style={{ fontFamily: 'var(--font-mono)', fontSize: 12,
-              color: C.textDim, lineHeight: 1.6 }}>
+              color: TEXTDIM, lineHeight: 1.6, textShadow: SHADOW }}>
               {inlineFmt(item)}
             </li>
           ))}
@@ -68,7 +65,7 @@ function parseMd(md: string): React.ReactNode {
     } else if (line.trim() !== '') {
       out.push(
         <p key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 12,
-          color: C.textDim, lineHeight: 1.7, margin: '6px 0' }}>
+          color: TEXTDIM, lineHeight: 1.7, margin: '6px 0', textShadow: SHADOW }}>
           {inlineFmt(line)}
         </p>
       );
@@ -78,17 +75,17 @@ function parseMd(md: string): React.ReactNode {
   return <>{out}</>;
 }
 
-// ── Stele decorativa (header overlay) ────────────────────────────────────────
+// ── Stele decorativa ──────────────────────────────────────────────────────────
 
 function SteleDecor() {
   return (
     <svg width="200" height="36" viewBox="0 0 200 36" fill="none" xmlns="http://www.w3.org/2000/svg">
       <path d="M8,2 L192,2 C197,2 198,8 196,18 C198,28 197,34 192,34 L8,34 C3,34 2,28 4,18 C2,8 3,2 8,2 Z"
-        stroke="rgba(201,168,76,0.45)" strokeWidth="1.2" fill="rgba(201,168,76,0.04)"/>
-      <line x1="10" y1="18" x2="190" y2="18" stroke="rgba(201,168,76,0.3)" strokeWidth="0.7"/>
-      <path d="M100,11 L105,18 L100,25 L95,18 Z" stroke="rgba(201,168,76,0.65)" strokeWidth="1" fill="rgba(201,168,76,0.12)"/>
-      <path d="M60,14 L63,18 L60,22 L57,18 Z" stroke="rgba(201,168,76,0.35)" strokeWidth="0.8" fill="none"/>
-      <path d="M140,14 L143,18 L140,22 L137,18 Z" stroke="rgba(201,168,76,0.35)" strokeWidth="0.8" fill="none"/>
+        stroke="rgba(201,168,76,0.55)" strokeWidth="1.2" fill="rgba(201,168,76,0.03)"/>
+      <line x1="10" y1="18" x2="190" y2="18" stroke="rgba(201,168,76,0.35)" strokeWidth="0.7"/>
+      <path d="M100,11 L105,18 L100,25 L95,18 Z" stroke="rgba(201,168,76,0.7)" strokeWidth="1" fill="rgba(201,168,76,0.12)"/>
+      <path d="M60,14 L63,18 L60,22 L57,18 Z" stroke="rgba(201,168,76,0.38)" strokeWidth="0.8" fill="none"/>
+      <path d="M140,14 L143,18 L140,22 L137,18 Z" stroke="rgba(201,168,76,0.38)" strokeWidth="0.8" fill="none"/>
       <circle cx="30" cy="18" r="1.5" fill="rgba(201,168,76,0.3)"/>
       <circle cx="170" cy="18" r="1.5" fill="rgba(201,168,76,0.3)"/>
       <circle cx="18" cy="18" r="0.8" fill="rgba(201,168,76,0.2)"/>
@@ -134,49 +131,46 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
         position: 'fixed', inset: 0, zIndex: 9000,
         background: 'rgba(2,2,14,0.18)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '60px 20px 40px',
+        padding: '72px 20px 40px',
         overflowY: 'auto',
       }}
     >
+      {/* Nessun riquadro — contenuto galleggiante con text-shadow */}
       <div
-        style={{
-          width: '100%', maxWidth: 520,
-          background: 'rgba(5,5,22,0.78)',
-          backdropFilter: 'blur(28px) saturate(160%)',
-          WebkitBackdropFilter: 'blur(28px) saturate(160%)',
-          border: '1px solid rgba(201,168,76,0.22)',
-          boxShadow: '0 8px 60px rgba(0,0,0,0.35), 0 0 0 1px rgba(201,168,76,0.06) inset',
-          padding: '32px 28px 28px',
-          position: 'relative',
-        }}
+        style={{ width: '100%', maxWidth: 520, position: 'relative' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Chiudi */}
         <button
           onClick={onClose}
           style={{
-            position: 'absolute', top: 14, right: 16,
+            position: 'absolute', top: -44, right: 0,
             background: 'transparent', border: 'none', cursor: 'pointer',
             fontFamily: 'var(--font-mono)', fontSize: 16,
-            color: C.textDim, lineHeight: 1,
+            color: GOLDDIM, lineHeight: 1,
+            textShadow: SHADOW,
           }}
         >
           ✕
         </button>
 
         {/* Header stele */}
-        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 22 }}>
-          <SteleDecor />
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 14, marginBottom: 24 }}>
+          <div style={{ filter: 'drop-shadow(0 0 12px rgba(2,2,14,0.9))' }}>
+            <SteleDecor />
+          </div>
           <div style={{ textAlign: 'center' }}>
             <div style={{
               fontFamily: 'var(--font-mono)', fontSize: 9, letterSpacing: '0.35em',
-              color: C.textFaint, textTransform: 'uppercase', marginBottom: 8,
+              color: FAINT, textTransform: 'uppercase', marginBottom: 8,
+              textShadow: SHADOW,
             }}>
               CONOSCI CASSANDRA
             </div>
             <div style={{
-              fontFamily: 'var(--font-decorative)', fontSize: 22, fontWeight: 300,
-              color: C.gold, lineHeight: 1,
+              fontFamily: 'var(--font-decorative)', fontSize: 26, fontWeight: 300,
+              color: GOLD, lineHeight: 1,
+              textShadow: SHADOW,
             }}>
               {label || helpKey}
             </div>
@@ -184,26 +178,31 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
         </div>
 
         {/* Separatore */}
-        <div style={{ height: 1, background: C.border, marginBottom: 20 }} />
+        <div style={{
+          height: 1,
+          background: 'rgba(201,168,76,0.25)',
+          marginBottom: 20,
+          boxShadow: '0 0 8px rgba(2,2,14,0.8)',
+        }} />
 
         {/* Contenuto */}
         {loading ? (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: C.textDim,
-            textAlign: 'center', padding: '20px 0' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: TEXTDIM,
+            textAlign: 'center', padding: '20px 0', textShadow: SHADOW }}>
             ...
           </div>
         ) : !contentMd ? (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: C.textDim,
-            fontStyle: 'italic', padding: '8px 0' }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: TEXTDIM,
+            fontStyle: 'italic', padding: '8px 0', textShadow: SHADOW }}>
             Contenuto non ancora disponibile.
           </div>
         ) : (
           <div>{parseMd(contentMd)}</div>
         )}
 
-        {/* Key (debug per admin) */}
+        {/* Key debug */}
         <div style={{ marginTop: 24, fontFamily: 'var(--font-mono)', fontSize: 9,
-          color: C.textFaint }}>
+          color: FAINT, textShadow: SHADOW }}>
           {helpKey}
         </div>
       </div>
