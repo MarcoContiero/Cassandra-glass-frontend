@@ -2,6 +2,7 @@
 
 import React, { useEffect, useState, useMemo } from 'react';
 import { useUser } from '@clerk/nextjs';
+import HelpButton from '@/components/help/HelpButton';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -344,10 +345,15 @@ function InfoRow({ label, value, cls }: { label: string; value: string; cls?: st
   );
 }
 
-function Section({ title, children }: { title: string; children: React.ReactNode }) {
+function Section({ title, children, helpKey }: { title: string; children: React.ReactNode; helpKey?: string }) {
   return (
     <div className="cassandra-card p-3">
-      {title && <span className="section-tag mb-2">{title}</span>}
+      {title && (
+        <div className="flex items-center justify-between mb-2">
+          <span className="section-tag">{title}</span>
+          {helpKey && <HelpButton helpKey={helpKey} label={title} variant="section" />}
+        </div>
+      )}
       {children}
     </div>
   );
@@ -843,7 +849,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
 
         {/* Volatility + Nervosismo */}
         <div className="grid grid-cols-2 gap-3">
-          <Section title="Volatilita">
+          <Section title="Volatilita" helpKey="dna/volatility">
             {genome.volatility && Object.keys(genome.volatility).length > 0 ? (
               <div className="space-y-0.5">
                 <InfoRow label="avg 1m"  value={`${genome.volatility.avg_range_pct_1m?.toFixed(3)}%`} />
@@ -855,7 +861,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
             ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
 
-          <Section title="Nervosismo">
+          <Section title="Nervosismo" helpKey="dna/nervousness">
             {genome.nervousness && Object.keys(genome.nervousness).length > 0 ? (
               <div className="space-y-0.5">
                 <InfoRow label="spike rate 1m"
@@ -895,7 +901,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
 
         {/* BTC + ETH correlation */}
         <div className="grid grid-cols-2 gap-3">
-          <Section title="BTC Correlazione">
+          <Section title="BTC Correlazione" helpKey="dna/correlation">
             {genome.btc_correlation && genome.btc_correlation.corr_1m != null ? (
               <div className="space-y-0.5">
                 <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
@@ -942,7 +948,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
             ) : <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text-dim)' }}>—</span>}
           </Section>
 
-          <Section title="ETH Correlazione">
+          <Section title="ETH Correlazione" helpKey="dna/correlation">
             {genome.eth_correlation && genome.eth_correlation.corr_1m != null ? (
               <div className="space-y-0.5">
                 <div className="flex justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 14 }}>
@@ -967,7 +973,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
 
         {/* Session profile */}
         {genome.session_profile && Object.keys(genome.session_profile).length > 0 && (
-          <Section title="Sessioni di trading">
+          <Section title="Sessioni di trading" helpKey="dna/session">
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
               {([
                 { key: 'asia',    label: 'Asia',    sub: '0-8h UTC',   color: 'var(--color-cyan)' },
@@ -1019,7 +1025,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
 
         {/* Side profile */}
         {genome.side_profile && Object.keys(genome.side_profile).length > 0 && (
-          <Section title="Side Profile">
+          <Section title="Side Profile" helpKey="dna/side">
             <SideBar profile={genome.side_profile} />
           </Section>
         )}
@@ -1033,7 +1039,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
 
         {/* Scenario table */}
         {genome.scenario_profile && Object.keys(genome.scenario_profile).length > 0 && (
-          <Section title="Scenari">
+          <Section title="Scenari" helpKey="dna/scenario">
             <ScenarioTable profile={genome.scenario_profile} />
           </Section>
         )}

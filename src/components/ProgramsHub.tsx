@@ -15,6 +15,7 @@ import PiziaCompanion from './pizia/PiziaCompanion';
 import AvvisiPanel from './avvisi/AvvisiPanel';
 import CostellazioniPage from './tifide3/CostellazioniPage';
 import SegnalaProblema from './SegnalaProblema';
+import HelpButton from './help/HelpButton';
 import { posthog } from '@/lib/posthog';
 
 type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni';
@@ -236,6 +237,7 @@ export default function ProgramsHub() {
               borderLeft: '1px solid rgba(2,2,14,0.15)',
             }}
           >
+            <HelpButton helpKey={activeApp} label={APPS.find(a => a.key === activeApp)?.label} variant="page" />
             <SegnalaProblema />
             <ThemeToggle />
             <span

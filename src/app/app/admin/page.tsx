@@ -95,6 +95,13 @@ export default function AdminPage() {
   const [addCoinStatus, setAddCoinStatus] = useState<AddCoinStatus | null>(null);
   const [addCoinPolling, setAddCoinPolling] = useState(false);
 
+  // Help content editor
+  const [helpKeys, setHelpKeys]         = useState<{ key: string; chars: number; updated_at: string }[]>([]);
+  const [helpKey, setHelpKey]           = useState('');
+  const [helpContent, setHelpContent]   = useState('');
+  const [helpSaving, setHelpSaving]     = useState(false);
+  const [helpMsg, setHelpMsg]           = useState('');
+
   const loadStatus = useCallback(async () => {
     try {
       const r = await fetch('/api/admin/status');
@@ -144,6 +151,44 @@ export default function AdminPage() {
     const data = await r.json();
     setGenomeMsg(data.msg ?? (data.ok ? 'Avviato' : `Errore ${r.status}`));
   }
+
+  // ── Help content ────────────────────────────────────────────────────────────
+
+  const loadHelpKeys = useCallback(async () => {
+    try {
+      const r = await fetch('/api/help/_keys');
+      if (r.ok) { const d = await r.json(); setHelpKeys(d.keys ?? []); }
+    } catch { /* ignore */ }
+  }, []);
+
+  async function loadHelpContent(key: string) {
+    setHelpKey(key);
+    setHelpContent('');
+    setHelpMsg('');
+    try {
+      const r = await fetch(`/api/help/${key}`, { cache: 'no-store' });
+      if (r.ok) { const d = await r.json(); setHelpContent(d.content_md ?? ''); }
+    } catch { /* ignore */ }
+  }
+
+  async function saveHelpContent() {
+    if (!helpKey.trim()) return;
+    setHelpSaving(true);
+    setHelpMsg('');
+    try {
+      const r = await fetch(`/api/help/${helpKey}`, {
+        method: 'PUT',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ content_md: helpContent }),
+      });
+      const d = await r.json();
+      if (d.ok) { setHelpMsg(`Salvato · ${d.updated_at}`); loadHelpKeys(); }
+      else setHelpMsg(`Errore ${r.status}`);
+    } catch (e) { setHelpMsg(String(e)); }
+    finally { setHelpSaving(false); }
+  }
+
+  useEffect(() => { loadHelpKeys(); }, [loadHelpKeys]);
 
   const pollAddCoin = useCallback(async () => {
     try {
@@ -430,6 +475,85 @@ export default function AdminPage() {
             {genomeMsg && (
               <span style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>{genomeMsg}</span>
             )}
+          </div>
+        </div>
+
+        {/* Help Content Editor */}
+        <div className="cassandra-card cassandra-card-corners" style={{ padding: '28px', marginBottom: '32px' }}>
+          <span className="cassandra-panel-header">CONOSCI CASSANDRA — LAYER SPIEGAZIONI</span>
+          <div style={{ marginTop: '8px', marginBottom: '20px', fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)' }}>
+            Markdown supportato: # Titolo · ## Sottotitolo · **grassetto** · *corsivo* · - lista
+          </div>
+          <div style={{ display: 'grid', gridTemplateColumns: '220px 1fr', gap: '20px', alignItems: 'start' }}>
+            {/* Lista chiavi esistenti */}
+            <div>
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)', letterSpacing: '0.2em', textTransform: 'uppercase', marginBottom: '10px' }}>
+                Chiavi esistenti ({helpKeys.length})
+              </div>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '2px', maxHeight: '320px', overflowY: 'auto' }}>
+                {helpKeys.map(k => (
+                  <button key={k.key} onClick={() => loadHelpContent(k.key)}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '10px', textAlign: 'left',
+                      background: helpKey === k.key ? 'rgba(201,168,76,0.10)' : 'transparent',
+                      color: helpKey === k.key ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                      border: '1px solid ' + (helpKey === k.key ? 'rgba(201,168,76,0.3)' : 'transparent'),
+                      padding: '6px 10px', cursor: 'pointer', width: '100%',
+                    }}>
+                    {k.key}
+                    <span style={{ float: 'right', opacity: 0.5, fontSize: '9px' }}>{k.chars}c</span>
+                  </button>
+                ))}
+                {helpKeys.length === 0 && (
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-faint)', padding: '8px' }}>
+                    Nessun contenuto ancora.
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Editor */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+              <div style={{ display: 'flex', gap: '10px', alignItems: 'center' }}>
+                <input
+                  value={helpKey}
+                  onChange={e => { setHelpKey(e.target.value); setHelpMsg(''); }}
+                  placeholder="chiave (es. dna/scenario)"
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '12px', flex: 1,
+                    background: 'var(--color-surface)', color: 'var(--color-text)',
+                    border: '1px solid var(--color-border)', padding: '8px 12px', outline: 'none',
+                  }}
+                />
+                <button onClick={saveHelpContent} disabled={helpSaving || !helpKey.trim()}
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em',
+                    textTransform: 'uppercase', background: 'transparent',
+                    color: 'var(--color-gold)', border: '1px solid rgba(201,168,76,0.4)',
+                    padding: '8px 16px', cursor: helpSaving ? 'default' : 'pointer', opacity: helpSaving ? 0.5 : 1,
+                  }}>
+                  {helpSaving ? '...' : 'Salva'}
+                </button>
+              </div>
+              <textarea
+                value={helpContent}
+                onChange={e => { setHelpContent(e.target.value); setHelpMsg(''); }}
+                placeholder={'# Titolo sezione\n\nScrivi la spiegazione qui...\n\n- Punto 1\n- Punto 2\n\n**Nota:** testo in evidenza'}
+                rows={14}
+                style={{
+                  fontFamily: 'var(--font-mono)', fontSize: '11px', lineHeight: 1.7,
+                  background: 'rgba(0,0,0,0.2)', color: 'var(--color-text)',
+                  border: '1px solid var(--color-border)', padding: '12px 14px',
+                  outline: 'none', resize: 'vertical', width: '100%',
+                }}
+              />
+              {helpMsg && (
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px',
+                  color: helpMsg.startsWith('Errore') ? 'var(--color-short-bright)' : 'var(--color-long-bright)' }}>
+                  {helpMsg}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
