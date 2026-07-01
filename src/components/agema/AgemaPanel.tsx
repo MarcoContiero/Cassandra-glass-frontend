@@ -2,6 +2,7 @@
 
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
+import HelpButton from '../help/HelpButton';
 
 const sanitizeDir = (text: string) =>
   text
@@ -222,6 +223,9 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
   return (
     <div className="cassandra-card cassandra-card-corners" style={{ padding: '24px 24px 20px' }}>
       <span className="cassandra-panel-header">AGEMA</span>
+      <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
+        <HelpButton helpKey="agema" label="Agema" variant="section" />
+      </span>
 
       {/* Filter toolbar */}
       <div

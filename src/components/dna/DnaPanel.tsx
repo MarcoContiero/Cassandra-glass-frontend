@@ -412,7 +412,10 @@ function BbBreakoutSection({ coin }: { coin: string }) {
   return (
     <div className="cassandra-card p-3 space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
-        <span className="section-tag">BB Breakout</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="section-tag">BB Breakout</span>
+          <HelpButton helpKey="dna/bb-breakout" label="BB Breakout" variant="section" />
+        </div>
         <div className="flex gap-1">
           {BB_TFS.map(t => (
             <button key={t} onClick={() => setTf(t)}
@@ -621,7 +624,10 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
   return (
     <div className="cassandra-card p-3 space-y-3">
       <div className="flex items-center justify-between">
-        <span className="section-tag">Gravità</span>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+          <span className="section-tag">Gravità</span>
+          <HelpButton helpKey="dna/gravita" label="Gravità" variant="section" />
+        </div>
         <div className="flex gap-1">
           {GRAVITY_TFS.map(t => (
             <button key={t} onClick={() => setTf(t)}

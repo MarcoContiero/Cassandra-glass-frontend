@@ -11,6 +11,7 @@ import React, {
 import { Button } from '@/components/ui/button';
 import ArgonautaEntriesList, { ArgonautaLegendButton } from '@/components/ArgonautaEntries';
 import { buildSuggestions, winnerDirection, Suggestion } from '@/ts/argonauta/extract';
+import HelpButton from './help/HelpButton';
 
 
 /* =========================== Tipi minimi locali =========================== */
@@ -792,6 +793,9 @@ export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) 
           style={{ padding: '20px' }}
         >
           <span className="cassandra-panel-header">Distanza entry piu vicina</span>
+          <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
+            <HelpButton helpKey="argonauta/distanza-entry" label="Distanza entry" variant="section" />
+          </span>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
@@ -891,6 +895,9 @@ export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) 
               style={{ padding: '20px' }}
             >
               <span className="cassandra-panel-header">{sym}</span>
+              <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
+                <HelpButton helpKey="argonauta/scenario" label="Scenario" variant="section" />
+              </span>
 
               {data ? (
                 <ArgonautaEntriesList
