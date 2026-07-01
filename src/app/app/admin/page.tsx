@@ -183,7 +183,7 @@ export default function AdminPage() {
       });
       const d = await r.json();
       if (d.ok) { setHelpMsg(`Salvato · ${d.updated_at}`); loadHelpKeys(); }
-      else setHelpMsg(`Errore ${r.status}`);
+      else setHelpMsg(`Errore ${r.status}: ${d.detail ?? JSON.stringify(d)}`);
     } catch (e) { setHelpMsg(String(e)); }
     finally { setHelpSaving(false); }
   }
