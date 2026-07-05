@@ -799,7 +799,11 @@ function FearGreedWidget({ coin }: { coin: string }) {
       Calcolo Fear &amp; Greed...
     </div>
   );
-  if (err || !data) return null;
+  if (err || !data) return (
+    <div className="cassandra-card p-4" style={{ ...mono, fontSize: 10, color: 'var(--color-text-dim)', textAlign: 'center', opacity: 0.5 }}>
+      Fear &amp; Greed — dati non disponibili
+    </div>
+  );
 
   const col = fgColor(data.score);
   const pct = `${data.score}%`;
