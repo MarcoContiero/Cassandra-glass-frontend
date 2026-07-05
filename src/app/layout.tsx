@@ -16,6 +16,12 @@ const jetbrainsMono = JetBrains_Mono({
 export const metadata: Metadata = {
   title: 'Cassandra',
   description: 'Cassandra — Sistema di analisi algoritmica',
+  manifest: '/manifest.json',
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: 'black-translucent',
+    title: 'Cassandra',
+  },
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
@@ -55,6 +61,15 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <link
             href="https://fonts.googleapis.com/css2?family=Cinzel:wght@300;400;600&family=Cinzel+Decorative:wght@300;400&family=JetBrains+Mono:wght@300;400;500&display=swap"
             rel="stylesheet"
+          />
+          {/* PWA */}
+          <meta name="theme-color" content="#02020e" />
+          <meta name="mobile-web-app-capable" content="yes" />
+          <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+          <script
+            dangerouslySetInnerHTML={{
+              __html: `if('serviceWorker' in navigator){window.addEventListener('load',function(){navigator.serviceWorker.register('/sw.js');});}`,
+            }}
           />
         </head>
         <body>
