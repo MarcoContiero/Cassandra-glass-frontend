@@ -33,6 +33,7 @@ import { buildPiziaContextText } from "@/lib/buildPiziaContext";
 
 
 import HelpButton from './help/HelpButton';
+import JournalModal, { type JournalContesto } from './journal/JournalModal';
 
 // UI
 import { Button } from '@/components/ui/button';
@@ -284,6 +285,25 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
 
   // Onboarding al primo accesso
   const [showOnboardingHint, setShowOnboardingHint] = useState(false);
+
+  // Journal
+  const [showJournal, setShowJournal] = useState(false);
+
+  const journalContesto = useMemo((): JournalContesto => {
+    if (!result) return {};
+    const tts = (result as any).trend_tf_score ?? {};
+    const bias_per_tf: Record<string, string> = {};
+    for (const [tf, entry] of Object.entries(tts)) {
+      const b = (entry as any)?.bias;
+      if (b) bias_per_tf[tf] = String(b).toLowerCase() === 'long' ? 'rialzista'
+        : String(b).toLowerCase() === 'short' ? 'ribassista' : String(b).toLowerCase();
+    }
+    const scenari = (result as any)?.scenari_previsti?.scenari_attivi
+      ?? (result as any)?.meta_d_per_tf
+        ? Object.values((result as any).meta_d_per_tf ?? {}).flatMap((v: any) => v?.scenari_attivi ?? [])
+        : [];
+    return { bias_per_tf, scenari_attivi: [...new Set(scenari as string[])] };
+  }, [result]);
 
   async function fetchAnalisi() {
     try {
@@ -757,6 +777,26 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
             >
               {(prezzo as number).toLocaleString('it-IT', { maximumFractionDigits: 8 })}
             </span>
+            <button
+              onClick={() => setShowJournal(true)}
+              style={{
+                marginLeft: 'auto',
+                fontFamily: 'var(--font-mono)', fontSize: '9px',
+                letterSpacing: '0.18em', textTransform: 'uppercase',
+                padding: '5px 12px',
+                background: 'transparent',
+                border: '1px solid rgba(201,168,76,0.25)',
+                color: 'var(--color-gold)',
+                cursor: 'pointer',
+                borderRadius: '2px',
+                opacity: 0.75,
+                transition: 'opacity 150ms',
+              }}
+              onMouseEnter={e => (e.currentTarget.style.opacity = '1')}
+              onMouseLeave={e => (e.currentTarget.style.opacity = '0.75')}
+            >
+              + Log trade
+            </button>
           </div>
         )}
 
@@ -1028,6 +1068,16 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
             </div>
           </DialogContent>
         </Dialog>
+
+        {/* Journal modal */}
+        {showJournal && (
+          <JournalModal
+            coin={symbol}
+            prezzoCorrente={prezzo as number | undefined}
+            contesto={journalContesto}
+            onClose={() => setShowJournal(false)}
+          />
+        )}
       </div>
     </div>
   );
