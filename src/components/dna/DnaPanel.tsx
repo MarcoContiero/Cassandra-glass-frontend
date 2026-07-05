@@ -759,6 +759,95 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
   );
 }
 
+// ── Fear & Greed Widget ───────────────────────────────────────────────────────
+
+interface FearGreedData {
+  score: number;
+  label: string;
+  rsi: number;
+  rsi_pct: number;
+  bb_pct_b: number;
+  vol_zscore: number;
+  components: { rsi_score: number; bb_score: number; volume_score: number };
+}
+
+function fgColor(score: number): string {
+  if (score <= 20) return '#EF6464';
+  if (score <= 40) return '#f59e0b';
+  if (score <= 59) return '#d4c84a';
+  if (score <= 79) return '#5ec47a';
+  return '#2EB87A';
+}
+
+function FearGreedWidget({ coin }: { coin: string }) {
+  const [data, setData] = React.useState<FearGreedData | null>(null);
+  const [loading, setLoading] = React.useState(true);
+  const [err, setErr] = React.useState(false);
+
+  React.useEffect(() => {
+    setLoading(true); setErr(false); setData(null);
+    fetch(`/api/tradedb/fear-greed?coin=${encodeURIComponent(coin)}`)
+      .then(r => r.ok ? r.json() : Promise.reject(r.status))
+      .then(d => { setData(d); setLoading(false); })
+      .catch(() => { setErr(true); setLoading(false); });
+  }, [coin]);
+
+  const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
+
+  if (loading) return (
+    <div className="cassandra-card p-4" style={{ ...mono, fontSize: 11, color: 'var(--color-text-dim)', textAlign: 'center' }}>
+      Calcolo Fear &amp; Greed...
+    </div>
+  );
+  if (err || !data) return null;
+
+  const col = fgColor(data.score);
+  const pct = `${data.score}%`;
+
+  return (
+    <div className="cassandra-card p-4" style={{ position: 'relative', overflow: 'hidden' }}>
+      {/* Title row */}
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+        <span style={{ ...mono, fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-text-dim)' }}>
+          Fear &amp; Greed · Ora
+        </span>
+        <span style={{ ...mono, fontSize: 22, fontWeight: 700, color: col, lineHeight: 1 }}>{data.score}</span>
+        <span style={{ ...mono, fontSize: 12, color: col, fontWeight: 600 }}>{data.label}</span>
+      </div>
+
+      {/* Bar */}
+      <div style={{ position: 'relative', height: 6, borderRadius: 3, marginBottom: 10,
+        background: 'linear-gradient(to right, #EF6464 0%, #f59e0b 25%, #d4c84a 45%, #5ec47a 65%, #2EB87A 100%)' }}>
+        <div style={{
+          position: 'absolute', top: -3, width: 12, height: 12, borderRadius: '50%',
+          background: col, border: '2px solid var(--bg-section-main)',
+          left: `calc(${pct} - 6px)`, boxShadow: `0 0 8px ${col}66`, transition: 'left 0.4s ease',
+        }} />
+      </div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', ...mono, fontSize: 8,
+        color: 'var(--color-text-dim)', letterSpacing: '0.1em', marginBottom: 12 }}>
+        <span>ESTREMA PAURA</span><span>PAURA</span><span>NEUTRO</span><span>AVIDITÀ</span><span>ESTREMA AVIDITÀ</span>
+      </div>
+
+      {/* Sub-components */}
+      <div style={{ display: 'flex', gap: 8 }}>
+        {[
+          { label: 'RSI', score: data.components.rsi_score,    detail: `RSI ${data.rsi.toFixed(0)} · ${data.rsi_pct.toFixed(0)}° pct` },
+          { label: 'BB',  score: data.components.bb_score,     detail: `%B ${data.bb_pct_b.toFixed(2)}` },
+          { label: 'VOL', score: data.components.volume_score, detail: `z ${data.vol_zscore > 0 ? '+' : ''}${data.vol_zscore.toFixed(1)}σ` },
+        ].map(c => (
+          <div key={c.label} style={{ flex: 1, background: 'rgba(255,255,255,0.03)',
+            border: '1px solid var(--color-border-dim)', borderRadius: 2, padding: '6px 8px', textAlign: 'center' }}>
+            <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>{c.label}</div>
+            <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: fgColor(c.score) }}>{c.score}</div>
+            <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>{c.detail}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // ── Genome Detail Modal ───────────────────────────────────────────────────────
 
 function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose: () => void; months: number }) {
@@ -823,6 +912,9 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, lineHeight: 1.6, padding: '6px 10px', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
           Win Rate e Profit Factor sono calcolati su {months === 0 ? 'circa 2 anni di storico' : `gli ultimi ${months} ${months === 1 ? 'mese' : 'mesi'}`} con pattern e incroci EMA calibrati dai programmatori in base a dati statistici storici. Non rappresentano garanzie di risultati futuri.
         </div>
+
+        {/* Fear & Greed */}
+        <FearGreedWidget coin={genome.coin} />
 
         {/* Market profile */}
         {genome.market_profile && Object.keys(genome.market_profile).length > 0 && (
