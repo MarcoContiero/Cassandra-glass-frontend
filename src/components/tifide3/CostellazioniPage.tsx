@@ -51,6 +51,22 @@ type SummaryRow = {
   wr30: number | null; pf30: number | null; med30: number | null;
 };
 
+type CondType = 'sessione' | 'direzione' | 'fear_greed' | 'win_rate' | 'profit_factor' | 'ora_corrente';
+type ScanCondition = { id: string; type: CondType; params: Record<string, number | string> };
+
+type GenomeEntry = {
+  coin: string;
+  win_rate: number;
+  profit_factor: number;
+  n_trades: number;
+  hurst_exp?: number;
+  session_profile?: Record<string, { n: number; wr: number; pf: number }>;
+  side_profile?: Record<string, { n: number; wr: number; pf: number }>;
+  hourly_wr?: Record<string, number>;
+  fear_greed?: { score: number; label: string };
+  volatility?: { avg_range_pct_1m: number };
+};
+
 // ── Costanti ──────────────────────────────────────────────────────────────
 
 const COINS_DEFAULT = [
@@ -128,6 +144,68 @@ function initAdvFilters(): AdvFilters {
   const num = {} as AdvFilters['num'];
   for (const c of NUM_COLS) num[c.key] = { op: '', val: '' };
   return { coins: [], patterns: [], tfs: [], dirs: [], num };
+}
+
+// ── Scanner helpers ───────────────────────────────────────────────────────────
+
+function currentSession(): 'asia' | 'europe' | 'us' | 'weekend' {
+  const d = new Date();
+  const day = d.getUTCDay();
+  if (day === 0 || day === 6) return 'weekend';
+  const h = d.getUTCHours();
+  if (h < 8) return 'asia';
+  if (h < 16) return 'europe';
+  return 'us';
+}
+
+const COND_LABELS: Record<CondType, string> = {
+  sessione:      'Sessione corrente',
+  direzione:     'Direzione dominante',
+  fear_greed:    'Fear & Greed',
+  win_rate:      'Win Rate',
+  profit_factor: 'Profit Factor',
+  ora_corrente:  'Ora corrente (UTC)',
+};
+
+const COND_DEFAULTS: Record<CondType, Record<string, number | string>> = {
+  sessione:      { min_wr: 55 },
+  direzione:     { side: 'LONG' },
+  fear_greed:    { min: 0, max: 30 },
+  win_rate:      { min_wr: 55 },
+  profit_factor: { min_pf: 1.2 },
+  ora_corrente:  { min_wr: 55 },
+};
+
+function mkCond(type: CondType): ScanCondition {
+  return { id: Math.random().toString(36).slice(2, 8), type, params: { ...COND_DEFAULTS[type] } };
+}
+
+function evalCond(g: GenomeEntry, c: ScanCondition): boolean {
+  switch (c.type) {
+    case 'sessione': {
+      const sess = currentSession();
+      const wr = g.session_profile?.[sess]?.wr ?? 0;
+      return wr >= (c.params.min_wr as number);
+    }
+    case 'direzione': {
+      const longWr  = g.side_profile?.['LONG']?.wr  ?? 0;
+      const shortWr = g.side_profile?.['SHORT']?.wr ?? 0;
+      return c.params.side === 'LONG' ? longWr > shortWr : shortWr > longWr;
+    }
+    case 'fear_greed': {
+      const score = g.fear_greed?.score ?? 50;
+      return score >= (c.params.min as number) && score <= (c.params.max as number);
+    }
+    case 'win_rate':
+      return (g.win_rate ?? 0) >= (c.params.min_wr as number);
+    case 'profit_factor':
+      return (g.profit_factor ?? 0) >= (c.params.min_pf as number);
+    case 'ora_corrente': {
+      const h = new Date().getUTCHours();
+      const wr = g.hourly_wr?.[String(h)] ?? 0;
+      return wr >= (c.params.min_wr as number);
+    }
+  }
 }
 
 function applyAdvFilters(rows: SummaryRow[], f: AdvFilters): SummaryRow[] {
@@ -453,7 +531,7 @@ export default function CostellazioniPage() {
   }, [fetchSignals]);
 
   // Toggle pannello destra-basso
-  const [rightTab, setRightTab] = useState<'signals' | 'grid'>('signals');
+  const [rightTab, setRightTab] = useState<'signals' | 'grid' | 'scanner'>('signals');
 
   // Griglia summary
   const [gridRows, setGridRows] = useState<SummaryRow[]>([]);
@@ -462,6 +540,13 @@ export default function CostellazioniPage() {
   const [gridLoaded, setGridLoaded] = useState(false);
   const [advFilters, setAdvFilters] = useState<AdvFilters>(initAdvFilters);
   const [showAdv, setShowAdv] = useState(false);
+
+  // Scanner
+  const [genomeData, setGenomeData] = useState<GenomeEntry[]>([]);
+  const [genomeLoading, setGenomeLoading] = useState(false);
+  const [scanConds, setScanConds] = useState<ScanCondition[]>([mkCond('sessione')]);
+  const [scanResults, setScanResults] = useState<GenomeEntry[]>([]);
+  const [scanDone, setScanDone] = useState(false);
 
   const loadGrid = useCallback(async () => {
     setGridLoading(true);
@@ -490,6 +575,18 @@ export default function CostellazioniPage() {
       loadGrid();
     }
   }, [rightTab, loadGrid]);
+
+  useEffect(() => {
+    if (rightTab !== 'scanner' || genomeData.length > 0 || genomeLoading) return;
+    setGenomeLoading(true);
+    const backendBase = (process.env.NEXT_PUBLIC_BACKEND_BASE || '').replace(/\/+$/, '');
+    const url = backendBase ? `${backendBase}/api/tradedb/genome-cache` : '/api/tradedb/genome-cache';
+    fetch(url)
+      .then(r => r.ok ? r.json() : null)
+      .then(d => { if (Array.isArray(d)) setGenomeData(d); })
+      .catch(() => {})
+      .finally(() => setGenomeLoading(false));
+  }, [rightTab, genomeData.length, genomeLoading]);
 
   // Filtro segnali per stelle configurate
   const matchedSignals = signals.filter(sig => {
@@ -855,7 +952,7 @@ export default function CostellazioniPage() {
         {/* Header con toggle tab */}
         <div style={{ ...panelHeaderSt, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div style={{ display: 'flex', gap: '0' }}>
-            {(['signals', 'grid'] as const).map(tab => (
+            {(['signals', 'grid', 'scanner'] as const).map(tab => (
               <button key={tab} onClick={() => setRightTab(tab)} style={{
                 fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em',
                 textTransform: 'uppercase', border: 'none',
@@ -864,7 +961,7 @@ export default function CostellazioniPage() {
                 padding: '0 12px', cursor: 'pointer', height: '100%',
                 borderBottom: rightTab === tab ? '1px solid var(--color-gold-dim)' : '1px solid transparent',
               }}>
-                {tab === 'signals' ? 'Segnali' : 'Griglia'}
+                {tab === 'signals' ? 'Segnali' : tab === 'grid' ? 'Griglia' : 'Scanner'}
               </button>
             ))}
           </div>
@@ -1153,6 +1250,233 @@ export default function CostellazioniPage() {
               )}
             </div>
           </div>
+          );
+        })()}
+        {/* ── Scanner multi-condizione ── */}
+        {rightTab === 'scanner' && (() => {
+          const sess = currentSession();
+          const sessLabels: Record<string, string> = { asia: 'Asia', europe: 'Europa', us: 'US', weekend: 'Weekend' };
+
+          const runScan = () => {
+            const matches = genomeData.filter(g => scanConds.every(c => evalCond(g, c)));
+            setScanResults(matches);
+            setScanDone(true);
+          };
+
+          const updateCond = (id: string, patch: Record<string, number | string>) =>
+            setScanConds(cs => cs.map(c => c.id === id ? { ...c, params: { ...c.params, ...patch } } : c));
+
+          const removeCond = (id: string) => {
+            setScanConds(cs => cs.filter(c => c.id !== id));
+            setScanDone(false);
+          };
+
+          const addCond = (type: CondType) => {
+            setScanConds(cs => [...cs, mkCond(type)]);
+            setScanDone(false);
+          };
+
+          const nSmSt: React.CSSProperties = {
+            ...inputSt, width: '52px', padding: '2px 4px', fontSize: '9px',
+          };
+
+          const renderParams = (c: ScanCondition) => {
+            switch (c.type) {
+              case 'sessione':
+              case 'win_rate':
+              case 'ora_corrente':
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)' }}>WR ≥</span>
+                    <input type="number" value={c.params.min_wr} onChange={e => updateCond(c.id, { min_wr: parseFloat(e.target.value) || 0 })} style={nSmSt} />
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)' }}>%</span>
+                    {c.type === 'sessione' && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(201,168,76,0.5)', marginLeft: '4px' }}>
+                        [{sessLabels[sess]}]
+                      </span>
+                    )}
+                    {c.type === 'ora_corrente' && (
+                      <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'rgba(201,168,76,0.5)', marginLeft: '4px' }}>
+                        [{new Date().getUTCHours()}:00 UTC]
+                      </span>
+                    )}
+                  </div>
+                );
+              case 'profit_factor':
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)' }}>PF ≥</span>
+                    <input type="number" step="0.1" value={c.params.min_pf} onChange={e => updateCond(c.id, { min_pf: parseFloat(e.target.value) || 0 })} style={nSmSt} />
+                  </div>
+                );
+              case 'direzione':
+                return (
+                  <div style={{ display: 'flex', gap: '3px' }}>
+                    {(['LONG', 'SHORT'] as const).map(s => (
+                      <button key={s} onClick={() => updateCond(c.id, { side: s })} style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '8px', padding: '2px 7px', cursor: 'pointer', border: '1px solid',
+                        borderColor: c.params.side === s ? (s === 'LONG' ? 'rgba(45,180,100,0.5)' : 'rgba(180,60,60,0.5)') : 'var(--color-border)',
+                        background: c.params.side === s ? (s === 'LONG' ? 'rgba(45,180,100,0.1)' : 'rgba(180,60,60,0.1)') : 'transparent',
+                        color: c.params.side === s ? (s === 'LONG' ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)') : 'var(--color-text-dim)',
+                      }}>{s === 'LONG' ? 'rialzista' : 'ribassista'}</button>
+                    ))}
+                  </div>
+                );
+              case 'fear_greed':
+                return (
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '4px', flexWrap: 'wrap' }}>
+                    {([['Paura', 0, 30], ['Neutro', 30, 70], ['Avidità', 70, 100]] as [string, number, number][]).map(([label, mn, mx]) => (
+                      <button key={label} onClick={() => updateCond(c.id, { min: mn, max: mx })} style={{
+                        fontFamily: 'var(--font-mono)', fontSize: '8px', padding: '2px 6px', cursor: 'pointer', border: '1px solid',
+                        borderColor: c.params.min === mn && c.params.max === mx ? 'rgba(201,168,76,0.5)' : 'var(--color-border)',
+                        background: c.params.min === mn && c.params.max === mx ? 'rgba(201,168,76,0.1)' : 'transparent',
+                        color: c.params.min === mn && c.params.max === mx ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                      }}>{label}</button>
+                    ))}
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)' }}>
+                      {c.params.min}–{c.params.max}
+                    </span>
+                  </div>
+                );
+            }
+          };
+
+          return (
+            <div style={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+              {/* Condizioni */}
+              <div style={{ padding: '8px 10px', borderBottom: '1px solid var(--color-border)', flexShrink: 0 }}>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '6px', marginBottom: '8px' }}>
+                  {scanConds.map(c => (
+                    <div key={c.id} style={{
+                      display: 'flex', alignItems: 'center', gap: '8px',
+                      padding: '5px 8px', border: '1px solid var(--color-border)',
+                      background: 'rgba(201,168,76,0.02)',
+                    }}>
+                      <select
+                        value={c.type}
+                        onChange={e => setScanConds(cs => cs.map(x => x.id === c.id ? { ...mkCond(e.target.value as CondType), id: c.id } : x))}
+                        style={{ ...inputSt, width: '130px', padding: '2px 4px', fontSize: '9px', flexShrink: 0 }}
+                      >
+                        {(Object.keys(COND_LABELS) as CondType[]).map(t => (
+                          <option key={t} value={t}>{COND_LABELS[t]}</option>
+                        ))}
+                      </select>
+                      <div style={{ flex: 1 }}>{renderParams(c)}</div>
+                      <button onClick={() => removeCond(c.id)} style={{ background: 'transparent', border: 'none', color: 'var(--color-text-dim)', cursor: 'pointer', fontSize: '11px', padding: '0 2px', flexShrink: 0 }}>✕</button>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Aggiungi condizione + Scan */}
+                <div style={{ display: 'flex', gap: '6px', alignItems: 'center', flexWrap: 'wrap' }}>
+                  {scanConds.length < 5 && (
+                    <select
+                      onChange={e => { if (e.target.value) { addCond(e.target.value as CondType); e.target.value = ''; } }}
+                      defaultValue=""
+                      style={{ ...inputSt, width: '140px', padding: '2px 4px', fontSize: '9px' }}
+                    >
+                      <option value="" disabled>+ Aggiungi condizione</option>
+                      {(Object.keys(COND_LABELS) as CondType[]).map(t => (
+                        <option key={t} value={t}>{COND_LABELS[t]}</option>
+                      ))}
+                    </select>
+                  )}
+                  <button
+                    onClick={runScan}
+                    disabled={genomeLoading || genomeData.length === 0 || scanConds.length === 0}
+                    style={{
+                      fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em',
+                      textTransform: 'uppercase', padding: '4px 14px', cursor: 'pointer', border: '1px solid',
+                      borderColor: 'rgba(201,168,76,0.4)',
+                      background: 'var(--color-void)', color: 'var(--color-gold)',
+                      opacity: (genomeLoading || genomeData.length === 0 || scanConds.length === 0) ? 0.4 : 1,
+                    }}
+                  >
+                    {genomeLoading ? '…' : 'Scan'}
+                  </button>
+                  {scanDone && (
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '8px', color: 'var(--color-text-dim)', marginLeft: 'auto' }}>
+                      {scanResults.length}/{genomeData.length} coin
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {/* Risultati */}
+              <div style={{ flex: 1, overflowY: 'auto' }}>
+                {genomeLoading && (
+                  <div style={{ padding: '14px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)' }}>Caricamento genome…</div>
+                )}
+                {!genomeLoading && !scanDone && (
+                  <div style={{ padding: '14px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.5 }}>
+                    Imposta le condizioni e premi Scan.
+                  </div>
+                )}
+                {!genomeLoading && scanDone && scanResults.length === 0 && (
+                  <div style={{ padding: '14px', fontFamily: 'var(--font-mono)', fontSize: '10px', color: 'var(--color-text-dim)', opacity: 0.6 }}>
+                    Nessuna coin corrisponde alle condizioni.
+                  </div>
+                )}
+                {!genomeLoading && scanDone && scanResults.length > 0 && (
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontFamily: 'var(--font-mono)', fontSize: '9px' }}>
+                    <thead style={{ position: 'sticky', top: 0, background: 'var(--color-surface)', zIndex: 1 }}>
+                      <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                        {['Coin', 'WR', 'PF', 'F&G', sessLabels[sess], 'Bias', ''].map(h => (
+                          <th key={h} style={{ padding: '4px 5px', textAlign: 'left', color: 'var(--color-text-dim)', fontWeight: 400, letterSpacing: '0.05em', textTransform: 'uppercase', whiteSpace: 'nowrap' }}>{h}</th>
+                        ))}
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {scanResults.map(g => {
+                        const sessWr = g.session_profile?.[sess]?.wr;
+                        const longWr  = g.side_profile?.['LONG']?.wr  ?? 0;
+                        const shortWr = g.side_profile?.['SHORT']?.wr ?? 0;
+                        const isLongBias = longWr >= shortWr;
+                        const fg = g.fear_greed?.score;
+                        const alreadyAdded = stelle.some(s => s.coin === g.coin);
+                        return (
+                          <tr key={g.coin} style={{ borderBottom: '1px solid rgba(201,168,76,0.05)' }}
+                            onMouseEnter={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'rgba(201,168,76,0.04)'; }}
+                            onMouseLeave={e => { (e.currentTarget as HTMLTableRowElement).style.background = 'transparent'; }}>
+                            <td style={{ padding: '4px 5px', color: 'var(--color-gold)', fontWeight: 500 }}>{g.coin}</td>
+                            <td style={{ padding: '4px 5px', color: colorWr(g.win_rate) }}>{g.win_rate != null ? `${g.win_rate.toFixed(0)}%` : '—'}</td>
+                            <td style={{ padding: '4px 5px', color: (g.profit_factor ?? 0) >= 1.5 ? 'var(--color-long-bright, #4a9)' : 'var(--color-text-dim)' }}>{g.profit_factor?.toFixed(2) ?? '—'}</td>
+                            <td style={{ padding: '4px 5px', color: fg != null && fg < 30 ? 'var(--color-long-bright, #4a9)' : fg != null && fg > 70 ? 'var(--color-short-bright, #a44)' : 'var(--color-text-dim)' }}>
+                              {fg != null ? fg : '—'}
+                            </td>
+                            <td style={{ padding: '4px 5px', color: colorWr(sessWr) }}>{sessWr != null ? `${sessWr.toFixed(0)}%` : '—'}</td>
+                            <td style={{ padding: '4px 5px', color: isLongBias ? 'var(--color-long-bright, #4a9)' : 'var(--color-short-bright, #a44)', fontSize: '11px' }}>
+                              {isLongBias ? '↑' : '↓'}
+                            </td>
+                            <td style={{ padding: '4px 5px' }}>
+                              <button
+                                onClick={() => {
+                                  if (alreadyAdded || !canAdd) return;
+                                  const s = { id: uid(), coin: g.coin, pattern: 'hammer', tf: '1m', side: isLongBias ? 'LONG' : 'SHORT', btcRegime: '', thirdToken: false };
+                                  setStelle(prev => [...prev, s]);
+                                  apiPost(s);
+                                }}
+                                disabled={alreadyAdded || !canAdd}
+                                title={alreadyAdded ? 'Già in costellazione' : !canAdd ? 'Costellazione piena' : 'Aggiungi a costellazione'}
+                                style={{
+                                  background: 'transparent', border: '1px solid',
+                                  borderColor: alreadyAdded ? 'var(--color-border)' : 'rgba(201,168,76,0.3)',
+                                  color: alreadyAdded ? 'var(--color-text-dim)' : 'var(--color-gold)',
+                                  cursor: alreadyAdded || !canAdd ? 'default' : 'pointer',
+                                  padding: '1px 5px', fontSize: '9px', opacity: alreadyAdded || !canAdd ? 0.3 : 1,
+                                }}
+                              >
+                                {alreadyAdded ? '✓' : '+'}
+                              </button>
+                            </td>
+                          </tr>
+                        );
+                      })}
+                    </tbody>
+                  </table>
+                )}
+              </div>
+            </div>
           );
         })()}
       </div>

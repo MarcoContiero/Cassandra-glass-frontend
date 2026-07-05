@@ -17,9 +17,10 @@ import CostellazioniPage from './tifide3/CostellazioniPage';
 import SegnalaProblema from './SegnalaProblema';
 import HelpButton from './help/HelpButton';
 import JournalPanel from './journal/JournalPanel';
+import LiquidationPanel from './liquidation/LiquidationPanel';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra',     label: 'Cassandra' },
@@ -29,6 +30,7 @@ const APPS: { key: AppKey; label: string }[] = [
   { key: 'agema',         label: 'Agema' },
   { key: 'dna',           label: 'DNA Coin' },
   { key: 'moire',         label: 'Tre Moire' },
+  { key: 'liquidation',   label: 'Liquidazioni' },
   { key: 'avvisi',        label: 'Avvisi' },
   { key: 'journal',       label: 'Journal' },
   { key: 'tifide3',       label: 'Tifi 4.0' },
@@ -106,7 +108,8 @@ export default function ProgramsHub() {
       case 'orione2':   return <Orione2Page />;
       case 'costellazioni': return <CostellazioniPage />;
       case 'avvisi':    return <AvvisiPanel onUnreadChange={handleUnreadChange} />;
-      case 'journal':   return <JournalPanel />;
+      case 'journal':      return <JournalPanel />;
+      case 'liquidation':  return <LiquidationPanel />;
       case 'cassandra':
       default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
     }
