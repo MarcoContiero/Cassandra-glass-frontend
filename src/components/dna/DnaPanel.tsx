@@ -122,6 +122,7 @@ interface GenomeFull extends GenomeSummary {
   market_profile?: MarketProfile;
   ema200_pull?: Ema200Pull;
   bb_return?: BbReturn;
+  fear_greed?: { score: number; label: string; rsi: number; rsi_pct: number; bb_pct_b: number; vol_zscore: number; components: { rsi_score: number; bb_score: number; volume_score: number } };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -761,16 +762,6 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
 
 // ── Fear & Greed Widget ───────────────────────────────────────────────────────
 
-interface FearGreedData {
-  score: number;
-  label: string;
-  rsi: number;
-  rsi_pct: number;
-  bb_pct_b: number;
-  vol_zscore: number;
-  components: { rsi_score: number; bb_score: number; volume_score: number };
-}
-
 function fgColor(score: number): string {
   if (score <= 20) return '#EF6464';
   if (score <= 40) return '#f59e0b';
@@ -779,27 +770,10 @@ function fgColor(score: number): string {
   return '#2EB87A';
 }
 
-function FearGreedWidget({ coin }: { coin: string }) {
-  const [data, setData] = React.useState<FearGreedData | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [err, setErr] = React.useState(false);
-
-  React.useEffect(() => {
-    setLoading(true); setErr(false); setData(null);
-    fetch(`/api/tradedb/fear-greed?coin=${encodeURIComponent(coin)}`)
-      .then(r => r.ok ? r.json() : Promise.reject(r.status))
-      .then(d => { setData(d); setLoading(false); })
-      .catch(() => { setErr(true); setLoading(false); });
-  }, [coin]);
-
+function FearGreedWidget({ data }: { data: GenomeFull['fear_greed'] }) {
   const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
 
-  if (loading) return (
-    <div className="cassandra-card p-4" style={{ ...mono, fontSize: 11, color: 'var(--color-text-dim)', textAlign: 'center' }}>
-      Calcolo Fear &amp; Greed...
-    </div>
-  );
-  if (err || !data) return (
+  if (!data) return (
     <div className="cassandra-card p-4" style={{ ...mono, fontSize: 10, color: 'var(--color-text-dim)', textAlign: 'center', opacity: 0.5 }}>
       Fear &amp; Greed — dati non disponibili
     </div>
@@ -918,7 +892,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
         </div>
 
         {/* Fear & Greed */}
-        <FearGreedWidget coin={genome.coin} />
+        <FearGreedWidget data={genome.fear_greed} />
 
         {/* Market profile */}
         {genome.market_profile && Object.keys(genome.market_profile).length > 0 && (
