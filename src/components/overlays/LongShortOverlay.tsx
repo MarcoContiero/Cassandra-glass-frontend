@@ -2,7 +2,7 @@
 
 import { OverlayShell } from "./OverlayShell";
 
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 
 import type {
   TrendTfEntry,
@@ -16,6 +16,43 @@ interface LongShortOverlayProps {
   timeframes: Timeframe[];
   spiegazione?: any;
   onClose?: () => void;
+  coin?: string;
+}
+
+interface NetflowData {
+  netflow_today: number | null;
+  netflow_7d_avg: number | null;
+  signal: string | null;
+  label: string | null;
+  stale: boolean;
+  updated_at: string | null;
+}
+
+function useNetflow(coin?: string) {
+  const [data, setData] = useState<NetflowData | null>(null);
+  useEffect(() => {
+    if (!coin || coin.toUpperCase() !== 'BTC') return;
+    fetch('/api/netflow/btc')
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.data) setData(j.data); })
+      .catch(() => {});
+  }, [coin]);
+  return data;
+}
+
+function netflowColor(signal: string | null): string {
+  if (!signal) return 'var(--color-text-dim)';
+  if (signal === 'accumulo_forte' || signal === 'accumulo') return 'var(--color-cyan)';
+  if (signal === 'pressione_forte' || signal === 'pressione') return '#E87B30';
+  return 'var(--color-text-dim)';
+}
+
+function fmtBtc(val: number | null): string {
+  if (val == null) return '';
+  const abs = Math.abs(val);
+  const sign = val >= 0 ? '+' : '−';
+  if (abs >= 1000) return `${sign}${(abs / 1000).toFixed(1)}K BTC`;
+  return `${sign}${abs.toFixed(0)} BTC`;
 }
 
 function biasColor(bias: string | undefined): string {
@@ -137,7 +174,9 @@ export default function LongShortOverlay({
   timeframes,
   spiegazione,
   onClose,
+  coin,
 }: LongShortOverlayProps) {
+  const netflow = useNetflow(coin);
   const rows = useMemo(() => {
     const tfList =
       timeframes && timeframes.length > 0
@@ -315,11 +354,33 @@ export default function LongShortOverlay({
                       Score: {score.toFixed(1)} (tot {tot.toFixed(1)})
                     </span>
                   </div>
-                  <div
-                    className="flex items-center rounded-full px-2 py-1 text-[11px] font-semibold uppercase"
-                    style={biasBg(bias)}
-                  >
-                    {bias === 'LONG' ? 'RIALZISTA' : bias === 'SHORT' ? 'RIBASSISTA' : bias || 'NEUTRO'}
+                  <div className="flex flex-col items-end gap-1">
+                    <div
+                      className="flex items-center rounded-full px-2 py-1 text-[11px] font-semibold uppercase"
+                      style={biasBg(bias)}
+                    >
+                      {bias === 'LONG' ? 'RIALZISTA' : bias === 'SHORT' ? 'RIBASSISTA' : bias || 'NEUTRO'}
+                    </div>
+                    {/* Netflow badge — solo su 1D per BTC */}
+                    {netflow && String(tf).toLowerCase() === '1d' && netflow.label && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 text-[10px]"
+                        style={{
+                          borderRadius: 2,
+                          border: `1px solid ${netflow.stale ? 'rgba(90,90,138,0.3)' : `${netflowColor(netflow.signal)}44`}`,
+                          background: netflow.stale ? 'rgba(90,90,138,0.08)' : `${netflowColor(netflow.signal)}14`,
+                          color: netflow.stale ? 'var(--color-text-dim)' : netflowColor(netflow.signal),
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                        title={netflow.stale ? 'Dati non aggiornati' : `Aggiornato: ${netflow.updated_at ?? '—'}`}
+                      >
+                        netflow {netflow.label}
+                        {netflow.netflow_7d_avg != null && (
+                          <span style={{ opacity: 0.7 }}>{fmtBtc(netflow.netflow_7d_avg)}</span>
+                        )}
+                        {netflow.stale && <span style={{ opacity: 0.5 }}>*</span>}
+                      </div>
+                    )}
                   </div>
                 </div>
 

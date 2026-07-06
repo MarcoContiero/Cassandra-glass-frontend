@@ -828,11 +828,35 @@ function FearGreedWidget({ data }: { data: GenomeFull['fear_greed'] }) {
 
 // ── Genome Detail Modal ───────────────────────────────────────────────────────
 
+interface NetflowResult {
+  netflow_today: number | null;
+  netflow_7d_avg: number | null;
+  signal: string | null;
+  label: string | null;
+  stale: boolean;
+  updated_at: string | null;
+}
+
+function nfColor(signal: string | null): string {
+  if (!signal) return 'var(--color-text-dim)';
+  if (signal === 'accumulo_forte' || signal === 'accumulo') return 'var(--color-cyan)';
+  if (signal === 'pressione_forte' || signal === 'pressione') return '#E87B30';
+  return 'var(--color-text-dim)';
+}
+
+function fmtBtcNf(val: number | null): string {
+  if (val == null) return '—';
+  const abs = Math.abs(val);
+  const sign = val >= 0 ? '+' : '−';
+  return `${sign}${abs >= 1000 ? `${(abs / 1000).toFixed(1)}K` : abs.toFixed(0)} BTC`;
+}
+
 function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose: () => void; months: number }) {
   const periodLabel = months === 0 ? '2y' : `${months}M`;
   const hurst = genome.hurst_exp;
   const hurstInfo = hurst != null ? hurstLabel(hurst) : null;
   const [volRatio, setVolRatio] = useState<number | null>(null);
+  const [netflow, setNetflow] = useState<NetflowResult | null>(null);
 
   useEffect(() => {
     const avgVol = genome.market_profile?.avg_daily_volume_usdc;
@@ -844,6 +868,14 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
       })
       .catch(() => {});
   }, [genome.coin, genome.market_profile?.avg_daily_volume_usdc]);
+
+  useEffect(() => {
+    if (genome.coin.toUpperCase() !== 'BTC') return;
+    fetch('/api/netflow/btc')
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.data) setNetflow(j.data); })
+      .catch(() => {});
+  }, [genome.coin]);
 
   return (
     <div
@@ -1068,6 +1100,32 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
         {/* Gravità */}
         {(genome.ema200_pull || genome.bb_return) && (
           <GravitaSection pull={genome.ema200_pull} bb={genome.bb_return} />
+        )}
+
+        {/* Contesto Macro — solo BTC */}
+        {netflow && (
+          <Section title="Contesto Macro">
+            <div className="space-y-1">
+              <div className="flex items-center justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                <span style={{ color: 'var(--color-text-dim)' }}>Exchange Netflow (7d avg)</span>
+                <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                  <span style={{ color: nfColor(netflow.signal), fontWeight: 500 }}>{netflow.label ?? '—'}</span>
+                  <span style={{ color: 'var(--color-text-dim)' }}>{fmtBtcNf(netflow.netflow_7d_avg)}</span>
+                </span>
+              </div>
+              {netflow.netflow_today != null && (
+                <div className="flex items-center justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                  <span style={{ color: 'var(--color-text-dim)' }}>Oggi</span>
+                  <span style={{ color: 'var(--color-text)' }}>{fmtBtcNf(netflow.netflow_today)}</span>
+                </div>
+              )}
+              <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 4, opacity: 0.6 }}>
+                {netflow.stale
+                  ? 'Dati non aggiornati · CryptoQuant'
+                  : `Dati: CryptoQuant · agg. ${netflow.updated_at ? new Date(netflow.updated_at).toLocaleDateString('it-IT') : '—'}`}
+              </div>
+            </div>
+          </Section>
         )}
 
         {/* BB Breakout */}

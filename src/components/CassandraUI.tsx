@@ -595,6 +595,7 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
             }
             spiegazione={(normalizedOverlayData as any)?.spiegazione}
             onClose={() => closeOverlay()}
+            coin={symbol}
           />
         );
       case 'trigger_map':
