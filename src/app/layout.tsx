@@ -36,8 +36,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
         variables: {
           colorPrimary: '#c9a84c',
           colorBackground: '#02020e',
-          colorInputBackground: '#08081a',
-          colorInputText: '#e8e0c8',
           colorText: '#e8e0c8',
           colorTextSecondary: '#8a8070',
           borderRadius: '0px',

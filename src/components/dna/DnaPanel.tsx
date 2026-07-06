@@ -832,6 +832,18 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
   const periodLabel = months === 0 ? '2y' : `${months}M`;
   const hurst = genome.hurst_exp;
   const hurstInfo = hurst != null ? hurstLabel(hurst) : null;
+  const [volRatio, setVolRatio] = useState<number | null>(null);
+
+  useEffect(() => {
+    const avgVol = genome.market_profile?.avg_daily_volume_usdc;
+    if (!avgVol) return;
+    fetch(`/api/oi/data?coin=${genome.coin}`)
+      .then(r => r.json())
+      .then(d => {
+        if (d.volume24h_usdt && avgVol) setVolRatio(d.volume24h_usdt / avgVol);
+      })
+      .catch(() => {});
+  }, [genome.coin, genome.market_profile?.avg_daily_volume_usdc]);
 
   return (
     <div
@@ -906,6 +918,20 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
               <div style={{ fontFamily: 'var(--font-mono)', fontSize: 14, color: 'var(--color-text)' }}>
                 ${fmtVol(genome.market_profile.avg_daily_volume_usdc)}
               </div>
+              {volRatio != null && volRatio >= 2 && (
+                <div style={{
+                  marginTop: 4,
+                  display: 'inline-flex', alignItems: 'center', gap: 4,
+                  padding: '2px 6px',
+                  background: volRatio >= 3 ? 'rgba(232,123,48,0.15)' : 'rgba(201,168,76,0.1)',
+                  border: `1px solid ${volRatio >= 3 ? 'rgba(232,123,48,0.4)' : 'rgba(201,168,76,0.3)'}`,
+                  borderRadius: 2,
+                  fontFamily: 'var(--font-mono)', fontSize: 10,
+                  color: volRatio >= 3 ? '#E87B30' : 'var(--color-gold)',
+                }}>
+                  {volRatio >= 3 ? '▲ anomalia' : '▲ elevato'} {volRatio.toFixed(1)}x
+                </div>
+              )}
             </Section>
             <Section title="Drawdown tipico 4h">
               <div style={{
