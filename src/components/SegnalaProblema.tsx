@@ -104,7 +104,7 @@ export default function SegnalaProblema() {
           e.currentTarget.style.borderColor = 'rgba(2,2,14,0.15)';
         }}
       >
-        Segnala un problema
+        Segnalazioni
       </button>
 
       {/* Modal */}
