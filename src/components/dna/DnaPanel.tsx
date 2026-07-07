@@ -123,6 +123,16 @@ interface GenomeFull extends GenomeSummary {
   ema200_pull?: Ema200Pull;
   bb_return?: BbReturn;
   fear_greed?: { score: number; label: string; rsi: number; rsi_pct: number; bb_pct_b: number; vol_zscore: number; components: { rsi_score: number; bb_score: number; volume_score: number } };
+  sentiment_relative?: {
+    score: number | null; label: string | null;
+    coingecko_up_pct: number | null;
+    reddit_mentions_24h: number | null;
+    reddit_percentile: number | null;
+    sample_size_days: number;
+    sample_warning: boolean;
+    macro_feargreed: { value: number; classification: string } | null;
+    updated_at: string | null;
+  };
 }
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -826,7 +836,80 @@ function FearGreedWidget({ data }: { data: GenomeFull['fear_greed'] }) {
   );
 }
 
+// ── Sentiment Widget ────────────────────────────────────────────────────────
+
+function sentColor(score: number): string {
+  if (score <= 20) return '#EF6464';
+  if (score <= 40) return '#f59e0b';
+  if (score <= 59) return '#d4c84a';
+  if (score <= 79) return '#5ec47a';
+  return '#2EB87A';
+}
+
+function SentimentWidget({ data }: { data: GenomeFull['sentiment_relative'] }) {
+  const mono: React.CSSProperties = { fontFamily: 'var(--font-mono)' };
+
+  if (!data || data.score == null) return (
+    <div className="cassandra-card p-4" style={{ ...mono, fontSize: 10, color: 'var(--color-text-dim)', textAlign: 'center', opacity: 0.5 }}>
+      Sentiment — dati non disponibili
+    </div>
+  );
+
+  const col = sentColor(data.score);
+
+  return (
+    <div className="cassandra-card p-4">
+      <div style={{ display: 'flex', alignItems: 'baseline', gap: 12, marginBottom: 10 }}>
+        <span style={{ ...mono, fontSize: 9, letterSpacing: '0.22em', textTransform: 'uppercase', color: 'var(--color-text-dim)' }}>
+          Sentiment relativo
+        </span>
+        <span style={{ ...mono, fontSize: 22, fontWeight: 700, color: col, lineHeight: 1 }}>{data.score}</span>
+        <span style={{ ...mono, fontSize: 12, color: col, fontWeight: 600 }}>{data.label}</span>
+      </div>
+
+      <div style={{ display: 'flex', gap: 8, marginBottom: 10 }}>
+        <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border-dim)', borderRadius: 2, padding: '6px 8px', textAlign: 'center' }}>
+          <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>COINGECKO</div>
+          <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
+            {data.coingecko_up_pct != null ? `${data.coingecko_up_pct.toFixed(0)}%` : '—'}
+          </div>
+          <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>voti bullish</div>
+        </div>
+        <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border-dim)', borderRadius: 2, padding: '6px 8px', textAlign: 'center' }}>
+          <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>REDDIT 24H</div>
+          <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
+            {data.reddit_mentions_24h ?? '—'}
+          </div>
+          <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
+            {data.reddit_percentile != null ? `${data.reddit_percentile.toFixed(0)}° pct` : 'norma insuff.'}
+          </div>
+        </div>
+        {data.macro_feargreed && (
+          <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border-dim)', borderRadius: 2, padding: '6px 8px', textAlign: 'center' }}>
+            <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>MERCATO</div>
+            <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>{data.macro_feargreed.value}</div>
+            <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>{data.macro_feargreed.classification}</div>
+          </div>
+        )}
+      </div>
+
+      {data.sample_warning && (
+        <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.6 }}>
+          Campione Reddit ridotto ({data.sample_size_days}/14 giorni accumulati) — punteggio basato solo su CoinGecko.
+        </div>
+      )}
+    </div>
+  );
+}
+
 // ── Genome Detail Modal ───────────────────────────────────────────────────────
+
+interface WhaleAnomalyResult {
+  coin: string;
+  whale_flag: boolean;
+  vol_zscore: number | null;
+  onchain_available: boolean;
+}
 
 interface NetflowResult {
   netflow_today: number | null;
@@ -857,6 +940,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
   const hurstInfo = hurst != null ? hurstLabel(hurst) : null;
   const [volRatio, setVolRatio] = useState<number | null>(null);
   const [netflow, setNetflow] = useState<NetflowResult | null>(null);
+  const [whale, setWhale] = useState<WhaleAnomalyResult | null>(null);
 
   useEffect(() => {
     const avgVol = genome.market_profile?.avg_daily_volume_usdc;
@@ -874,6 +958,13 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
     fetch('/api/netflow/btc')
       .then(r => r.json())
       .then(j => { if (j.ok && j.data) setNetflow(j.data); })
+      .catch(() => {});
+  }, [genome.coin]);
+
+  useEffect(() => {
+    fetch(`/api/tradedb/whale-anomaly?coin=${genome.coin}`)
+      .then(r => r.json())
+      .then(j => setWhale(j))
       .catch(() => {});
   }, [genome.coin]);
 
@@ -936,7 +1027,25 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
         </div>
 
         {/* Fear & Greed */}
-        <FearGreedWidget data={genome.fear_greed} />
+        <div style={{ position: 'relative' }}>
+          <FearGreedWidget data={genome.fear_greed} />
+          {whale?.whale_flag && (
+            <div style={{
+              position: 'absolute', top: 12, right: 12,
+              display: 'inline-flex', alignItems: 'center', gap: 4,
+              padding: '2px 6px',
+              background: 'rgba(232,123,48,0.15)',
+              border: '1px solid rgba(232,123,48,0.4)',
+              borderRadius: 2,
+              fontFamily: 'var(--font-mono)', fontSize: 10, color: '#E87B30',
+            }}>
+              ▲ whale {whale.vol_zscore != null ? `${whale.vol_zscore > 0 ? '+' : ''}${whale.vol_zscore.toFixed(1)}σ` : ''}
+            </div>
+          )}
+        </div>
+
+        {/* Sentiment relativo */}
+        <SentimentWidget data={genome.sentiment_relative} />
 
         {/* Market profile */}
         {genome.market_profile && Object.keys(genome.market_profile).length > 0 && (
