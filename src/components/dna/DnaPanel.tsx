@@ -126,8 +126,9 @@ interface GenomeFull extends GenomeSummary {
   sentiment_relative?: {
     score: number | null; label: string | null;
     coingecko_up_pct: number | null;
-    reddit_mentions_24h: number | null;
-    reddit_percentile: number | null;
+    search_interest_now: number | null;
+    search_interest_avg7d: number | null;
+    search_interest_percentile: number | null;
     sample_size_days: number;
     sample_warning: boolean;
     macro_feargreed: { value: number; classification: string } | null;
@@ -876,12 +877,12 @@ function SentimentWidget({ data }: { data: GenomeFull['sentiment_relative'] }) {
           <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>voti bullish</div>
         </div>
         <div style={{ flex: 1, background: 'rgba(255,255,255,0.03)', border: '1px solid var(--color-border-dim)', borderRadius: 2, padding: '6px 8px', textAlign: 'center' }}>
-          <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>REDDIT 24H</div>
+          <div style={{ ...mono, fontSize: 8, letterSpacing: '0.15em', color: 'var(--color-text-dim)', marginBottom: 2 }}>SEARCH INTEREST</div>
           <div style={{ ...mono, fontSize: 14, fontWeight: 700, color: 'var(--color-text)' }}>
-            {data.reddit_mentions_24h ?? '—'}
+            {data.search_interest_avg7d != null ? data.search_interest_avg7d.toFixed(0) : '—'}
           </div>
           <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', marginTop: 1 }}>
-            {data.reddit_percentile != null ? `${data.reddit_percentile.toFixed(0)}° pct` : 'norma insuff.'}
+            {data.search_interest_percentile != null ? `${data.search_interest_percentile.toFixed(0)}° pct` : 'norma insuff.'}
           </div>
         </div>
         {data.macro_feargreed && (
@@ -895,7 +896,7 @@ function SentimentWidget({ data }: { data: GenomeFull['sentiment_relative'] }) {
 
       {data.sample_warning && (
         <div style={{ ...mono, fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.6 }}>
-          Campione Reddit ridotto ({data.sample_size_days}/14 giorni accumulati) — punteggio basato solo su CoinGecko.
+          Campione Google Trends ridotto ({data.sample_size_days}/14 giorni accumulati) — punteggio basato solo su CoinGecko.
         </div>
       )}
     </div>
