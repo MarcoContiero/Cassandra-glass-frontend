@@ -25,7 +25,7 @@ export default function SignUpPage() {
       >
         CASSANDRA
       </span>
-      <SignUp />
+      <SignUp forceRedirectUrl="/onboarding/alias" />
     </div>
   );
 }
