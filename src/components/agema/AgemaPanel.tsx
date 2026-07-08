@@ -55,6 +55,40 @@ type AgemaResponse = {
   rows: AgemaRow[];
 };
 
+type MacroEvent = {
+  release_id: number;
+  name: string;
+  date: string;        // "YYYY-MM-DD"
+  days_until: number;
+};
+
+type MacroCalendarResponse = {
+  ok: boolean;
+  error: string | null;
+  data: {
+    events: MacroEvent[];
+    stale: boolean;
+    updated_at: string | null;
+    error: string | null;
+  } | null;
+};
+
+const MACRO_NAME_SHORT: Record<string, string> = {
+  'CPI': 'CPI',
+  'PPI': 'PPI',
+  'NFP (Employment Situation)': 'NFP',
+  'FOMC Press Release': 'FOMC',
+};
+
+function macroDateLabel(dateStr: string, daysUntil: number): string {
+  if (daysUntil === 0) return 'oggi';
+  if (daysUntil === 1) return 'domani';
+  const d = new Date(dateStr + 'T00:00:00Z');
+  const dd = String(d.getUTCDate()).padStart(2, '0');
+  const mm = String(d.getUTCMonth() + 1).padStart(2, '0');
+  return `${dd}/${mm} · tra ${daysUntil}gg`;
+}
+
 function tfToMinutes(tf?: string): number | null {
   const s = String(tf || '').trim();
   if (!s) return null;
@@ -135,6 +169,30 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
   const [minScore, setMinScore] = useState<number>(60);
   const [maxHours, setMaxHours] = useState<number>(48);
   const [dir, setDir] = useState<'ALL' | 'LONG' | 'SHORT'>('ALL');
+
+  const [macroEvents, setMacroEvents] = useState<MacroEvent[] | null>(null);
+  const [macroError, setMacroError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const r = await fetch('/api/macro-calendar/upcoming?days_ahead=14', { cache: 'no-store' });
+        const js = (await r.json()) as MacroCalendarResponse;
+        if (cancelled) return;
+        if (!js.ok || !js.data) {
+          setMacroError(js.error || js.data?.error || 'Non disponibile');
+          setMacroEvents(js.data?.events ?? null);
+          return;
+        }
+        setMacroEvents(js.data.events);
+        setMacroError(js.data.stale ? js.data.error : null);
+      } catch (e: any) {
+        if (!cancelled) setMacroError(e?.message || 'Errore');
+      }
+    })();
+    return () => { cancelled = true; };
+  }, []);
 
   async function fetchAgema() {
     try {
@@ -226,6 +284,34 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
       <span style={{ position: 'absolute', top: 6, right: 6 }} onClick={e => e.stopPropagation()}>
         <HelpButton helpKey="agema" label="Agema" variant="section" />
       </span>
+
+      {/* Macro calendar strip */}
+      {macroEvents && macroEvents.length > 0 && (
+        <div
+          className="flex flex-wrap items-center gap-2 mb-4"
+          style={{ borderBottom: '1px solid var(--color-border-dim)', paddingBottom: '14px' }}
+        >
+          <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-dim)] mr-1">
+            Eventi macro
+          </span>
+          {macroEvents.map((ev) => (
+            <span
+              key={`${ev.release_id}-${ev.date}`}
+              className="font-mono text-[10px] tracking-[0.05em] text-[var(--color-text)] px-2 py-1"
+              style={{ border: '1px solid var(--color-border)' }}
+              title={ev.name}
+            >
+              {MACRO_NAME_SHORT[ev.name] || ev.name}
+              <span className="text-[var(--color-text-dim)]"> · {macroDateLabel(ev.date, ev.days_until)}</span>
+            </span>
+          ))}
+        </div>
+      )}
+      {macroError && (!macroEvents || macroEvents.length === 0) && (
+        <div className="font-mono text-[10px] text-[var(--color-text-dim)] mb-4 opacity-60">
+          Eventi macro non disponibili ({macroError})
+        </div>
+      )}
 
       {/* Filter toolbar */}
       <div
