@@ -18,9 +18,10 @@ import SegnalaProblema from './SegnalaProblema';
 import HelpButton from './help/HelpButton';
 import JournalPanel from './journal/JournalPanel';
 import LiquidationPanel from './liquidation/LiquidationPanel';
+import StarHome from './starhome/StarHome';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'home';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra',     label: 'Cassandra' },
@@ -40,7 +41,7 @@ const APPS: { key: AppKey; label: string }[] = [
 const ALERT_POLL_MS = 60_000; // polling unread count ogni 60s
 
 export default function ProgramsHub() {
-  const [activeApp, setActiveApp] = useState<AppKey>('cassandra');
+  const [activeApp, setActiveApp] = useState<AppKey>('home');
   const [cassandraContext, setCassandraContext] = useState<string>('');
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   const { user, isLoaded } = useUser();
@@ -96,9 +97,17 @@ export default function ProgramsHub() {
   }
 
   const isWide = activeApp === 'tifide3';
+  const isHome = activeApp === 'home';
 
   const content = useMemo(() => {
     switch (activeApp) {
+      case 'home':
+        return (
+          <StarHome
+            isFirstVisit={typeof window !== 'undefined' && !sessionStorage.getItem('cassandra_starhome_seen')}
+            onModuleSelect={handleTabChange}
+          />
+        );
       case 'argonauta': return <ArgonautaPanel onPiziaContext={handlePiziaContext} />;
       case 'orione':    return <OrionePanel onPiziaContext={handlePiziaContext} />;
       case 'tifide3':   return <Tifide3Panel />;
@@ -160,6 +169,37 @@ export default function ProgramsHub() {
               CASSANDRA
             </span>
           </div>
+
+          {/* Home Stellare */}
+          <button
+            onClick={() => handleTabChange('home')}
+            title="Home Stellare"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              width: '36px',
+              paddingRight: '8px',
+              marginRight: '8px',
+              border: 'none',
+              borderRight: '1px solid rgba(2,2,14,0.15)',
+              background: 'transparent',
+              cursor: 'pointer',
+              opacity: activeApp === 'home' ? 1 : 0.55,
+              transition: 'opacity 200ms ease',
+              flexShrink: 0,
+            }}
+          >
+            {/* Partenone — frontone triangolare + colonnato, stilizzato */}
+            <svg width="20" height="18" viewBox="0 0 24 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 1L23 8H1L12 1Z" fill="var(--color-void)" />
+              <rect x="1" y="8" width="22" height="1.5" fill="var(--color-void)" />
+              {[3, 6.5, 10, 13.5, 17, 20.5].map((x) => (
+                <rect key={x} x={x} y={9.5} width="1.4" height="7.5" fill="var(--color-void)" />
+              ))}
+              <rect x="1" y="17" width="22" height="1.5" fill="var(--color-void)" />
+            </svg>
+          </button>
 
           {/* Nav tabs */}
           <nav
@@ -280,7 +320,9 @@ export default function ProgramsHub() {
       {/* ── Content ─────────────────────────────────────────────── */}
       <main
         style={
-          isWide
+          isHome
+            ? { position: 'relative', zIndex: 1, flex: 1, width: '100%', padding: 0, minHeight: 'calc(100vh - 49px)' }
+            : isWide
             ? { position: 'relative', zIndex: 1, flex: 1, width: '100%', padding: '12px 8px' }
             : { position: 'relative', zIndex: 1, maxWidth: '1600px', margin: '0 auto', flex: 1, padding: '24px 20px', width: '100%' }
         }

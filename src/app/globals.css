@@ -343,3 +343,10 @@ body {
 .pizia-dot   { animation: piziaDotPulse 1.6s ease-in-out infinite; }
 .pizia-dot-1 { animation-delay: 0.25s; }
 .pizia-dot-2 { animation-delay: 0.5s; }
+
+/* ── Home Stellare — materializzazione icone (stato navigazione) ── */
+@keyframes tagReveal {
+  from { opacity: 0; transform: translateY(10px) scale(0.96); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.starhome-icon-reveal { opacity: 0; animation: tagReveal 0.5s ease forwards; }
