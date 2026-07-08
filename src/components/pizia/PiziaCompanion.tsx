@@ -34,6 +34,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionIdRef = useRef<string>(crypto.randomUUID());
 
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -113,6 +114,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
         body: JSON.stringify({
           messages: history.map(m => ({ role: m.role, content: m.content })),
           context: Object.keys(context).length > 0 ? context : null,
+          session_id: sessionIdRef.current,
         }),
       });
 
