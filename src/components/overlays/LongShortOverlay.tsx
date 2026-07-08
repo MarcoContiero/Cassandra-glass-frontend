@@ -47,6 +47,43 @@ function netflowColor(signal: string | null): string {
   return 'var(--color-text-dim)';
 }
 
+interface EtfFlowData {
+  flow_today_usd: number | null;
+  flow_7d_avg_usd: number | null;
+  signal: string | null;
+  label: string | null;
+  stale: boolean;
+  updated_at: string | null;
+}
+
+function useEtfFlow(coin?: string) {
+  const [data, setData] = useState<EtfFlowData | null>(null);
+  useEffect(() => {
+    if (!coin || coin.toUpperCase() !== 'BTC') return;
+    fetch('/api/etf-flow/btc')
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.data) setData(j.data); })
+      .catch(() => {});
+  }, [coin]);
+  return data;
+}
+
+function etfFlowColor(signal: string | null): string {
+  if (!signal) return 'var(--color-text-dim)';
+  if (signal === 'afflusso_forte' || signal === 'afflusso') return 'var(--color-cyan)';
+  if (signal === 'deflusso_forte' || signal === 'deflusso') return '#E87B30';
+  return 'var(--color-text-dim)';
+}
+
+function fmtUsd(val: number | null): string {
+  if (val == null) return '';
+  const abs = Math.abs(val);
+  const sign = val >= 0 ? '+' : '−';
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(0)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
 function fmtBtc(val: number | null): string {
   if (val == null) return '';
   const abs = Math.abs(val);
@@ -177,6 +214,7 @@ export default function LongShortOverlay({
   coin,
 }: LongShortOverlayProps) {
   const netflow = useNetflow(coin);
+  const etfFlow = useEtfFlow(coin);
   const rows = useMemo(() => {
     const tfList =
       timeframes && timeframes.length > 0
@@ -379,6 +417,26 @@ export default function LongShortOverlay({
                           <span style={{ opacity: 0.7 }}>{fmtBtc(netflow.netflow_7d_avg)}</span>
                         )}
                         {netflow.stale && <span style={{ opacity: 0.5 }}>*</span>}
+                      </div>
+                    )}
+                    {/* ETF Flow badge — solo su 1D per BTC */}
+                    {etfFlow && String(tf).toLowerCase() === '1d' && etfFlow.label && (
+                      <div
+                        className="flex items-center gap-1 px-2 py-0.5 text-[10px]"
+                        style={{
+                          borderRadius: 2,
+                          border: `1px solid ${etfFlow.stale ? 'rgba(90,90,138,0.3)' : `${etfFlowColor(etfFlow.signal)}44`}`,
+                          background: etfFlow.stale ? 'rgba(90,90,138,0.08)' : `${etfFlowColor(etfFlow.signal)}14`,
+                          color: etfFlow.stale ? 'var(--color-text-dim)' : etfFlowColor(etfFlow.signal),
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                        title={etfFlow.stale ? 'Dati non aggiornati' : `Aggiornato: ${etfFlow.updated_at ?? '—'}`}
+                      >
+                        etf {etfFlow.label}
+                        {etfFlow.flow_7d_avg_usd != null && (
+                          <span style={{ opacity: 0.7 }}>{fmtUsd(etfFlow.flow_7d_avg_usd)}</span>
+                        )}
+                        {etfFlow.stale && <span style={{ opacity: 0.5 }}>*</span>}
                       </div>
                     )}
                   </div>

@@ -921,6 +921,31 @@ interface NetflowResult {
   updated_at: string | null;
 }
 
+interface EtfFlowResult {
+  flow_today_usd: number | null;
+  flow_7d_avg_usd: number | null;
+  signal: string | null;
+  label: string | null;
+  stale: boolean;
+  updated_at: string | null;
+}
+
+function efColor(signal: string | null): string {
+  if (!signal) return 'var(--color-text-dim)';
+  if (signal === 'afflusso_forte' || signal === 'afflusso') return 'var(--color-cyan)';
+  if (signal === 'deflusso_forte' || signal === 'deflusso') return '#E87B30';
+  return 'var(--color-text-dim)';
+}
+
+function fmtUsdDna(val: number | null): string {
+  if (val == null) return '—';
+  const abs = Math.abs(val);
+  const sign = val >= 0 ? '+' : '−';
+  if (abs >= 1_000_000) return `${sign}$${(abs / 1_000_000).toFixed(0)}M`;
+  if (abs >= 1_000) return `${sign}$${(abs / 1_000).toFixed(0)}K`;
+  return `${sign}$${abs.toFixed(0)}`;
+}
+
 function nfColor(signal: string | null): string {
   if (!signal) return 'var(--color-text-dim)';
   if (signal === 'accumulo_forte' || signal === 'accumulo') return 'var(--color-cyan)';
@@ -941,6 +966,7 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
   const hurstInfo = hurst != null ? hurstLabel(hurst) : null;
   const [volRatio, setVolRatio] = useState<number | null>(null);
   const [netflow, setNetflow] = useState<NetflowResult | null>(null);
+  const [etfFlow, setEtfFlow] = useState<EtfFlowResult | null>(null);
   const [whale, setWhale] = useState<WhaleAnomalyResult | null>(null);
 
   useEffect(() => {
@@ -959,6 +985,14 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
     fetch('/api/netflow/btc')
       .then(r => r.json())
       .then(j => { if (j.ok && j.data) setNetflow(j.data); })
+      .catch(() => {});
+  }, [genome.coin]);
+
+  useEffect(() => {
+    if (genome.coin.toUpperCase() !== 'BTC') return;
+    fetch('/api/etf-flow/btc')
+      .then(r => r.json())
+      .then(j => { if (j.ok && j.data) setEtfFlow(j.data); })
       .catch(() => {});
   }, [genome.coin]);
 
@@ -1234,6 +1268,22 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
                   ? 'Dati non aggiornati · CryptoQuant'
                   : `Dati: CryptoQuant · agg. ${netflow.updated_at ? new Date(netflow.updated_at).toLocaleDateString('it-IT') : '—'}`}
               </div>
+              {etfFlow && (
+                <>
+                  <div className="flex items-center justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11, marginTop: 8 }}>
+                    <span style={{ color: 'var(--color-text-dim)' }}>ETF Flow (7d avg)</span>
+                    <span style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                      <span style={{ color: efColor(etfFlow.signal), fontWeight: 500 }}>{etfFlow.label ?? '—'}</span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>{fmtUsdDna(etfFlow.flow_7d_avg_usd)}</span>
+                    </span>
+                  </div>
+                  <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginTop: 4, opacity: 0.6 }}>
+                    {etfFlow.stale
+                      ? 'Dati non aggiornati · SoSoValue'
+                      : `Dati: SoSoValue · agg. ${etfFlow.updated_at ? new Date(etfFlow.updated_at).toLocaleDateString('it-IT') : '—'}`}
+                  </div>
+                </>
+              )}
             </div>
           </Section>
         )}
