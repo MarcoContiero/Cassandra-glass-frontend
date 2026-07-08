@@ -1,6 +1,6 @@
 'use client';
 
-import { useCallback, useEffect, useRef, useState } from 'react';
+import { useEffect, useRef } from 'react';
 import StarfieldBackground from './StarfieldBackground';
 
 export type StarHomeModule = 'cassandra' | 'orione' | 'argonauta' | 'agema' | 'dna' | 'costellazioni';
@@ -10,135 +10,292 @@ interface StarHomeProps {
   onModuleSelect: (module: StarHomeModule) => void;
 }
 
-type StarHomeState = 'narrative' | 'transitioning' | 'navigation';
+type StarPoint = { x: number; y: number };
 
-type StarDef = {
+type ConstellationDef = {
   key: StarHomeModule;
   name: string;
-  theta: number;
-  phi: number;
-  size: number;
   color: string;
+  points: StarPoint[];
+  edges: [number, number][];
+  orbit: 'inner' | 'outer' | null; // null = Cassandra, fissa al centro
+  initialAngleDeg: number;
 };
 
-// Stessi theta/phi di HeroPlanetarium per i 6 nodi condivisi (senza "Le Tre Moire",
-// non presente tra i moduli della Home Stellare)
-const STARS: StarDef[] = [
-  { key: 'cassandra',     name: 'CASSANDRA',  theta: 0,   phi: 0.18, size: 7, color: '#c9a84c' },
-  { key: 'orione',        name: 'ORIONE',     theta: 0.8, phi: 0.55, size: 4.5, color: '#0abfbc' },
-  { key: 'argonauta',     name: 'ARGONAUTA',  theta: 2.1, phi: 0.45, size: 4.5, color: '#0abfbc' },
-  { key: 'agema',         name: 'AGEMA',      theta: 3.4, phi: 0.52, size: 4.5, color: '#0abfbc' },
-  { key: 'dna',           name: 'DNA COIN',   theta: 5.4, phi: 0.60, size: 4,   color: '#9a7a3a' },
-  { key: 'costellazioni', name: 'TIFIDE',     theta: 1.5, phi: 0.70, size: 4,   color: '#9a7a3a' },
+// Coordinate/edge/colori 1:1 dalla spec (cassandra-home-stellare-spec.md, sez. "Le 6 costellazioni")
+const CONSTELLATIONS: ConstellationDef[] = [
+  {
+    key: 'cassandra', name: 'CASSANDRA', color: '#c9a84c', orbit: null, initialAngleDeg: 0,
+    points: [
+      { x: 0, y: 0 },      // 0 centro
+      { x: 0, y: -2 },     // 1 N
+      { x: 1.4, y: -1.4 }, // 2 NE
+      { x: 2, y: 0 },      // 3 E
+      { x: 1.4, y: 1.4 },  // 4 SE
+      { x: 0, y: 2 },      // 5 S
+      { x: -1.4, y: 1.4 }, // 6 SO
+      { x: -2, y: 0 },     // 7 O
+      { x: -1.4, y: -1.4 }, // 8 NO
+    ],
+    edges: [[1, 5], [2, 6], [3, 7], [4, 8]],
+  },
+  {
+    key: 'orione', name: 'ORIONE', color: '#0abfbc', orbit: 'inner', initialAngleDeg: 0,
+    points: [
+      { x: -1.2, y: -2 },  // 0 Betelgeuse
+      { x: 1.2, y: -1.8 }, // 1 Bellatrix
+      { x: -0.6, y: 0 },   // 2 Alnitak
+      { x: 0, y: 0 },      // 3 Alnilam
+      { x: 0.6, y: 0 },    // 4 Mintaka
+      { x: -1, y: 2 },     // 5 Saiph
+      { x: 1.2, y: 2.2 },  // 6 Rigel
+    ],
+    edges: [[0, 2], [1, 4], [2, 3], [3, 4], [2, 5], [4, 6]],
+  },
+  {
+    key: 'argonauta', name: 'ARGONAUTA', color: '#c9a84c', orbit: 'inner', initialAngleDeg: 180,
+    points: [
+      { x: 0, y: -2.5 },  // 0 punta
+      { x: -1.5, y: 1.5 }, // 1 base_sx
+      { x: 1.5, y: 1.5 },  // 2 base_dx
+      { x: 0, y: 0 },      // 3 albero
+    ],
+    edges: [[0, 3], [3, 1], [3, 2], [1, 2]],
+  },
+  {
+    key: 'agema', name: 'AGEMA', color: '#0abfbc', orbit: 'outer', initialAngleDeg: 60,
+    points: [
+      { x: 0, y: -2 },   // 0 top
+      { x: 1.5, y: 0 },  // 1 right
+      { x: 0, y: 2 },    // 2 bottom
+      { x: -1.5, y: 0 }, // 3 left
+      { x: 0, y: 0 },    // 4 center
+    ],
+    edges: [[0, 1], [1, 2], [2, 3], [3, 0]],
+  },
+  {
+    key: 'dna', name: 'DNA COIN', color: '#c9a84c', orbit: 'outer', initialAngleDeg: 180,
+    points: [
+      { x: -1, y: -3 },   // 0 A1
+      { x: -1.2, y: -1 }, // 1 A2
+      { x: -1, y: 1 },    // 2 A3
+      { x: -0.8, y: 3 },  // 3 A4
+      { x: 1, y: -2 },    // 4 B1
+      { x: 1.2, y: 0 },   // 5 B2
+      { x: 1, y: 2 },     // 6 B3
+      { x: 0.8, y: 3 },   // 7 B4
+    ],
+    edges: [[0, 1], [1, 2], [2, 3], [4, 5], [5, 6], [6, 7], [1, 4], [2, 5], [3, 6]],
+  },
+  {
+    key: 'costellazioni', name: 'TIFIDE', color: '#0abfbc', orbit: 'outer', initialAngleDeg: 300,
+    points: [
+      { x: 0, y: 2.5 },    // 0 punta (verso il basso)
+      { x: -1, y: 0.5 },   // 1 sx_1
+      { x: 1, y: 0.5 },    // 2 dx_1
+      { x: -1.8, y: -1.5 }, // 3 sx_2
+      { x: 1.8, y: -1.5 },  // 4 dx_2
+    ],
+    edges: [[0, 1], [0, 2], [1, 3], [2, 4]],
+  },
 ];
 
-// indici in STARS — Cassandra hub verso tutte + relazione narrativa Orione-Argonauta
-const EDGES: [number, number][] = [[0, 1], [0, 2], [0, 3], [0, 4], [0, 5], [1, 2]];
+const ORBIT_SPEED_DEG_S = { inner: 4.5, outer: 2.8 };
+const MIN_HIT_SIZE = 44; // px — target minimo accessibilità touch
+const STAGGER_MS = 80;
+const REVEAL_MS = 300;
 
-function azimuthalProject(theta: number, phi: number, t: number, pmx: number, pmy: number) {
-  const thetaR = theta + t;
-  const x = Math.sin(phi) * Math.cos(thetaR) + pmx * 0.04;
-  const y = Math.sin(phi) * Math.sin(thetaR) + pmy * 0.04;
-  const z = Math.cos(phi);
-  const r = Math.sqrt(x * x + y * y);
-  const angle = Math.atan2(y, x);
-  const rProj = r > 0 ? Math.atan2(r, z) / (Math.PI / 2) : 0;
-  return { px: rProj * Math.cos(angle), py: rProj * Math.sin(angle) };
-}
-
-const GREETING = 'Le stelle sono allineate. Scegli da dove guardare.';
+type Bbox = { x0: number; y0: number; x1: number; y1: number };
 
 export default function StarHome({ isFirstVisit, onModuleSelect }: StarHomeProps) {
-  const [state, setState] = useState<StarHomeState>(isFirstVisit ? 'narrative' : 'navigation');
-  const [hoverIdx, setHoverIdx] = useState<number | null>(null);
-
   const containerRef = useRef<HTMLDivElement>(null);
-  const starRefs = useRef<(HTMLDivElement | null)[]>([]);
-  const lineRefs = useRef<(SVGLineElement | null)[]>([]);
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const labelRefs = useRef<(HTMLDivElement | null)[]>([]);
   const frameRef = useRef<number>(0);
-  const tRef = useRef(0);
-  const pmxRef = useRef(0);
-  const pmyRef = useRef(0);
+  const mountTimeRef = useRef<number>(0);
+  const anglesRef = useRef<number[]>(CONSTELLATIONS.map(c => c.initialAngleDeg));
+  const bboxesRef = useRef<Bbox[]>([]);
   const dimsRef = useRef({ w: 0, h: 0 });
+  const stoppedRef = useRef(false);
+  const glowUntilRef = useRef(0);
+  const glowKeyRef = useRef<StarHomeModule | null>(null);
+  const clickedRef = useRef(false);
 
-  // loop di posizionamento — le stelle si muovono sempre, in tutti gli stati
   useEffect(() => {
+    const canvas = canvasRef.current;
     const container = containerRef.current;
-    if (!container) return;
+    if (!canvas || !container) return;
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
 
-    const onMouseMove = (e: MouseEvent) => {
-      const rect = container.getBoundingClientRect();
-      pmxRef.current = ((e.clientX - rect.left) / rect.width - 0.5) * 2;
-      pmyRef.current = ((e.clientY - rect.top) / rect.height - 0.5) * 2;
-    };
-    window.addEventListener('mousemove', onMouseMove);
+    mountTimeRef.current = performance.now();
 
     const resize = () => {
-      dimsRef.current = { w: container.offsetWidth, h: container.offsetHeight };
+      canvas.width = container.offsetWidth;
+      canvas.height = container.offsetHeight;
+      dimsRef.current = { w: canvas.width, h: canvas.height };
     };
     resize();
     const ro = new ResizeObserver(resize);
     ro.observe(container);
 
-    const draw = () => {
-      tRef.current += 0.0015;
-      const t = tRef.current;
-      const pmx = pmxRef.current;
-      const pmy = pmyRef.current;
+    let lastT = performance.now();
+
+    const draw = (now: number) => {
+      const dt = Math.min(now - lastT, 50); // clamp per evitare salti dopo un tab in background
+      lastT = now;
       const { w: W, h: H } = dimsRef.current;
+      const mobile = W < 640;
       const cx = W / 2;
-      const cy = H / 2;
-      const R = Math.min(W, H) * 0.34;
+      const cy = H * 0.42; // Cassandra leggermente sopra il centro verticale
+      const radiusInner = mobile ? 120 : 180;
+      const radiusOuter = mobile ? 220 : 320;
+      const scale = mobile ? 9 : 13;
+      const cassandraScale = scale * 1.35;
 
-      const positions = STARS.map(s => {
-        const { px, py } = azimuthalProject(s.theta, s.phi, t, pmx, pmy);
-        return { x: cx + px * R, y: cy + py * R };
+      if (!stoppedRef.current) {
+        anglesRef.current = anglesRef.current.map((a, i) => {
+          const c = CONSTELLATIONS[i];
+          if (!c.orbit) return a;
+          const speed = ORBIT_SPEED_DEG_S[c.orbit];
+          // antiorario su canvas y-down: decrementare l'angolo
+          return a - speed * (dt / 1000);
+        });
+      }
+
+      ctx.clearRect(0, 0, W, H);
+
+      // pulsazione Cassandra: 1.0 -> 1.08 -> 1.0, 3s
+      const pulse = 1 + 0.04 * (1 + Math.sin(((now / 1000) * (2 * Math.PI / 3)) - Math.PI / 2));
+
+      const centers: { x: number; y: number }[] = CONSTELLATIONS.map((c, i) => {
+        if (!c.orbit) return { x: cx, y: cy };
+        const R = c.orbit === 'inner' ? radiusInner : radiusOuter;
+        const rad = (anglesRef.current[i] * Math.PI) / 180;
+        return { x: cx + R * Math.cos(rad), y: cy + R * Math.sin(rad) };
       });
 
-      positions.forEach((p, i) => {
-        const el = starRefs.current[i];
-        if (el) {
-          el.style.left = `${p.x}px`;
-          el.style.top = `${p.y}px`;
+      // linee radiali Cassandra -> ogni costellazione in orbita (raggi della ruota)
+      ctx.strokeStyle = 'rgba(201,168,76,0.1)';
+      ctx.lineWidth = 1;
+      centers.forEach((p, i) => {
+        if (!CONSTELLATIONS[i].orbit) return;
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.lineTo(p.x, p.y);
+        ctx.stroke();
+      });
+
+      const newBboxes: Bbox[] = [];
+
+      CONSTELLATIONS.forEach((c, i) => {
+        const center = centers[i];
+        const sizeMultiplier = c.orbit ? 1 : pulse;
+        const s = (c.orbit ? scale : cassandraScale) * sizeMultiplier;
+        const screenPts = c.points.map(p => ({ x: center.x + p.x * s, y: center.y + p.y * s }));
+
+        let alpha = 1;
+        if (isFirstVisit) {
+          const elapsed = now - mountTimeRef.current - i * STAGGER_MS;
+          alpha = Math.max(0, Math.min(1, elapsed / REVEAL_MS));
+        }
+        ctx.globalAlpha = alpha;
+
+        // edges
+        ctx.strokeStyle = c.color;
+        ctx.lineWidth = 1;
+        ctx.globalAlpha = alpha * 0.35;
+        c.edges.forEach(([a, b]) => {
+          ctx.beginPath();
+          ctx.moveTo(screenPts[a].x, screenPts[a].y);
+          ctx.lineTo(screenPts[b].x, screenPts[b].y);
+          ctx.stroke();
+        });
+
+        // glow extra se questa costellazione è stata appena cliccata
+        const isGlowing = glowKeyRef.current === c.key && now < glowUntilRef.current;
+
+        screenPts.forEach((p, pi) => {
+          ctx.globalAlpha = alpha;
+          const isHub = c.orbit === null && pi === 0;
+          const r = (isHub ? 3.2 : 2) * (c.orbit ? 1 : pulse) + (isGlowing ? 1.5 : 0);
+
+          const grd = ctx.createRadialGradient(p.x, p.y, 0, p.x, p.y, r * (isGlowing ? 5 : 3.2));
+          grd.addColorStop(0, c.color + (isGlowing ? 'aa' : '55'));
+          grd.addColorStop(1, 'transparent');
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r * (isGlowing ? 5 : 3.2), 0, Math.PI * 2);
+          ctx.fillStyle = grd;
+          ctx.fill();
+
+          ctx.beginPath();
+          ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
+          ctx.fillStyle = c.color;
+          ctx.fill();
+        });
+
+        ctx.globalAlpha = 1;
+
+        // bounding box con padding minimo 44px per hit-test/touch
+        const xs = screenPts.map(p => p.x);
+        const ys = screenPts.map(p => p.y);
+        let x0 = Math.min(...xs), x1 = Math.max(...xs);
+        let y0 = Math.min(...ys), y1 = Math.max(...ys);
+        if (x1 - x0 < MIN_HIT_SIZE) { const m = (MIN_HIT_SIZE - (x1 - x0)) / 2; x0 -= m; x1 += m; }
+        if (y1 - y0 < MIN_HIT_SIZE) { const m = (MIN_HIT_SIZE - (y1 - y0)) / 2; y0 -= m; y1 += m; }
+        newBboxes[i] = { x0, y0, x1, y1 };
+
+        // label DOM — mutazione diretta, niente setState
+        const label = labelRefs.current[i];
+        if (label) {
+          const labelY = c.orbit === null ? center.y + 26 * pulse : y1 + 14;
+          label.style.left = `${center.x}px`;
+          label.style.top = `${labelY}px`;
+          label.style.opacity = String(alpha);
         }
       });
 
-      EDGES.forEach(([a, b], i) => {
-        const line = lineRefs.current[i];
-        if (line) {
-          line.setAttribute('x1', String(positions[a].x));
-          line.setAttribute('y1', String(positions[a].y));
-          line.setAttribute('x2', String(positions[b].x));
-          line.setAttribute('y2', String(positions[b].y));
-        }
-      });
+      bboxesRef.current = newBboxes;
 
       frameRef.current = requestAnimationFrame(draw);
     };
+
     frameRef.current = requestAnimationFrame(draw);
 
     return () => {
       cancelAnimationFrame(frameRef.current);
-      window.removeEventListener('mousemove', onMouseMove);
       ro.disconnect();
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const handleEnter = useCallback(() => {
-    setState('transitioning');
-    // step 1 (0-300ms): fade out testi — gestito via className su state 'transitioning'
-    // step 2 (300-900ms): zoom leggero — idem
-    // step 3 (900-1300ms): materializzazione icone (stagger via tagReveal)
-    const timer = setTimeout(() => {
-      setState('navigation');
-      try { sessionStorage.setItem('cassandra_starhome_seen', '1'); } catch { /* ignore */ }
-    }, 1300);
-    return () => clearTimeout(timer);
-  }, []);
+  const handlePointerDown = (e: React.PointerEvent<HTMLCanvasElement>) => {
+    if (clickedRef.current) return;
+    const rect = canvasRef.current!.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
 
-  const isNarrative = state === 'narrative';
-  const isTransitioning = state === 'transitioning';
-  const isNavigation = state === 'navigation';
+    const hitIdx = bboxesRef.current.findIndex(b => b && x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1);
+    if (hitIdx === -1) return;
+
+    const module = CONSTELLATIONS[hitIdx].key;
+    clickedRef.current = true;
+    stoppedRef.current = true;
+    glowKeyRef.current = module;
+    glowUntilRef.current = performance.now() + 300;
+
+    setTimeout(() => {
+      const container = containerRef.current;
+      if (container) container.style.opacity = '0';
+    }, 300);
+
+    setTimeout(() => {
+      if (isFirstVisit) {
+        try { sessionStorage.setItem('cassandra_starhome_seen', '1'); } catch { /* ignore */ }
+      }
+      onModuleSelect(module);
+    }, 700);
+  };
 
   return (
     <div
@@ -149,94 +306,53 @@ export default function StarHome({ isFirstVisit, onModuleSelect }: StarHomeProps
         height: '100%',
         minHeight: '70vh',
         overflow: 'hidden',
-        transform: isTransitioning ? 'scale(1.08)' : 'scale(1)',
-        transition: 'transform 600ms ease-in-out',
+        opacity: 1,
+        transition: 'opacity 400ms ease',
       }}
     >
       <StarfieldBackground />
 
-      <svg style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', pointerEvents: 'none' }}>
-        {EDGES.map((_, i) => (
-          <line
-            key={i}
-            ref={el => { lineRefs.current[i] = el; }}
-            stroke="var(--color-gold, #c9a84c)"
-            strokeOpacity={0.25}
-            strokeWidth={1}
-          />
-        ))}
-      </svg>
+      <canvas
+        ref={canvasRef}
+        onPointerDown={handlePointerDown}
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%', cursor: 'pointer' }}
+      />
 
-      {STARS.map((s, i) => {
-        const hovered = hoverIdx === i;
-        return (
-          <div
-            key={s.key}
-            ref={el => { starRefs.current[i] = el; }}
-            onMouseEnter={() => isNavigation && setHoverIdx(i)}
-            onMouseLeave={() => isNavigation && setHoverIdx(null)}
-            onClick={() => isNavigation && onModuleSelect(s.key)}
-            className={isNavigation ? 'starhome-icon-reveal' : undefined}
-            style={{
-              position: 'absolute',
-              transform: 'translate(-50%, -50%)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              gap: '6px',
-              cursor: isNavigation ? 'pointer' : 'default',
-              animationDelay: isNavigation ? `${i * 80}ms` : undefined,
-              opacity: isNarrative || isNavigation ? 1 : 0,
-              transition: 'opacity 300ms ease',
-            }}
-          >
-            <div
-              style={{
-                width: `${s.size * (hovered ? 3.6 : 3)}px`,
-                height: `${s.size * (hovered ? 3.6 : 3)}px`,
-                borderRadius: '50%',
-                background: s.color,
-                boxShadow: `0 0 ${hovered ? 18 : 10}px ${s.color}`,
-                transition: 'width 200ms ease, height 200ms ease, box-shadow 200ms ease',
-              }}
-            />
-            <span
-              style={{
-                fontFamily: 'var(--font-display, Cinzel, serif)',
-                fontSize: s.key === 'cassandra' ? '13px' : '10px',
-                letterSpacing: '0.2em',
-                color: hovered ? 'var(--color-gold, #c9a84c)' : 'var(--color-text-dim)',
-                textTransform: 'uppercase',
-                whiteSpace: 'nowrap',
-                transition: 'color 200ms ease',
-              }}
-            >
-              {s.name}
-            </span>
-          </div>
-        );
-      })}
+      {CONSTELLATIONS.map((c, i) => (
+        <div
+          key={c.key}
+          ref={el => { labelRefs.current[i] = el; }}
+          style={{
+            position: 'absolute',
+            transform: 'translate(-50%, 0)',
+            pointerEvents: 'none',
+            fontFamily: 'var(--font-display, Cinzel, serif)',
+            fontSize: c.key === 'cassandra' ? '13px' : '10px',
+            fontWeight: 400,
+            letterSpacing: '0.2em',
+            color: 'var(--color-text-dim)',
+            textTransform: 'uppercase',
+            whiteSpace: 'nowrap',
+          }}
+        >
+          {c.name}
+        </div>
+      ))}
 
-      {/* Saluto + ENTRA — solo stato narrativo, sparisce in transizione */}
+      {/* Saluto di Pizia — testo passivo, non blocca l'interazione */}
       <div
         style={{
           position: 'absolute',
           left: '50%',
-          bottom: '14%',
+          bottom: '6%',
           transform: 'translateX(-50%)',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '24px',
-          opacity: isNarrative ? 1 : 0,
-          transition: 'opacity 300ms ease',
-          pointerEvents: isNarrative ? 'auto' : 'none',
+          pointerEvents: 'none',
         }}
       >
         <p
           style={{
             fontFamily: 'var(--font-display, serif)',
-            fontSize: '14px',
+            fontSize: '13px',
             fontWeight: 300,
             fontStyle: 'italic',
             color: 'var(--color-text-dim)',
@@ -244,24 +360,8 @@ export default function StarHome({ isFirstVisit, onModuleSelect }: StarHomeProps
             maxWidth: '320px',
           }}
         >
-          {GREETING}
+          Le stelle sono allineate. Scegli da dove guardare.
         </p>
-        <button
-          onClick={handleEnter}
-          style={{
-            background: 'transparent',
-            border: '1px solid var(--color-gold-dim, rgba(201,168,76,0.4))',
-            color: 'var(--color-gold, #c9a84c)',
-            fontFamily: 'var(--font-mono)',
-            fontSize: '10px',
-            letterSpacing: '0.3em',
-            textTransform: 'uppercase',
-            padding: '10px 28px',
-            cursor: 'pointer',
-          }}
-        >
-          Entra
-        </button>
       </div>
     </div>
   );
