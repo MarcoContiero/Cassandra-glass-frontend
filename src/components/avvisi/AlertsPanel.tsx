@@ -26,7 +26,69 @@ function fmtTs(ms: number): string {
 }
 
 function moduloLabel(m: string): string {
-  return { orione: 'Orione', argonauta: 'Argonauta', agema: 'Agema' }[m] ?? m;
+  return { orione: 'Orione', argonauta: 'Argonauta', agema: 'Agema', pizia: 'Pizia' }[m] ?? m;
+}
+
+function WeeklyReportEmailButton({ eventId }: { eventId: number }) {
+  const [email, setEmail] = useState('');
+  const [status, setStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle');
+
+  async function handleSend() {
+    if (!email.trim()) return;
+    setStatus('sending');
+    try {
+      const res = await fetch(`/api/pizia/weekly-report/${eventId}/send-email`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email: email.trim() }),
+      });
+      setStatus(res.ok ? 'sent' : 'error');
+    } catch {
+      setStatus('error');
+    }
+  }
+
+  if (status === 'sent') {
+    return (
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: 'var(--color-text-dim)', marginTop: '8px' }}>
+        Email inviata.
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: '6px', marginTop: '8px' }} onClick={e => e.stopPropagation()}>
+      <input
+        type="email"
+        placeholder="la tua email"
+        value={email}
+        onChange={e => setEmail(e.target.value)}
+        style={{
+          fontFamily: 'var(--font-mono)', fontSize: '10px',
+          background: 'transparent', border: '1px solid var(--color-border)',
+          color: 'var(--color-text)', padding: '4px 8px', flex: 1,
+        }}
+      />
+      <button
+        onClick={handleSend}
+        disabled={status === 'sending' || !email.trim()}
+        style={{
+          fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.1em',
+          textTransform: 'uppercase', color: 'var(--color-gold)',
+          background: 'transparent', border: '1px solid rgba(201,168,76,0.4)',
+          padding: '4px 10px', cursor: status === 'sending' ? 'default' : 'pointer',
+          opacity: status === 'sending' || !email.trim() ? 0.5 : 1,
+        }}
+      >
+        {status === 'sending' ? 'Invio…' : 'Invia via email'}
+      </button>
+      {status === 'error' && (
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', color: '#a83d3d' }}>
+          Errore, riprova
+        </span>
+      )}
+    </div>
+  );
 }
 
 export default function AlertsPanel({ onUnreadChange }: Props) {
@@ -167,14 +229,24 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
                 </div>
 
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 300, color: 'var(--color-text)', lineHeight: 1.5 }}>
-                  {dettaglio.pattern && <>Pattern: <strong>{dettaglio.pattern}</strong></>}
-                  {dettaglio.score != null && <> · Score {dettaglio.score}</>}
-                  {dettaglio.direction && (
-                    <span style={{ color: dettaglio.direction === 'LONG' ? 'var(--color-long-bright, #3da866)' : 'var(--color-short-bright, #a83d3d)', marginLeft: '6px', fontSize: '11px' }}>
-                      {dettaglio.direction === 'LONG' ? 'rialzista' : 'ribassista'}
-                    </span>
+                  {dettaglio.messaggio ? (
+                    dettaglio.messaggio
+                  ) : (
+                    <>
+                      {dettaglio.pattern && <>Pattern: <strong>{dettaglio.pattern}</strong></>}
+                      {dettaglio.score != null && <> · Score {dettaglio.score}</>}
+                      {dettaglio.direction && (
+                        <span style={{ color: dettaglio.direction === 'LONG' ? 'var(--color-long-bright, #3da866)' : 'var(--color-short-bright, #a83d3d)', marginLeft: '6px', fontSize: '11px' }}>
+                          {dettaglio.direction === 'LONG' ? 'rialzista' : 'ribassista'}
+                        </span>
+                      )}
+                    </>
                   )}
                 </div>
+
+                {dettaglio.kind === 'weekly_report' && (
+                  <WeeklyReportEmailButton eventId={ev.id} />
+                )}
               </div>
             );
           })}
