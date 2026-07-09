@@ -265,7 +265,11 @@ function LiqFeed({ data, loading }: { data: LiqData | null; loading: boolean }) 
 
 // ── Main component ─────────────────────────────────────────────────────────────
 
-const COINS_DEFAULT = ['BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA', 'AVAX', 'LINK', 'ARB', 'OP', 'SUI', 'APT', 'INJ', 'HYPE'];
+const COINS_DEFAULT = [
+  'BTC', 'ETH', 'SOL', 'DOGE', 'XRP', 'ADA', 'AVAX', 'LINK', 'ARB', 'OP', 'SUI', 'APT', 'INJ', 'HYPE',
+  '1000BONK', '1000FLOKI', '1000PEPE', 'AAVE', 'ATOM', 'CRV', 'DOT', 'ENA', 'FARTCOIN', 'JUP', 'LDO',
+  'LTC', 'NEAR', 'ONDO', 'PENGU', 'PUMP', 'SEI', 'TAO', 'TON', 'TRUMP', 'TRX', 'UNI', 'WIF', 'WLD', 'ZEC',
+];
 
 export default function LiquidationPanel() {
   const [coin, setCoin] = useState('BTC');
