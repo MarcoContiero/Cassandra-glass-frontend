@@ -194,43 +194,50 @@ export default function SmartChart({
     // resize per non lasciare il canvas con dimensioni obsolete.
     const drawHeatmapLayer = () => {
       const canvas = heatmapCanvasRef.current;
-      if (!canvas || !ref.current) return;
-      const w = ref.current.clientWidth;
+      if (!canvas || !ref.current) {
+        console.log('[heatmap debug] drawHeatmapLayer: canvas o ref mancante, esco', { canvas: !!canvas, ref: !!ref.current });
+        return;
+      }
+      // Misuriamo il canvas STESSO (già dimensionato via CSS width:100% /
+      // height nel JSX), non ref.current: leggere clientWidth di un ALTRO
+      // elemento in un istante scelto da noi può tornare 0 se il layout non
+      // è ancora assestato in quel momento — un canvas messo a 0px di
+      // larghezza non disegna NULLA (nemmeno il testo di debug), silenzioso,
+      // stesso sintomo esatto di questo bug su ogni tentativo precedente.
+      const rect = canvas.getBoundingClientRect();
       const dpr = window.devicePixelRatio || 1;
-      canvas.width = w * dpr;
-      canvas.height = height * dpr;
-      canvas.style.width = `${w}px`;
-      canvas.style.height = `${height}px`;
+      console.log('[heatmap debug] drawHeatmapLayer chiamato', {
+        rectWidth: rect.width, rectHeight: rect.height,
+        show: show.liquidationHeatmap, heatmapPointsLen: heatmapPoints.length,
+      });
+      if (rect.width <= 0 || rect.height <= 0) {
+        console.log('[heatmap debug] canvas con dimensioni zero, skip disegno');
+        return;
+      }
+      canvas.width = rect.width * dpr;
+      canvas.height = rect.height * dpr;
       const ctx = canvas.getContext('2d');
-      if (!ctx) return;
+      if (!ctx) {
+        console.log('[heatmap debug] getContext(2d) ha ritornato null');
+        return;
+      }
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!show.liquidationHeatmap) {
-        ctx.clearRect(0, 0, w, height);
+        ctx.clearRect(0, 0, rect.width, rect.height);
         return;
       }
       if (heatmapPoints.length === 0) {
-        ctx.clearRect(0, 0, w, height);
-        // DEBUG TEMPORANEO — da rimuovere una volta confermato il rendering:
-        // dice se il layer è attivo ma senza dati (fetch non ancora arrivato,
-        // fallito, o coin senza storico) invece di restare silenzioso.
-        ctx.fillStyle = 'rgba(255,255,255,0.4)';
-        ctx.font = '11px monospace';
-        ctx.fillText('[heatmap debug] 0 punti ricevuti dal backend', 8, 16);
+        ctx.clearRect(0, 0, rect.width, rect.height);
+        console.log('[heatmap debug] 0 punti ricevuti dal backend (fetch non ancora arrivato o fallito)');
         return;
       }
       const dbg = drawHeatmap(
-        ctx, heatmapPoints, w, height,
+        ctx, heatmapPoints, rect.width, rect.height,
         ohlcv.map(d => d.time),
         (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
         (price) => candles.priceToCoordinate(price),
       );
-      // DEBUG TEMPORANEO — da rimuovere una volta confermato il rendering.
-      ctx.fillStyle = 'rgba(255,255,255,0.55)';
-      ctx.font = '11px monospace';
-      ctx.fillText(
-        `[heatmap debug] in=${dbg.pointsIn} bars=${dbg.barsIn} snap=${dbg.snappedOk} coords=${dbg.coordsOk} bounds=${dbg.inBounds} buckets=${dbg.bucketsDrawn}`,
-        8, 16,
-      );
+      console.log('[heatmap debug] drawHeatmap risultato', dbg);
     };
     // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello
     // stesso tick di fitContent() torna null per tutti i punti — il layout
@@ -247,23 +254,38 @@ export default function SmartChart({
     const lastBar = ohlcv[ohlcv.length - 1];
     const isChartReady = (): boolean => {
       if (!lastBar) return false;
-      const x = chart.timeScale().timeToCoordinate(toTs(lastBar.time));
-      const y = candles.priceToCoordinate(lastBar.close);
-      return x !== null && y !== null;
+      try {
+        const x = chart.timeScale().timeToCoordinate(toTs(lastBar.time));
+        const y = candles.priceToCoordinate(lastBar.close);
+        return x !== null && y !== null;
+      } catch (e) {
+        console.log('[heatmap debug] isChartReady ha lanciato un\'eccezione', e);
+        return false;
+      }
     };
     const tryDraw = (attempt: number) => {
       if (cancelled) return;
       if (isChartReady() || attempt >= 30) {
-        drawHeatmapLayer();
+        console.log('[heatmap debug] tryDraw: chiamo drawHeatmapLayer', { attempt, ready: isChartReady() });
+        try {
+          drawHeatmapLayer();
+        } catch (e) {
+          console.log('[heatmap debug] drawHeatmapLayer ha lanciato un\'eccezione', e);
+        }
         return;
       }
       rafId = requestAnimationFrame(() => tryDraw(attempt + 1));
     };
+    console.log('[heatmap debug] effect montato, avvio tryDraw', { show: show.liquidationHeatmap, heatmapPointsLen: heatmapPoints.length, ohlcvLen: ohlcv.length });
     rafId = requestAnimationFrame(() => tryDraw(0));
 
     const ro = new ResizeObserver(() => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
-      drawHeatmapLayer();
+      try {
+        drawHeatmapLayer();
+      } catch (e) {
+        console.log('[heatmap debug] drawHeatmapLayer (da ResizeObserver) ha lanciato un\'eccezione', e);
+      }
     });
     ro.observe(ref.current);
 
@@ -280,7 +302,7 @@ export default function SmartChart({
       <div ref={ref} style={{ width: '100%', height, background: CT.void }} />
       <canvas
         ref={heatmapCanvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height, pointerEvents: 'none' }}
       />
     </div>
   );
