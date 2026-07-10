@@ -238,6 +238,15 @@ export default function SmartChart({
         (price) => candles.priceToCoordinate(price),
       );
       console.log('[heatmap debug] drawHeatmap risultato', dbg);
+      // TEST TEMPORANEO — quadrato rosso pieno enorme e impossibile da non
+      // vedere, in un punto fisso. Se non compare nemmeno questo, il canvas
+      // è nascosto/sotto il grafico (problema di stacking CSS, non di
+      // calcolo). Se compare, le celle vere (6x4px, bassa opacità, solo
+      // 18 su 1148x420) sono semplicemente troppo piccole/tenui da notare
+      // in questa vista sparsa — da correggere aumentando dimensione/
+      // opacità minima, non un bug di pipeline.
+      ctx.fillStyle = 'rgba(255,0,0,1)';
+      ctx.fillRect(20, 20, 80, 80);
     };
     // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello
     // stesso tick di fitContent() torna null per tutti i punti — il layout
