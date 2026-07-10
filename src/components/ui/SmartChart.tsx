@@ -204,15 +204,32 @@ export default function SmartChart({
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (!show.liquidationHeatmap || heatmapPoints.length === 0) {
+      if (!show.liquidationHeatmap) {
         ctx.clearRect(0, 0, w, height);
         return;
       }
-      drawHeatmap(
+      if (heatmapPoints.length === 0) {
+        ctx.clearRect(0, 0, w, height);
+        // DEBUG TEMPORANEO — da rimuovere una volta confermato il rendering:
+        // dice se il layer è attivo ma senza dati (fetch non ancora arrivato,
+        // fallito, o coin senza storico) invece di restare silenzioso.
+        ctx.fillStyle = 'rgba(255,255,255,0.4)';
+        ctx.font = '11px monospace';
+        ctx.fillText('[heatmap debug] 0 punti ricevuti dal backend', 8, 16);
+        return;
+      }
+      const dbg = drawHeatmap(
         ctx, heatmapPoints, w, height,
         ohlcv.map(d => d.time),
         (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
         (price) => candles.priceToCoordinate(price),
+      );
+      // DEBUG TEMPORANEO — da rimuovere una volta confermato il rendering.
+      ctx.fillStyle = 'rgba(255,255,255,0.55)';
+      ctx.font = '11px monospace';
+      ctx.fillText(
+        `[heatmap debug] in=${dbg.pointsIn} bars=${dbg.barsIn} snap=${dbg.snappedOk} coords=${dbg.coordsOk} bounds=${dbg.inBounds} buckets=${dbg.bucketsDrawn}`,
+        8, 16,
       );
     };
     // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello

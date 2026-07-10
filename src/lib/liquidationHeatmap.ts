@@ -109,6 +109,15 @@ function medianBarSpacing(barTimesSec: number[]): number {
  * molti punti (es. giorni con OI alto su più leve) saturano al rosso anche
  * quando la densità reale di ciascun punto è media.
  */
+export interface DrawHeatmapDebug {
+  pointsIn: number;
+  barsIn: number;
+  snappedOk: number;
+  coordsOk: number;
+  inBounds: number;
+  bucketsDrawn: number;
+}
+
 export function drawHeatmap(
   ctx: CanvasRenderingContext2D,
   points: HeatmapPoint[],
@@ -117,19 +126,26 @@ export function drawHeatmap(
   barTimesSec: number[],
   timeToX: (timeSec: number) => number | null,
   priceToY: (price: number) => number | null,
-): void {
+): DrawHeatmapDebug {
+  const debug: DrawHeatmapDebug = {
+    pointsIn: points.length, barsIn: barTimesSec.length,
+    snappedOk: 0, coordsOk: 0, inBounds: 0, bucketsDrawn: 0,
+  };
   ctx.clearRect(0, 0, width, height);
-  if (!points.length || !barTimesSec.length) return;
+  if (!points.length || !barTimesSec.length) return debug;
 
   const maxSnapDist = medianBarSpacing(barTimesSec) * 1.5;
   const buckets = new Map<string, number>();
   for (const p of points) {
     const snappedTime = nearestBarTime(barTimesSec, Math.floor(p.timestamp / 1000), maxSnapDist);
     if (snappedTime === null) continue;
+    debug.snappedOk++;
     const x = timeToX(snappedTime);
     const y = priceToY(p.price_level);
     if (x === null || y === null) continue;
+    debug.coordsOk++;
     if (x < -CELL_W || x > width + CELL_W || y < -CELL_H || y > height + CELL_H) continue;
+    debug.inBounds++;
     const cx = Math.floor(x / CELL_W);
     const cy = Math.floor(y / CELL_H);
     const key = `${cx},${cy}`;
@@ -142,4 +158,6 @@ export function drawHeatmap(
     ctx.fillStyle = densityColor(density);
     ctx.fillRect(cx * CELL_W, cy * CELL_H, CELL_W, CELL_H);
   }
+  debug.bucketsDrawn = buckets.size;
+  return debug;
 }
