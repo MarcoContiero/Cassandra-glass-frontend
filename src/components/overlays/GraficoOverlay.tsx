@@ -168,14 +168,27 @@ export default function GraficoOverlay({
     if (!show.liquidationHeatmap || heatmapLoadedFor === symbol) return;
     let alive = true;
     const coin = symbol.replace(/USDT$/i, '').toUpperCase();
-    fetch(`${API}/api/oi/liquidation-heatmap?coin=${coin}&days=${HEATMAP_DAYS}`, { cache: 'no-store' })
-      .then(r => r.ok ? r.json() : null)
+    const url = `${API}/api/oi/liquidation-heatmap?coin=${coin}&days=${HEATMAP_DAYS}`;
+    // eslint-disable-next-line no-console
+    console.log('[heatmap debug] fetch avviato', url);
+    fetch(url, { cache: 'no-store' })
+      .then(r => {
+        // eslint-disable-next-line no-console
+        console.log('[heatmap debug] fetch risposta', { status: r.status, ok: r.ok });
+        return r.ok ? r.json() : null;
+      })
       .then(json => {
+        // eslint-disable-next-line no-console
+        console.log('[heatmap debug] fetch json', { nPoints: json?.points?.length, coin: json?.coin, disclaimer: !!json?.disclaimer });
         if (!alive) return;
         setHeatmapPoints(Array.isArray(json?.points) ? json.points : []);
         setHeatmapLoadedFor(symbol);
       })
-      .catch(() => { if (alive) setHeatmapLoadedFor(symbol); });
+      .catch(e => {
+        // eslint-disable-next-line no-console
+        console.log('[heatmap debug] fetch fallito', e);
+        if (alive) setHeatmapLoadedFor(symbol);
+      });
     return () => { alive = false; };
   }, [show.liquidationHeatmap, symbol, heatmapLoadedFor]);
 
