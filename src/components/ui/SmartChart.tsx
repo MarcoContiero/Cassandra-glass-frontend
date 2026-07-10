@@ -210,6 +210,7 @@ export default function SmartChart({
       }
       drawHeatmap(
         ctx, heatmapPoints, w, height,
+        ohlcv.map(d => d.time),
         (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
         (price) => candles.priceToCoordinate(price),
       );
@@ -219,24 +220,29 @@ export default function SmartChart({
     // interno della chart non è ancora pronto subito dopo la creazione/
     // fitContent (gotcha noto di Lightweight Charts: toggle e disclaimer
     // funzionavano, ma zero celle disegnate — sintomo esatto di questo
-    // problema, non di dati mancanti). Ci agganciamo al primo evento reale
-    // di "range visibile assestato" invece di indovinare un timing con
-    // rAF/setTimeout — più affidabile perché segue lo stato vero della
-    // chart, non un numero di frame a caso.
-    let didInitialDraw = false;
-    const onRangeSettled = () => {
-      if (didInitialDraw) return;
-      didInitialDraw = true;
-      drawHeatmapLayer();
-      chart.timeScale().unsubscribeVisibleTimeRangeChange(onRangeSettled);
+    // problema, non di dati mancanti). Un singolo evento/rAF non è bastato
+    // in produzione — invece di indovinare un timing, verifichiamo
+    // direttamente che la conversione funzioni davvero su un punto noto
+    // (l'ultima barra, sicuramente nel range visibile dopo fitContent)
+    // prima di disegnare, riprovando per un numero limitato di frame.
+    let cancelled = false;
+    let rafId = 0;
+    const lastBar = ohlcv[ohlcv.length - 1];
+    const isChartReady = (): boolean => {
+      if (!lastBar) return false;
+      const x = chart.timeScale().timeToCoordinate(toTs(lastBar.time));
+      const y = candles.priceToCoordinate(lastBar.close);
+      return x !== null && y !== null;
     };
-    chart.timeScale().subscribeVisibleTimeRangeChange(onRangeSettled);
-    // Fallback difensivo: se per qualche motivo l'evento non scattasse mai
-    // (es. range già "immutato" secondo l'implementazione interna), un rAF
-    // di riserva garantisce comunque un disegno entro il primo frame utile.
-    const rafFallback = requestAnimationFrame(() => {
-      if (!didInitialDraw) onRangeSettled();
-    });
+    const tryDraw = (attempt: number) => {
+      if (cancelled) return;
+      if (isChartReady() || attempt >= 30) {
+        drawHeatmapLayer();
+        return;
+      }
+      rafId = requestAnimationFrame(() => tryDraw(attempt + 1));
+    };
+    rafId = requestAnimationFrame(() => tryDraw(0));
 
     const ro = new ResizeObserver(() => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
@@ -245,8 +251,8 @@ export default function SmartChart({
     ro.observe(ref.current);
 
     return () => {
-      cancelAnimationFrame(rafFallback);
-      chart.timeScale().unsubscribeVisibleTimeRangeChange(onRangeSettled);
+      cancelled = true;
+      cancelAnimationFrame(rafId);
       ro.disconnect();
       chart.remove();
     };

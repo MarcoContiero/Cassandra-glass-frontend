@@ -53,9 +53,56 @@ export function densityColor(density: number): string {
 }
 
 /**
+ * Trova il timestamp (secondi) della barra OHLCV più vicina a target.
+ * barTimesSec DEVE essere ordinato crescente (le OHLCV lo sono già).
+ *
+ * Necessario perché chart.timeScale().timeToCoordinate() di Lightweight
+ * Charts torna null se il tempo passato non corrisponde ESATTAMENTE a una
+ * barra esistente sulla scala ("X coordinate of that time or null if no
+ * time found on time scale" — non interpola su timestamp arbitrari). I
+ * timestamp della heatmap (mezzanotte UTC calcolata lato backend) quasi
+ * mai coincidono esattamente con l'apertura delle barre reali, specie su
+ * timeframe diversi da 1d — senza lo snap, timeToCoordinate torna sempre
+ * null e la heatmap risulta invisibile pur con dati corretti.
+ */
+// maxDist evita l'artefatto "muro di colore ai bordi": senza un limite,
+// i punti heatmap più vecchi/nuovi delle barre effettivamente caricate
+// (es. 365gg di storico OI contro le ~300 barre OHLCV fetchate) si
+// accumulerebbero tutti sulla prima/ultima barra invece di essere esclusi.
+function nearestBarTime(barTimesSec: number[], target: number, maxDist: number): number | null {
+  if (barTimesSec.length === 0) return null;
+  let lo = 0;
+  let hi = barTimesSec.length - 1;
+  let nearest: number;
+  if (target <= barTimesSec[lo]) {
+    nearest = barTimesSec[lo];
+  } else if (target >= barTimesSec[hi]) {
+    nearest = barTimesSec[hi];
+  } else {
+    while (hi - lo > 1) {
+      const mid = (lo + hi) >> 1;
+      if (barTimesSec[mid] <= target) lo = mid; else hi = mid;
+    }
+    nearest = (target - barTimesSec[lo] <= barTimesSec[hi] - target) ? barTimesSec[lo] : barTimesSec[hi];
+  }
+  return Math.abs(nearest - target) <= maxDist ? nearest : null;
+}
+
+// Spaziatura mediana tra barre consecutive — usata come base per maxDist.
+function medianBarSpacing(barTimesSec: number[]): number {
+  if (barTimesSec.length < 2) return Infinity;
+  const gaps: number[] = [];
+  for (let i = 1; i < barTimesSec.length; i++) gaps.push(barTimesSec[i] - barTimesSec[i - 1]);
+  gaps.sort((a, b) => a - b);
+  return gaps[Math.floor(gaps.length / 2)];
+}
+
+/**
  * Disegna la heatmap sul canvas dato. timeToX/priceToY convertono
  * timestamp (secondi, UTCTimestamp) e prezzo in coordinate pixel — passare
- * chart.timeScale().timeToCoordinate / series.priceToCoordinate.
+ * chart.timeScale().timeToCoordinate / series.priceToCoordinate. barTimesSec
+ * sono i tempi (secondi) delle barre OHLCV realmente presenti sul grafico,
+ * ordinati crescente — usati per lo snap (vedi nearestBarTime).
  *
  * Binning: bucket pixel (CELL_W x CELL_H), Math.max() sulla densità per i
  * bucket con più punti sovrapposti — MAI sommare, altrimenti i bucket con
@@ -67,15 +114,19 @@ export function drawHeatmap(
   points: HeatmapPoint[],
   width: number,
   height: number,
+  barTimesSec: number[],
   timeToX: (timeSec: number) => number | null,
   priceToY: (price: number) => number | null,
 ): void {
   ctx.clearRect(0, 0, width, height);
-  if (!points.length) return;
+  if (!points.length || !barTimesSec.length) return;
 
+  const maxSnapDist = medianBarSpacing(barTimesSec) * 1.5;
   const buckets = new Map<string, number>();
   for (const p of points) {
-    const x = timeToX(Math.floor(p.timestamp / 1000));
+    const snappedTime = nearestBarTime(barTimesSec, Math.floor(p.timestamp / 1000), maxSnapDist);
+    if (snappedTime === null) continue;
+    const x = timeToX(snappedTime);
     const y = priceToY(p.price_level);
     if (x === null || y === null) continue;
     if (x < -CELL_W || x > width + CELL_W || y < -CELL_H || y > height + CELL_H) continue;
