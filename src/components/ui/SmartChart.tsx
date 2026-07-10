@@ -188,12 +188,10 @@ export default function SmartChart({
 
     chart.timeScale().fitContent();
 
-    // Liquidation heatmap — Step 1 (statico, vedi cassandra-heatmap-liquidazione-spec.md):
-    // disegnata una volta sulla scala corrente, NON risincronizzata su
-    // pan/zoom del grafico (arriverà nello Step 2). Si ridisegna solo su
-    // resize per non lasciare il canvas con dimensioni obsolete.
+    // Liquidation heatmap — vedi cassandra-heatmap-liquidazione-spec.md.
+    // Step 1 (canvas statico) + Step 2 (sync scroll/zoom) completi.
     //
-    // Note dietro ai dettagli sotto (tre bug reali trovati in produzione,
+    // Note dietro ai dettagli sotto (quattro bug reali trovati in produzione,
     // non ipotetici — ognuno rendeva la heatmap invisibile in modo diverso):
     // 1) canvas.getBoundingClientRect() invece di ref.current.clientWidth
     //    per dimensionare: misurare un ALTRO elemento in un istante scelto
@@ -206,6 +204,12 @@ export default function SmartChart({
     //    sempre contro un elemento con z-index esplicito, a prescindere
     //    dall'ordine nel DOM — Lightweight Charts assegna z-index ai propri
     //    canvas interni, il nostro va esplicitato (vedi JSX più sotto).
+    // 4) sync scroll/zoom (Step 2): drawHeatmapLayer legge la scala CORRENTE
+    //    ad ogni chiamata (timeToCoordinate/priceToCoordinate non sono
+    //    memorizzati) — basta richiamarla ad ogni cambio di range visibile
+    //    per restare sincronizzata, non serve ricalcolare il binning in un
+    //    modo diverso. Coalescing su requestAnimationFrame perché l'evento
+    //    di range può sparare più volte per frame durante un drag continuo.
     const drawHeatmapLayer = () => {
       const canvas = heatmapCanvasRef.current;
       if (!canvas || !ref.current) return;
@@ -272,9 +276,29 @@ export default function SmartChart({
     });
     ro.observe(ref.current);
 
+    // Step 2 — sync scroll/zoom: ridisegna ad ogni cambio del range
+    // visibile (pan, zoom, scroll orizzontale). Coalescing su rAF perché
+    // l'evento può sparare più volte per frame durante un drag continuo —
+    // un solo redraw per frame è più che sufficiente e molto più economico.
+    let syncRafId = 0;
+    const scheduleHeatmapRedraw = () => {
+      if (syncRafId) return;
+      syncRafId = requestAnimationFrame(() => {
+        syncRafId = 0;
+        try {
+          drawHeatmapLayer();
+        } catch {
+          // best-effort, vedi sopra
+        }
+      });
+    };
+    chart.timeScale().subscribeVisibleLogicalRangeChange(scheduleHeatmapRedraw);
+
     return () => {
       cancelled = true;
       cancelAnimationFrame(rafId);
+      cancelAnimationFrame(syncRafId);
+      chart.timeScale().unsubscribeVisibleLogicalRangeChange(scheduleHeatmapRedraw);
       ro.disconnect();
       chart.remove();
     };
