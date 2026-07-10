@@ -3,7 +3,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import SmartChart, { type ShowFlags, type BoxLayer } from '@/components/ui/SmartChart';
 import type { OHLCV } from '@/lib/chartCompute';
-import type { HeatmapPoint } from '@/lib/liquidationHeatmap';
+import { computeTopClusters, formatUsdCompact, type HeatmapPoint, type ClusterLevel } from '@/lib/liquidationHeatmap';
 import { API } from '@/api';
 
 // Finestra storica richiesta all'endpoint heatmap — v1 fissa, indipendente
@@ -79,6 +79,43 @@ function ToggleChip({
       />
       {label}
     </button>
+  );
+}
+
+// Lista top cluster sopra/sotto il prezzo — bozza dell'output di Fase 3
+// (lì con Sweep Probability, qui solo densità/valore stimato). Vedi
+// computeTopClusters in liquidationHeatmap.ts.
+function ClusterRow({ level }: { level: ClusterLevel }) {
+  const color = level.side === 'long' ? '#3da866' : '#c94c4c';
+  return (
+    <div className="flex items-center justify-between gap-2 py-1 text-[11px] font-mono">
+      <span className="text-white/70">{level.price.toFixed(level.price >= 1000 ? 0 : 4)}</span>
+      <span style={{ color }}>{level.side === 'long' ? 'Long' : 'Short'}</span>
+      <span className="text-white/40">{level.distancePct > 0 ? '+' : ''}{level.distancePct.toFixed(1)}%</span>
+      <span className="text-white/55 min-w-[50px] text-right">{formatUsdCompact(level.value_usd)}</span>
+    </div>
+  );
+}
+
+function ClusterListPanel({ points, currentPrice }: { points: HeatmapPoint[]; currentPrice: number }) {
+  const { above, below } = computeTopClusters(points, currentPrice);
+  if (!above.length && !below.length) return null;
+  return (
+    <div
+      className="rounded-xl px-3 py-3 flex flex-col gap-3 flex-shrink-0"
+      style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)', width: 220 }}
+    >
+      <div>
+        <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sopra il prezzo</div>
+        {above.length === 0 && <div className="text-[11px] text-white/20">—</div>}
+        {above.map((l, i) => <ClusterRow key={`a${i}`} level={l} />)}
+      </div>
+      <div className="border-t border-white/5 pt-2">
+        <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sotto il prezzo</div>
+        {below.length === 0 && <div className="text-[11px] text-white/20">—</div>}
+        {below.map((l, i) => <ClusterRow key={`b${i}`} level={l} />)}
+      </div>
+    </div>
   );
 }
 
@@ -205,30 +242,35 @@ export default function GraficoOverlay({
         ))}
       </div>
 
-      {/* ── Chart ── */}
-      <div
-        className="rounded-xl overflow-hidden"
-        style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}
-      >
-        {loading && (
-          <div className="h-80 flex items-center justify-center text-white/30 text-sm font-mono">
-            Carico grafico…
-          </div>
-        )}
-        {!loading && hasData && (
-          <SmartChart
-            ohlcv={ohlcv}
-            height={420}
-            show={show}
-            minTouches={minTouches}
-            boxData={boxData}
-            heatmapPoints={heatmapPoints}
-          />
-        )}
-        {!loading && !hasData && cache[activeTf] !== undefined && (
-          <div className="h-80 flex items-center justify-center text-white/30 text-sm">
-            Nessun dato per {activeTf}
-          </div>
+      {/* ── Chart (+ lista cluster a destra se la heatmap è attiva) ── */}
+      <div className="flex gap-3 items-start">
+        <div
+          className="rounded-xl overflow-hidden flex-1 min-w-0"
+          style={{ background: 'rgba(255,255,255,0.02)', border: '1px solid rgba(255,255,255,0.07)' }}
+        >
+          {loading && (
+            <div className="h-80 flex items-center justify-center text-white/30 text-sm font-mono">
+              Carico grafico…
+            </div>
+          )}
+          {!loading && hasData && (
+            <SmartChart
+              ohlcv={ohlcv}
+              height={420}
+              show={show}
+              minTouches={minTouches}
+              boxData={boxData}
+              heatmapPoints={heatmapPoints}
+            />
+          )}
+          {!loading && !hasData && cache[activeTf] !== undefined && (
+            <div className="h-80 flex items-center justify-center text-white/30 text-sm">
+              Nessun dato per {activeTf}
+            </div>
+          )}
+        </div>
+        {!loading && hasData && show.liquidationHeatmap && heatmapPoints.length > 0 && (
+          <ClusterListPanel points={heatmapPoints} currentPrice={ohlcv[ohlcv.length - 1].close} />
         )}
       </div>
 

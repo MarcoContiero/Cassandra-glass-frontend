@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useMemo, useRef } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import {
   createChart,
   ColorType,
@@ -20,7 +20,7 @@ import {
   buildSRZones,
   type OHLCV,
 } from '@/lib/chartCompute';
-import { drawHeatmap, type HeatmapPoint } from '@/lib/liquidationHeatmap';
+import { drawHeatmap, hitTestBucket, formatUsdCompact, type HeatmapPoint, type HeatmapBucket } from '@/lib/liquidationHeatmap';
 
 export interface ShowFlags {
   ema9: boolean; ema21: boolean; ema50: boolean; ema200: boolean;
@@ -53,6 +53,8 @@ export default function SmartChart({
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
+  const heatmapBucketsRef = useRef<Map<string, HeatmapBucket>>(new Map());
+  const [tooltip, setTooltip] = useState<{ x: number; y: number; bucket: HeatmapBucket } | null>(null);
 
   const ema9d   = useMemo(() => show.ema9   ? computeEMA(ohlcv, 9)   : [], [ohlcv, show.ema9]);
   const ema21d  = useMemo(() => show.ema21  ? computeEMA(ohlcv, 21)  : [], [ohlcv, show.ema21]);
@@ -223,14 +225,16 @@ export default function SmartChart({
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
       if (!show.liquidationHeatmap || heatmapPoints.length === 0) {
         ctx.clearRect(0, 0, rect.width, rect.height);
+        heatmapBucketsRef.current = new Map();
         return;
       }
-      drawHeatmap(
+      const { buckets } = drawHeatmap(
         ctx, heatmapPoints, rect.width, rect.height,
         ohlcv.map(d => d.time),
         (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
         (price) => candles.priceToCoordinate(price),
       );
+      heatmapBucketsRef.current = buckets;
     };
     // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello
     // stesso tick di fitContent() torna null per tutti i punti — il layout
@@ -294,7 +298,28 @@ export default function SmartChart({
     };
     chart.timeScale().subscribeVisibleLogicalRangeChange(scheduleHeatmapRedraw);
 
+    // Tooltip on-hover con la quantità stimata — il canvas ha pointerEvents
+    // 'none' apposta (non deve mai bloccare crosshair/drag/zoom nativi del
+    // chart), quindi il mousemove è agganciato al contenitore del chart
+    // stesso: passa comunque attraverso il canvas trasparente agli eventi.
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!show.liquidationHeatmap || !heatmapCanvasRef.current) {
+        setTooltip(null);
+        return;
+      }
+      const rect = heatmapCanvasRef.current.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+      const bucket = hitTestBucket(heatmapBucketsRef.current, px, py);
+      setTooltip(bucket ? { x: px, y: py, bucket } : null);
+    };
+    const handleMouseLeave = () => setTooltip(null);
+    ref.current.addEventListener('mousemove', handleMouseMove);
+    ref.current.addEventListener('mouseleave', handleMouseLeave);
+
     return () => {
+      ref.current?.removeEventListener('mousemove', handleMouseMove);
+      ref.current?.removeEventListener('mouseleave', handleMouseLeave);
       cancelled = true;
       cancelAnimationFrame(rafId);
       cancelAnimationFrame(syncRafId);
@@ -311,6 +336,31 @@ export default function SmartChart({
         ref={heatmapCanvasRef}
         style={{ position: 'absolute', top: 0, left: 0, width: '100%', height, pointerEvents: 'none', zIndex: 10 }}
       />
+      {tooltip && (
+        <div
+          style={{
+            position: 'absolute',
+            left: tooltip.x + 12,
+            top: tooltip.y + 12,
+            background: 'rgba(2,2,14,0.92)',
+            border: `1px solid ${tooltip.bucket.side === 'long' ? CT.longBright : CT.shortBright}`,
+            borderRadius: 4,
+            padding: '4px 8px',
+            fontFamily: CT.fontMono,
+            fontSize: 11,
+            color: CT.text,
+            pointerEvents: 'none',
+            zIndex: 20,
+            whiteSpace: 'nowrap',
+          }}
+        >
+          <span style={{ color: tooltip.bucket.side === 'long' ? CT.longBright : CT.shortBright }}>
+            {tooltip.bucket.side === 'long' ? 'Long liq' : 'Short liq'}
+          </span>
+          {' — '}{formatUsdCompact(tooltip.bucket.value_usd)}
+          {' · '}{(tooltip.bucket.density * 100).toFixed(0)}%
+        </div>
+      )}
     </div>
   );
 }
