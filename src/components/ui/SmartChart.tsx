@@ -20,10 +20,12 @@ import {
   buildSRZones,
   type OHLCV,
 } from '@/lib/chartCompute';
+import { drawHeatmap, type HeatmapPoint } from '@/lib/liquidationHeatmap';
 
 export interface ShowFlags {
   ema9: boolean; ema21: boolean; ema50: boolean; ema200: boolean;
   volume: boolean; trendlines: boolean; srZones: boolean; boxes: boolean;
+  liquidationHeatmap: boolean;
 }
 
 export interface BoxLayer {
@@ -40,14 +42,17 @@ export default function SmartChart({
   show,
   minTouches = 2,
   boxData = [],
+  heatmapPoints = [],
 }: {
   ohlcv: OHLCV[];
   height?: number;
   show: ShowFlags;
   minTouches?: number;
   boxData?: BoxLayer[];
+  heatmapPoints?: HeatmapPoint[];
 }) {
   const ref = useRef<HTMLDivElement>(null);
+  const heatmapCanvasRef = useRef<HTMLCanvasElement>(null);
 
   const ema9d   = useMemo(() => show.ema9   ? computeEMA(ohlcv, 9)   : [], [ohlcv, show.ema9]);
   const ema21d  = useMemo(() => show.ema21  ? computeEMA(ohlcv, 21)  : [], [ohlcv, show.ema21]);
@@ -183,8 +188,37 @@ export default function SmartChart({
 
     chart.timeScale().fitContent();
 
+    // Liquidation heatmap — Step 1 (statico, vedi cassandra-heatmap-liquidazione-spec.md):
+    // disegnata una volta sulla scala corrente, NON risincronizzata su
+    // pan/zoom del grafico (arriverà nello Step 2). Si ridisegna solo su
+    // resize per non lasciare il canvas con dimensioni obsolete.
+    const drawHeatmapLayer = () => {
+      const canvas = heatmapCanvasRef.current;
+      if (!canvas || !ref.current) return;
+      const w = ref.current.clientWidth;
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = w * dpr;
+      canvas.height = height * dpr;
+      canvas.style.width = `${w}px`;
+      canvas.style.height = `${height}px`;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return;
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      if (!show.liquidationHeatmap || heatmapPoints.length === 0) {
+        ctx.clearRect(0, 0, w, height);
+        return;
+      }
+      drawHeatmap(
+        ctx, heatmapPoints, w, height,
+        (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
+        (price) => candles.priceToCoordinate(price),
+      );
+    };
+    drawHeatmapLayer();
+
     const ro = new ResizeObserver(() => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
+      drawHeatmapLayer();
     });
     ro.observe(ref.current);
 
@@ -192,7 +226,15 @@ export default function SmartChart({
       ro.disconnect();
       chart.remove();
     };
-  }, [ohlcv, show.volume, show.boxes, ema9d, ema21d, ema50d, ema200d, trendlines, srZones, boxData, height]);
+  }, [ohlcv, show.volume, show.boxes, show.liquidationHeatmap, heatmapPoints, ema9d, ema21d, ema50d, ema200d, trendlines, srZones, boxData, height]);
 
-  return <div ref={ref} style={{ width: '100%', height, background: CT.void }} />;
+  return (
+    <div style={{ position: 'relative', width: '100%', height }}>
+      <div ref={ref} style={{ width: '100%', height, background: CT.void }} />
+      <canvas
+        ref={heatmapCanvasRef}
+        style={{ position: 'absolute', top: 0, left: 0, pointerEvents: 'none' }}
+      />
+    </div>
+  );
 }

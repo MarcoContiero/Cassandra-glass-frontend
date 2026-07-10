@@ -3,7 +3,12 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import SmartChart, { type ShowFlags, type BoxLayer } from '@/components/ui/SmartChart';
 import type { OHLCV } from '@/lib/chartCompute';
+import type { HeatmapPoint } from '@/lib/liquidationHeatmap';
 import { API } from '@/api';
+
+// Finestra storica richiesta all'endpoint heatmap — v1 fissa, indipendente
+// dal timeframe/numero di barre visualizzate sul grafico OHLCV.
+const HEATMAP_DAYS = 365;
 
 const BYBIT_INTERVAL: Record<string, string> = {
   '1m':'1','3m':'3','5m':'5','15m':'15','30m':'30',
@@ -49,6 +54,7 @@ const LEGEND: { key: keyof ShowFlags; label: string; color: string; desc: string
   { key: 'trendlines', label: 'Trendline',color: '#3da866', desc: 'Linee dinamiche che collegano pivot di minimo (verde = supporto) e massimo (rosso = resistenza). Il filtro tocchi mostra solo linee confermate N+ volte.' },
   { key: 'srZones',    label: 'Zone SR',  color: '#26a69a', desc: 'Aree di prezzo dove il mercato ha rimbalzato più volte. Verde = supporto (sotto prezzo), rosso = resistenza (sopra). Le due linee indicano i bordi della zona.' },
   { key: 'boxes',      label: 'Box ATR',  color: '#c9a84c', desc: 'Zone di consolidamento rilevate con soglia ATR dinamica. Linea superiore = top del box, tratteggio = bottom. Box attivo in oro pieno, storici in trasparenza.' },
+  { key: 'liquidationHeatmap', label: 'Liq. Heatmap', color: '#c94c4c', desc: 'Livelli di liquidazione stimati su modello statistico (distribuzione leva assunta, non dati reali sulle posizioni aperte). Colore più intenso = maggiore densità stimata.' },
 ];
 
 // ──────────────────────────────
@@ -94,10 +100,13 @@ export default function GraficoOverlay({
   const [show, setShow] = useState<ShowFlags>({
     ema9: false, ema21: true, ema50: false, ema200: false,
     volume: false, trendlines: true, srZones: true, boxes: false,
+    liquidationHeatmap: false,
   });
   const [minTouches, setMinTouches] = useState(2);
   const [showLegend, setShowLegend] = useState(false);
   const [boxData, setBoxData] = useState<BoxLayer[]>([]);
+  const [heatmapPoints, setHeatmapPoints] = useState<HeatmapPoint[]>([]);
+  const [heatmapLoadedFor, setHeatmapLoadedFor] = useState<string | null>(null);
 
   const toggle = useCallback((key: keyof ShowFlags) => {
     setShow(prev => ({ ...prev, [key]: !prev[key] }));
@@ -107,6 +116,8 @@ export default function GraficoOverlay({
   useEffect(() => {
     setActiveTf(tfs[0]);
     setCache({});
+    setHeatmapPoints([]);
+    setHeatmapLoadedFor(null);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [symbol]);
 
@@ -150,6 +161,24 @@ export default function GraficoOverlay({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTf, symbol]);
 
+  // Fetch heatmap liquidazione — LAZY: solo al primo toggle ON per questo
+  // symbol, non ad ogni apertura del grafico (dati storici pesanti, ~18k
+  // punti nel caso peggiore). Non rifetcha su toggle OFF/ON successivi.
+  useEffect(() => {
+    if (!show.liquidationHeatmap || heatmapLoadedFor === symbol) return;
+    let alive = true;
+    const coin = symbol.replace(/USDT$/i, '').toUpperCase();
+    fetch(`${API}/api/oi/liquidation-heatmap?coin=${coin}&days=${HEATMAP_DAYS}`, { cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(json => {
+        if (!alive) return;
+        setHeatmapPoints(Array.isArray(json?.points) ? json.points : []);
+        setHeatmapLoadedFor(symbol);
+      })
+      .catch(() => { if (alive) setHeatmapLoadedFor(symbol); });
+    return () => { alive = false; };
+  }, [show.liquidationHeatmap, symbol, heatmapLoadedFor]);
+
   const ohlcv = (cache[activeTf] ?? []) as OHLCV[];
   const hasData = ohlcv.length > 0;
 
@@ -184,7 +213,14 @@ export default function GraficoOverlay({
           </div>
         )}
         {!loading && hasData && (
-          <SmartChart ohlcv={ohlcv} height={420} show={show} minTouches={minTouches} boxData={boxData} />
+          <SmartChart
+            ohlcv={ohlcv}
+            height={420}
+            show={show}
+            minTouches={minTouches}
+            boxData={boxData}
+            heatmapPoints={heatmapPoints}
+          />
         )}
         {!loading && !hasData && cache[activeTf] !== undefined && (
           <div className="h-80 flex items-center justify-center text-white/30 text-sm">
@@ -252,6 +288,16 @@ export default function GraficoOverlay({
           {/* Box ATR */}
           <ToggleChip label="Box ATR" color="#c9a84c" active={show.boxes} onClick={() => toggle('boxes')} />
 
+          <span className="mx-1 h-3 w-px bg-white/10 inline-block" />
+
+          {/* Liquidation Heatmap */}
+          <ToggleChip
+            label="Liq. Heatmap"
+            color="#c94c4c"
+            active={show.liquidationHeatmap}
+            onClick={() => toggle('liquidationHeatmap')}
+          />
+
           {/* Legend toggle — right-aligned */}
           <button
             onClick={() => setShowLegend(v => !v)}
@@ -260,6 +306,14 @@ export default function GraficoOverlay({
             {showLegend ? '▲ chiudi' : '▼ legenda'}
           </button>
         </div>
+      )}
+
+      {/* ── Disclaimer heatmap — sempre visibile quando attiva, non solo nella legenda ── */}
+      {hasData && show.liquidationHeatmap && (
+        <p className="text-[10px] text-white/25 font-mono px-1 leading-relaxed">
+          Livelli stimati su modello statistico — distribuzione leva assunta (non dati reali
+          sulle posizioni aperte). Dati OI aggregati da Binance, Bybit, OKX e Hyperliquid.
+        </p>
       )}
 
       {/* ── Legend ── */}
