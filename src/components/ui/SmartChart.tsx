@@ -192,72 +192,49 @@ export default function SmartChart({
     // disegnata una volta sulla scala corrente, NON risincronizzata su
     // pan/zoom del grafico (arriverà nello Step 2). Si ridisegna solo su
     // resize per non lasciare il canvas con dimensioni obsolete.
+    //
+    // Note dietro ai dettagli sotto (tre bug reali trovati in produzione,
+    // non ipotetici — ognuno rendeva la heatmap invisibile in modo diverso):
+    // 1) canvas.getBoundingClientRect() invece di ref.current.clientWidth
+    //    per dimensionare: misurare un ALTRO elemento in un istante scelto
+    //    da noi può tornare una dimensione non ancora assestata.
+    // 2) chart.timeScale().timeToCoordinate() torna null se il timestamp
+    //    non corrisponde ESATTAMENTE a una barra esistente sulla serie (non
+    //    interpola) — i punti vanno agganciati alla barra più vicina, vedi
+    //    nearestBarTime in liquidationHeatmap.ts.
+    // 3) z-index: un elemento posizionato senza z-index esplicito perde
+    //    sempre contro un elemento con z-index esplicito, a prescindere
+    //    dall'ordine nel DOM — Lightweight Charts assegna z-index ai propri
+    //    canvas interni, il nostro va esplicitato (vedi JSX più sotto).
     const drawHeatmapLayer = () => {
       const canvas = heatmapCanvasRef.current;
-      if (!canvas || !ref.current) {
-        console.log('[heatmap debug] drawHeatmapLayer: canvas o ref mancante, esco', { canvas: !!canvas, ref: !!ref.current });
-        return;
-      }
-      // Misuriamo il canvas STESSO (già dimensionato via CSS width:100% /
-      // height nel JSX), non ref.current: leggere clientWidth di un ALTRO
-      // elemento in un istante scelto da noi può tornare 0 se il layout non
-      // è ancora assestato in quel momento — un canvas messo a 0px di
-      // larghezza non disegna NULLA (nemmeno il testo di debug), silenzioso,
-      // stesso sintomo esatto di questo bug su ogni tentativo precedente.
+      if (!canvas || !ref.current) return;
       const rect = canvas.getBoundingClientRect();
+      if (rect.width <= 0 || rect.height <= 0) return;
       const dpr = window.devicePixelRatio || 1;
-      console.log('[heatmap debug] drawHeatmapLayer chiamato', {
-        rectWidth: rect.width, rectHeight: rect.height,
-        show: show.liquidationHeatmap, heatmapPointsLen: heatmapPoints.length,
-      });
-      if (rect.width <= 0 || rect.height <= 0) {
-        console.log('[heatmap debug] canvas con dimensioni zero, skip disegno');
-        return;
-      }
       canvas.width = rect.width * dpr;
       canvas.height = rect.height * dpr;
       const ctx = canvas.getContext('2d');
-      if (!ctx) {
-        console.log('[heatmap debug] getContext(2d) ha ritornato null');
-        return;
-      }
+      if (!ctx) return;
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      if (!show.liquidationHeatmap) {
+      if (!show.liquidationHeatmap || heatmapPoints.length === 0) {
         ctx.clearRect(0, 0, rect.width, rect.height);
         return;
       }
-      if (heatmapPoints.length === 0) {
-        ctx.clearRect(0, 0, rect.width, rect.height);
-        console.log('[heatmap debug] 0 punti ricevuti dal backend (fetch non ancora arrivato o fallito)');
-        return;
-      }
-      const dbg = drawHeatmap(
+      drawHeatmap(
         ctx, heatmapPoints, rect.width, rect.height,
         ohlcv.map(d => d.time),
         (timeSec) => chart.timeScale().timeToCoordinate(toTs(timeSec)),
         (price) => candles.priceToCoordinate(price),
       );
-      console.log('[heatmap debug] drawHeatmap risultato', dbg);
-      // TEST TEMPORANEO — quadrato rosso pieno enorme e impossibile da non
-      // vedere, in un punto fisso. Se non compare nemmeno questo, il canvas
-      // è nascosto/sotto il grafico (problema di stacking CSS, non di
-      // calcolo). Se compare, le celle vere (6x4px, bassa opacità, solo
-      // 18 su 1148x420) sono semplicemente troppo piccole/tenui da notare
-      // in questa vista sparsa — da correggere aumentando dimensione/
-      // opacità minima, non un bug di pipeline.
-      ctx.fillStyle = 'rgba(255,0,0,1)';
-      ctx.fillRect(20, 20, 80, 80);
     };
     // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello
     // stesso tick di fitContent() torna null per tutti i punti — il layout
     // interno della chart non è ancora pronto subito dopo la creazione/
-    // fitContent (gotcha noto di Lightweight Charts: toggle e disclaimer
-    // funzionavano, ma zero celle disegnate — sintomo esatto di questo
-    // problema, non di dati mancanti). Un singolo evento/rAF non è bastato
-    // in produzione — invece di indovinare un timing, verifichiamo
-    // direttamente che la conversione funzioni davvero su un punto noto
-    // (l'ultima barra, sicuramente nel range visibile dopo fitContent)
-    // prima di disegnare, riprovando per un numero limitato di frame.
+    // fitContent. Verifichiamo direttamente che la conversione funzioni
+    // davvero su un punto noto (l'ultima barra, sicuramente nel range
+    // visibile dopo fitContent) prima di disegnare, riprovando per un
+    // numero limitato di frame invece di indovinare un timing fisso.
     let cancelled = false;
     let rafId = 0;
     const lastBar = ohlcv[ohlcv.length - 1];
@@ -267,33 +244,30 @@ export default function SmartChart({
         const x = chart.timeScale().timeToCoordinate(toTs(lastBar.time));
         const y = candles.priceToCoordinate(lastBar.close);
         return x !== null && y !== null;
-      } catch (e) {
-        console.log('[heatmap debug] isChartReady ha lanciato un\'eccezione', e);
+      } catch {
         return false;
       }
     };
     const tryDraw = (attempt: number) => {
       if (cancelled) return;
       if (isChartReady() || attempt >= 30) {
-        console.log('[heatmap debug] tryDraw: chiamo drawHeatmapLayer', { attempt, ready: isChartReady() });
         try {
           drawHeatmapLayer();
-        } catch (e) {
-          console.log('[heatmap debug] drawHeatmapLayer ha lanciato un\'eccezione', e);
+        } catch {
+          // best-effort: un errore qui non deve rompere il resto del chart
         }
         return;
       }
       rafId = requestAnimationFrame(() => tryDraw(attempt + 1));
     };
-    console.log('[heatmap debug] effect montato, avvio tryDraw', { show: show.liquidationHeatmap, heatmapPointsLen: heatmapPoints.length, ohlcvLen: ohlcv.length });
     rafId = requestAnimationFrame(() => tryDraw(0));
 
     const ro = new ResizeObserver(() => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
       try {
         drawHeatmapLayer();
-      } catch (e) {
-        console.log('[heatmap debug] drawHeatmapLayer (da ResizeObserver) ha lanciato un\'eccezione', e);
+      } catch {
+        // best-effort, vedi sopra
       }
     });
     ro.observe(ref.current);
