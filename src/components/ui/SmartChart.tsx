@@ -214,7 +214,29 @@ export default function SmartChart({
         (price) => candles.priceToCoordinate(price),
       );
     };
-    drawHeatmapLayer();
+    // Disegno rimandato: chiamare timeToCoordinate/priceToCoordinate nello
+    // stesso tick di fitContent() torna null per tutti i punti — il layout
+    // interno della chart non è ancora pronto subito dopo la creazione/
+    // fitContent (gotcha noto di Lightweight Charts: toggle e disclaimer
+    // funzionavano, ma zero celle disegnate — sintomo esatto di questo
+    // problema, non di dati mancanti). Ci agganciamo al primo evento reale
+    // di "range visibile assestato" invece di indovinare un timing con
+    // rAF/setTimeout — più affidabile perché segue lo stato vero della
+    // chart, non un numero di frame a caso.
+    let didInitialDraw = false;
+    const onRangeSettled = () => {
+      if (didInitialDraw) return;
+      didInitialDraw = true;
+      drawHeatmapLayer();
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(onRangeSettled);
+    };
+    chart.timeScale().subscribeVisibleTimeRangeChange(onRangeSettled);
+    // Fallback difensivo: se per qualche motivo l'evento non scattasse mai
+    // (es. range già "immutato" secondo l'implementazione interna), un rAF
+    // di riserva garantisce comunque un disegno entro il primo frame utile.
+    const rafFallback = requestAnimationFrame(() => {
+      if (!didInitialDraw) onRangeSettled();
+    });
 
     const ro = new ResizeObserver(() => {
       if (ref.current) chart.applyOptions({ width: ref.current.clientWidth });
@@ -223,6 +245,8 @@ export default function SmartChart({
     ro.observe(ref.current);
 
     return () => {
+      cancelAnimationFrame(rafFallback);
+      chart.timeScale().unsubscribeVisibleTimeRangeChange(onRangeSettled);
       ro.disconnect();
       chart.remove();
     };
