@@ -311,7 +311,7 @@ export default function SmartChart({
       <div ref={ref} style={{ width: '100%', height, background: CT.void }} />
       <canvas
         ref={heatmapCanvasRef}
-        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height, pointerEvents: 'none' }}
+        style={{ position: 'absolute', top: 0, left: 0, width: '100%', height, pointerEvents: 'none', zIndex: 10 }}
       />
     </div>
   );
