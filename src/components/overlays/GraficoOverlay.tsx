@@ -3,7 +3,10 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import SmartChart, { type ShowFlags, type BoxLayer } from '@/components/ui/SmartChart';
 import type { OHLCV } from '@/lib/chartCompute';
-import { computeTopClusters, formatUsdCompact, type HeatmapPoint, type ClusterLevel } from '@/lib/liquidationHeatmap';
+import {
+  computeTopClusters, fetchSweepProbability, formatUsdCompact,
+  type HeatmapPoint, type ClusterLevel, type SweepProbabilityResponse,
+} from '@/lib/liquidationHeatmap';
 import { API } from '@/api';
 
 // Finestra storica richiesta all'endpoint heatmap — v1 fissa, indipendente
@@ -82,20 +85,32 @@ function ToggleChip({
   );
 }
 
-// Lista top cluster sopra/sotto il prezzo — bozza dell'output di Fase 3
-// (lì con Sweep Probability, qui solo densità/valore stimato). Vedi
-// computeTopClusters in liquidationHeatmap.ts. Ogni riga mostra due valori
-// distinti (mai una somma su più giorni, vedi commento in computeTopClusters):
-// "Oggi" = stima del giorno più recente a questo prezzo, "Picco" = il
-// singolo giorno più alto nello storico a questo prezzo.
+// Lista top cluster sopra/sotto il prezzo. Prova prima Sweep Probability
+// (Fase 3, backend/sweep_probability.py — probability/confidence per
+// cluster), fallback silenzioso su computeTopClusters() locale (solo
+// densità/valore, senza probability) se il backend non risponde. Ogni riga
+// mostra due valori distinti (mai una somma su più giorni, vedi commento in
+// computeTopClusters): "Oggi" = stima del giorno più recente a questo
+// prezzo, "Picco" = il singolo giorno più alto nello storico a questo
+// prezzo.
 function ClusterRow({ level }: { level: ClusterLevel }) {
   const color = level.side === 'long' ? '#3da866' : '#c94c4c';
+  const hasProb = level.probability != null;
   return (
     <div className="py-1">
       <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
         <span className="text-white/70">{level.price.toFixed(level.price >= 1000 ? 0 : 4)}</span>
         <span style={{ color }}>{level.side === 'long' ? 'Long' : 'Short'}</span>
         <span className="text-white/40">{level.distancePct > 0 ? '+' : ''}{level.distancePct.toFixed(1)}%</span>
+        {hasProb && (
+          <span
+            className="text-white/80"
+            style={{ opacity: 0.4 + 0.6 * (level.confidence ?? 0.5) }}
+            title={level.confidence != null ? `confidenza ~${Math.round(level.confidence * 100)}%` : undefined}
+          >
+            {Math.round((level.probability ?? 0) * 100)}%
+          </span>
+        )}
       </div>
       <div className="flex items-center justify-end gap-1.5 text-[9.5px] font-mono mt-0.5 text-white/35">
         <span>Oggi <span className="text-white/60">{formatUsdCompact(level.valueToday)}</span></span>
@@ -108,20 +123,36 @@ function ClusterRow({ level }: { level: ClusterLevel }) {
 
 // Intestazione colonne della riga principale — stesso layout/spacing di
 // ClusterRow così si allineano. "Lato" = leva liquidata (Long/Short),
-// "Dist." = distanza % dal prezzo corrente. Oggi/Picco sono già etichettati
-// riga per riga, non serve ripeterli qui.
-function ClusterHeaderRow() {
+// "Dist." = distanza % dal prezzo corrente, "Prob." = probabilità stimata
+// di sweep (solo se Sweep Probability ha risposto). Oggi/Picco sono già
+// etichettati riga per riga, non serve ripeterli qui.
+function ClusterHeaderRow({ showProbability }: { showProbability: boolean }) {
   return (
     <div className="flex items-center justify-between gap-2 pb-1 text-[9px] text-white/25 font-mono uppercase tracking-wide">
       <span>Prezzo</span>
       <span>Lato</span>
       <span>Dist.</span>
+      {showProbability && <span>Prob.</span>}
     </div>
   );
 }
 
-function ClusterListPanel({ points, currentPrice }: { points: HeatmapPoint[]; currentPrice: number }) {
-  const { above, below } = computeTopClusters(points, currentPrice);
+function ClusterListPanel({
+  points, currentPrice, coin, days,
+}: { points: HeatmapPoint[]; currentPrice: number; coin: string; days: number }) {
+  const [sweep, setSweep] = useState<SweepProbabilityResponse | null>(null);
+
+  useEffect(() => {
+    let alive = true;
+    fetchSweepProbability(API, coin, days).then(res => { if (alive) setSweep(res); });
+    return () => { alive = false; };
+  }, [coin, days]);
+
+  const local = computeTopClusters(points, currentPrice);
+  const above = sweep?.above ?? local.above;
+  const below = sweep?.below ?? local.below;
+  const hasProb = !!sweep;
+
   if (!above.length && !below.length) return null;
   return (
     <div
@@ -131,18 +162,23 @@ function ClusterListPanel({ points, currentPrice }: { points: HeatmapPoint[]; cu
       <div>
         <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sopra il prezzo</div>
         {above.length === 0 && <div className="text-[11px] text-white/20">—</div>}
-        {above.length > 0 && <ClusterHeaderRow />}
+        {above.length > 0 && <ClusterHeaderRow showProbability={hasProb} />}
         {above.map((l, i) => <ClusterRow key={`a${i}`} level={l} />)}
       </div>
       <div className="border-t border-white/5 pt-2">
         <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sotto il prezzo</div>
         {below.length === 0 && <div className="text-[11px] text-white/20">—</div>}
-        {below.length > 0 && <ClusterHeaderRow />}
+        {below.length > 0 && <ClusterHeaderRow showProbability={hasProb} />}
         {below.map((l, i) => <ClusterRow key={`b${i}`} level={l} />)}
       </div>
       <div className="border-t border-white/5 pt-2 text-[9px] text-white/25 font-mono leading-snug">
         <strong className="text-white/40">Oggi</strong> = stima al giorno più recente disponibile a questo prezzo.{' '}
         <strong className="text-white/40">Picco</strong> = il singolo giorno più alto registrato nello storico a questo prezzo — mai una somma su più giorni.
+        {hasProb && (
+          <>
+            {' '}<strong className="text-white/40">Prob.</strong> = probabilità stimata di sweep, l'opacità riflette la confidenza. {sweep?.disclaimer}
+          </>
+        )}
       </div>
     </div>
   );
@@ -299,7 +335,12 @@ export default function GraficoOverlay({
           )}
         </div>
         {!loading && hasData && show.liquidationHeatmap && heatmapPoints.length > 0 && (
-          <ClusterListPanel points={heatmapPoints} currentPrice={ohlcv[ohlcv.length - 1].close} />
+          <ClusterListPanel
+            points={heatmapPoints}
+            currentPrice={ohlcv[ohlcv.length - 1].close}
+            coin={symbol.replace(/USDT$/i, '').toUpperCase()}
+            days={HEATMAP_DAYS}
+          />
         )}
       </div>
 

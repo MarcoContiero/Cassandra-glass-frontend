@@ -195,6 +195,8 @@ export interface ClusterLevel {
   valueMax: number;        // value_usd più alto tra i singoli giorni storici a questo prezzo
   side: 'long' | 'short';  // lato dominante nel giorno più recente
   distancePct: number;     // distanza % dal prezzo corrente, con segno
+  probability?: number;    // 0-1, solo se calcolato dal backend (Fase 3 — vedi fetchSweepProbability)
+  confidence?: number;     // 0-1, idem
 }
 
 /**
@@ -288,4 +290,60 @@ export function computeTopClusters(
   above.sort((a, b) => a.price - b.price);
   below.sort((a, b) => b.price - a.price);
   return { above, below };
+}
+
+// ──────────────────────────────
+//  Sweep Probability (Fase 3) — fetch backend, con fallback a
+//  computeTopClusters() locale (senza probability/confidence) se il
+//  backend non risponde. Vedi backend/sweep_probability.py.
+// ──────────────────────────────
+
+interface RawSweepLevel {
+  price: number;
+  side: 'long' | 'short';
+  distance_pct: number;
+  value_today: number;
+  value_max: number;
+  probability: number;
+  confidence: number;
+}
+
+export interface SweepProbabilityResponse {
+  above: ClusterLevel[];
+  below: ClusterLevel[];
+  disclaimer: string;
+}
+
+function toClusterLevel(raw: RawSweepLevel): ClusterLevel {
+  return {
+    price: raw.price,
+    valueToday: raw.value_today,
+    valueMax: raw.value_max,
+    side: raw.side,
+    distancePct: raw.distance_pct,
+    probability: raw.probability,
+    confidence: raw.confidence,
+  };
+}
+
+/** Ritorna null se il backend non risponde o i dati non sono disponibili —
+ * il chiamante deve fare fallback su computeTopClusters() locale. */
+export async function fetchSweepProbability(
+  apiBase: string,
+  coin: string,
+  days: number,
+): Promise<SweepProbabilityResponse | null> {
+  try {
+    const r = await fetch(`${apiBase}/api/oi/sweep-probability?coin=${coin}&days=${days}`, { cache: 'no-store' });
+    if (!r.ok) return null;
+    const json = await r.json();
+    if (!Array.isArray(json?.above) || !Array.isArray(json?.below)) return null;
+    return {
+      above: (json.above as RawSweepLevel[]).map(toClusterLevel),
+      below: (json.below as RawSweepLevel[]).map(toClusterLevel),
+      disclaimer: String(json.disclaimer ?? ''),
+    };
+  } catch {
+    return null;
+  }
 }
