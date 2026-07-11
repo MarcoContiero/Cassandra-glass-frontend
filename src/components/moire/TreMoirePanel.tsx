@@ -1098,7 +1098,7 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
   useEffect(() => {
     if (!genome.moire_phase_stats) return;
     setSnapshot(null); setSnapError(null); setSnapLoading(true);
-    fetch(`/api/moire/classify/${genome.coin}`)
+    fetch(`/api/moire/classify/${genome.coin}`, { cache: 'no-store' })
       .then(async r => {
         const text = await r.text();
         let parsed: Record<string, unknown>;
@@ -1577,7 +1577,7 @@ export default function TreMoirePanel({ onPiziaContext }: TreMoirePanelProps) {
 
   useEffect(() => {
     setLoading(true);
-    fetch('/api/tradedb/genome-cache')
+    fetch('/api/tradedb/genome-cache', { cache: 'no-store' })
       .then(async r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`);
         return r.json() as Promise<GenomeFull[]>;
