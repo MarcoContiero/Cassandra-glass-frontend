@@ -84,15 +84,38 @@ function ToggleChip({
 
 // Lista top cluster sopra/sotto il prezzo — bozza dell'output di Fase 3
 // (lì con Sweep Probability, qui solo densità/valore stimato). Vedi
-// computeTopClusters in liquidationHeatmap.ts.
+// computeTopClusters in liquidationHeatmap.ts. Ogni riga mostra due valori
+// distinti (mai una somma su più giorni, vedi commento in computeTopClusters):
+// "Oggi" = stima del giorno più recente a questo prezzo, "Picco" = il
+// singolo giorno più alto nello storico a questo prezzo.
 function ClusterRow({ level }: { level: ClusterLevel }) {
   const color = level.side === 'long' ? '#3da866' : '#c94c4c';
   return (
-    <div className="flex items-center justify-between gap-2 py-1 text-[11px] font-mono">
-      <span className="text-white/70">{level.price.toFixed(level.price >= 1000 ? 0 : 4)}</span>
-      <span style={{ color }}>{level.side === 'long' ? 'Long' : 'Short'}</span>
-      <span className="text-white/40">{level.distancePct > 0 ? '+' : ''}{level.distancePct.toFixed(1)}%</span>
-      <span className="text-white/55 min-w-[50px] text-right">{formatUsdCompact(level.value_usd)}</span>
+    <div className="py-1">
+      <div className="flex items-center justify-between gap-2 text-[11px] font-mono">
+        <span className="text-white/70">{level.price.toFixed(level.price >= 1000 ? 0 : 4)}</span>
+        <span style={{ color }}>{level.side === 'long' ? 'Long' : 'Short'}</span>
+        <span className="text-white/40">{level.distancePct > 0 ? '+' : ''}{level.distancePct.toFixed(1)}%</span>
+      </div>
+      <div className="flex items-center justify-end gap-1.5 text-[9.5px] font-mono mt-0.5 text-white/35">
+        <span>Oggi <span className="text-white/60">{formatUsdCompact(level.valueToday)}</span></span>
+        <span className="text-white/15">·</span>
+        <span>Picco <span className="text-white/60">{formatUsdCompact(level.valueMax)}</span></span>
+      </div>
+    </div>
+  );
+}
+
+// Intestazione colonne della riga principale — stesso layout/spacing di
+// ClusterRow così si allineano. "Lato" = leva liquidata (Long/Short),
+// "Dist." = distanza % dal prezzo corrente. Oggi/Picco sono già etichettati
+// riga per riga, non serve ripeterli qui.
+function ClusterHeaderRow() {
+  return (
+    <div className="flex items-center justify-between gap-2 pb-1 text-[9px] text-white/25 font-mono uppercase tracking-wide">
+      <span>Prezzo</span>
+      <span>Lato</span>
+      <span>Dist.</span>
     </div>
   );
 }
@@ -108,12 +131,18 @@ function ClusterListPanel({ points, currentPrice }: { points: HeatmapPoint[]; cu
       <div>
         <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sopra il prezzo</div>
         {above.length === 0 && <div className="text-[11px] text-white/20">—</div>}
+        {above.length > 0 && <ClusterHeaderRow />}
         {above.map((l, i) => <ClusterRow key={`a${i}`} level={l} />)}
       </div>
       <div className="border-t border-white/5 pt-2">
         <div className="text-[10px] text-white/30 font-mono mb-1 uppercase tracking-wide">Sotto il prezzo</div>
         {below.length === 0 && <div className="text-[11px] text-white/20">—</div>}
+        {below.length > 0 && <ClusterHeaderRow />}
         {below.map((l, i) => <ClusterRow key={`b${i}`} level={l} />)}
+      </div>
+      <div className="border-t border-white/5 pt-2 text-[9px] text-white/25 font-mono leading-snug">
+        <strong className="text-white/40">Oggi</strong> = stima al giorno più recente disponibile a questo prezzo.{' '}
+        <strong className="text-white/40">Picco</strong> = il singolo giorno più alto registrato nello storico a questo prezzo — mai una somma su più giorni.
       </div>
     </div>
   );

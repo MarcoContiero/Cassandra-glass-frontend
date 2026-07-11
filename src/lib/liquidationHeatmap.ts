@@ -191,8 +191,9 @@ export function hitTestBucket(buckets: Map<string, HeatmapBucket>, px: number, p
 
 export interface ClusterLevel {
   price: number;
-  value_usd: number;
-  side: 'long' | 'short';  // lato dominante nel bucket (più $ contribuiti)
+  valueToday: number;      // value_usd del giorno più recente disponibile a questo prezzo
+  valueMax: number;        // value_usd più alto tra i singoli giorni storici a questo prezzo
+  side: 'long' | 'short';  // lato dominante nel giorno più recente
   distancePct: number;     // distanza % dal prezzo corrente, con segno
 }
 
@@ -200,9 +201,20 @@ export interface ClusterLevel {
  * Aggrega i punti grezzi della heatmap (su TUTTO il periodo richiesto, non
  * solo le barre visibili — a differenza del canvas, questa è una vista
  * "storica complessiva") in bande di prezzo, e ritorna i top N cluster
- * sopra e sotto il prezzo corrente per densità di valore stimato. Bozza
- * dell'output di Fase 3 (lì userà anche Sweep Probability, qui solo
- * densità/valore) — vedi cassandra-heatmap-liquidazione-spec.md.
+ * sopra e sotto il prezzo corrente. Bozza dell'output di Fase 3 (lì userà
+ * anche Sweep Probability, qui solo densità/valore) — vedi
+ * cassandra-heatmap-liquidazione-spec.md.
+ *
+ * Attenzione: value_usd per punto è già una stima per-giorno (OI di quel
+ * giorno × peso leva, vedi backend/liquidation_heatmap.py). Sommarlo
+ * direttamente su più giorni che cadono nella stessa banda di prezzo (com'era
+ * prima) accumula tante istantanee giornaliere in un totale senza senso
+ * economico — un prezzo su cui il mercato è rimasto per settimane arriva a
+ * sommare l'OI di ogni singolo giorno, gonfiando il valore ben oltre l'OI
+ * reale dell'exchange. Per questo il primo passo raggruppa PER GIORNO prima
+ * di aggregare per banda, e la banda espone due numeri distinti invece di un
+ * value_usd unico: valueToday (ultimo giorno disponibile — "rischio adesso")
+ * e valueMax (il singolo giorno più alto nello storico — "picco storico").
  */
 export function computeTopClusters(
   points: HeatmapPoint[],
@@ -214,25 +226,65 @@ export function computeTopClusters(
   const bucketSize = currentPrice * bucketPct;
   if (bucketSize <= 0) return { above: [], below: [] };
 
-  const buckets = new Map<number, { priceSum: number; count: number; longUsd: number; shortUsd: number }>();
+  const MS_PER_DAY = 86_400_000;
+
+  // Passo 1: totale per (banda di prezzo, giorno) — long+short di quel
+  // giorno sommati tra loro (leve diverse nello stesso giorno), MAI tra
+  // giorni diversi.
+  const dayBuckets = new Map<string, {
+    idx: number; day: number; priceSum: number; count: number; longUsd: number; shortUsd: number;
+  }>();
   for (const p of points) {
     const idx = Math.round(p.price_level / bucketSize);
-    const entry = buckets.get(idx) ?? { priceSum: 0, count: 0, longUsd: 0, shortUsd: 0 };
+    const day = Math.floor(p.timestamp / MS_PER_DAY);
+    const key = `${idx}:${day}`;
+    const entry = dayBuckets.get(key) ?? { idx, day, priceSum: 0, count: 0, longUsd: 0, shortUsd: 0 };
     entry.priceSum += p.price_level;
     entry.count += 1;
     if (p.side === 'long') entry.longUsd += p.value_usd; else entry.shortUsd += p.value_usd;
-    buckets.set(idx, entry);
+    dayBuckets.set(key, entry);
+  }
+
+  // Passo 2: per ogni banda di prezzo, isola il giorno più recente
+  // (valueToday) e il giorno con il totale più alto (valueMax) tra i
+  // totali giornalieri calcolati sopra.
+  interface Agg {
+    priceSum: number; count: number;
+    latestDay: number; latestUsd: number; latestSide: 'long' | 'short';
+    maxUsd: number;
+  }
+  const buckets = new Map<number, Agg>();
+  for (const { idx, day, priceSum, count, longUsd, shortUsd } of dayBuckets.values()) {
+    const dayUsd = longUsd + shortUsd;
+    const daySide: 'long' | 'short' = longUsd >= shortUsd ? 'long' : 'short';
+    const entry = buckets.get(idx);
+    if (!entry) {
+      buckets.set(idx, { priceSum, count, latestDay: day, latestUsd: dayUsd, latestSide: daySide, maxUsd: dayUsd });
+      continue;
+    }
+    entry.priceSum += priceSum;
+    entry.count += count;
+    if (day > entry.latestDay) {
+      entry.latestDay = day;
+      entry.latestUsd = dayUsd;
+      entry.latestSide = daySide;
+    }
+    if (dayUsd > entry.maxUsd) entry.maxUsd = dayUsd;
   }
 
   const levels: ClusterLevel[] = Array.from(buckets.values()).map(b => {
     const price = b.priceSum / b.count;
-    const value_usd = b.longUsd + b.shortUsd;
-    const side: 'long' | 'short' = b.longUsd >= b.shortUsd ? 'long' : 'short';
-    return { price, value_usd, side, distancePct: ((price - currentPrice) / currentPrice) * 100 };
+    return {
+      price,
+      valueToday: b.latestUsd,
+      valueMax: b.maxUsd,
+      side: b.latestSide,
+      distancePct: ((price - currentPrice) / currentPrice) * 100,
+    };
   });
 
-  const above = levels.filter(l => l.price > currentPrice).sort((a, b) => b.value_usd - a.value_usd).slice(0, topN);
-  const below = levels.filter(l => l.price < currentPrice).sort((a, b) => b.value_usd - a.value_usd).slice(0, topN);
+  const above = levels.filter(l => l.price > currentPrice).sort((a, b) => b.valueToday - a.valueToday).slice(0, topN);
+  const below = levels.filter(l => l.price < currentPrice).sort((a, b) => b.valueToday - a.valueToday).slice(0, topN);
   above.sort((a, b) => a.price - b.price);
   below.sort((a, b) => b.price - a.price);
   return { above, below };
