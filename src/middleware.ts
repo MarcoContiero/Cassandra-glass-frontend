@@ -9,7 +9,15 @@ const isPublicApiRoute = createRouteMatcher([
   '/api/segnala',
   '/api/orione/scan',
 ]);
-const isProtectedRoute = createRouteMatcher(['/app(.*)', '/api(.*)']);
+const isProtectedRoute = createRouteMatcher([
+  '/app(.*)',
+  '/api(.*)',
+  '/tifide(.*)',
+  '/tifide3(.*)',
+  '/orione2(.*)',
+  '/chart(.*)',
+  '/onboarding(.*)',
+]);
 
 export default clerkMiddleware(async (auth, req) => {
   if (isPublicApiRoute(req)) return;
