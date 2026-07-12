@@ -197,6 +197,11 @@ export interface ClusterLevel {
   distancePct: number;     // distanza % dal prezzo corrente, con segno
   probability?: number;    // 0-1, solo se calcolato dal backend (Fase 3 — vedi fetchSweepProbability)
   confidence?: number;     // 0-1, idem
+  daysCount?: number;      // Cluster Age (proposta 2026-07-12): giorni distinti, nella finestra di
+                            // lookback, in cui questa banda di prezzo ha avuto OI osservato — SOLO
+                            // contesto informativo per l'utente, NON un input di calcolo (testato e
+                            // bocciato come predittore per Cluster Health, vedi cassandra-heatmap-
+                            // liquidazione-spec.md — qui è mostrato, non usato per una probabilità).
 }
 
 /**
@@ -254,6 +259,7 @@ export function computeTopClusters(
     priceSum: number; count: number;
     latestDay: number; latestUsd: number; latestSide: 'long' | 'short';
     maxUsd: number;
+    days: Set<number>;  // giorni distinti — stesso concetto di days_count lato backend
   }
   const buckets = new Map<number, Agg>();
   for (const { idx, day, priceSum, count, longUsd, shortUsd } of dayBuckets.values()) {
@@ -261,11 +267,12 @@ export function computeTopClusters(
     const daySide: 'long' | 'short' = longUsd >= shortUsd ? 'long' : 'short';
     const entry = buckets.get(idx);
     if (!entry) {
-      buckets.set(idx, { priceSum, count, latestDay: day, latestUsd: dayUsd, latestSide: daySide, maxUsd: dayUsd });
+      buckets.set(idx, { priceSum, count, latestDay: day, latestUsd: dayUsd, latestSide: daySide, maxUsd: dayUsd, days: new Set([day]) });
       continue;
     }
     entry.priceSum += priceSum;
     entry.count += count;
+    entry.days.add(day);
     if (day > entry.latestDay) {
       entry.latestDay = day;
       entry.latestUsd = dayUsd;
@@ -282,6 +289,7 @@ export function computeTopClusters(
       valueMax: b.maxUsd,
       side: b.latestSide,
       distancePct: ((price - currentPrice) / currentPrice) * 100,
+      daysCount: b.days.size,
     };
   });
 
@@ -306,6 +314,7 @@ interface RawSweepLevel {
   value_max: number;
   probability: number;
   confidence: number;
+  days_count?: number;
 }
 
 export interface SweepProbabilityResponse {
@@ -323,6 +332,7 @@ function toClusterLevel(raw: RawSweepLevel): ClusterLevel {
     distancePct: raw.distance_pct,
     probability: raw.probability,
     confidence: raw.confidence,
+    daysCount: raw.days_count,
   };
 }
 

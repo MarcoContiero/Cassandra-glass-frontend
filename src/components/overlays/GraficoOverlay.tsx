@@ -116,6 +116,16 @@ function ClusterRow({ level }: { level: ClusterLevel }) {
         <span>Oggi <span className="text-white/60">{formatUsdCompact(level.valueToday)}</span></span>
         <span className="text-white/15">·</span>
         <span>Picco <span className="text-white/60">{formatUsdCompact(level.valueMax)}</span></span>
+        {level.daysCount != null && (
+          <>
+            <span className="text-white/15">·</span>
+            <span
+              title="Giorni distinti, negli ultimi 365, in cui questo livello ha avuto attività — solo contesto, non influisce sulla probabilità stimata"
+            >
+              da <span className="text-white/60">{level.daysCount}gg</span>
+            </span>
+          </>
+        )}
       </div>
     </div>
   );
