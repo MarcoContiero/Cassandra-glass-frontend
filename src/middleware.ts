@@ -1,8 +1,18 @@
 import { clerkMiddleware, createRouteMatcher } from '@clerk/nextjs/server';
 
-const isProtectedRoute = createRouteMatcher(['/app(.*)']);
+// Route pubbliche per design: health check, form di contatto pre-login,
+// trigger di un cron esterno. Tutto il resto sotto /api/* proxya verso il
+// backend (trade reali, admin, dati di trading) e va dietro login Clerk —
+// altrimenti è raggiungibile da chiunque sul web senza autenticazione.
+const isPublicApiRoute = createRouteMatcher([
+  '/api/ping',
+  '/api/segnala',
+  '/api/orione/scan',
+]);
+const isProtectedRoute = createRouteMatcher(['/app(.*)', '/api(.*)']);
 
 export default clerkMiddleware(async (auth, req) => {
+  if (isPublicApiRoute(req)) return;
   if (isProtectedRoute(req)) {
     await auth.protect();
   }
