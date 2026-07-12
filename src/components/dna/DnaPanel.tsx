@@ -105,6 +105,16 @@ interface BbReturnTf {
 interface Ema200Pull { [tf: string]: Ema200PullTf }
 interface BbReturn   { [tf: string]: BbReturnTf   }
 
+interface LiquidationSweepBucket {
+  n_osservati: number;
+  n_mangiati: number;
+  sweep_rate: number;
+  giorni_min?: number;
+  giorni_max?: number;
+  giorni_media?: number;
+}
+interface LiquidationSweep { [bucket: string]: LiquidationSweepBucket }
+
 interface GenomeFull extends GenomeSummary {
   scenario_profile: ScenarioProfile;
   hourly_wr: HourlyWr;
@@ -122,6 +132,7 @@ interface GenomeFull extends GenomeSummary {
   market_profile?: MarketProfile;
   ema200_pull?: Ema200Pull;
   bb_return?: BbReturn;
+  liquidation_sweep?: LiquidationSweep;
   fear_greed?: { score: number; label: string; rsi: number; rsi_pct: number; bb_pct_b: number; vol_zscore: number; components: { rsi_score: number; bb_score: number; volume_score: number } };
   sentiment_relative?: {
     score: number | null; label: string | null;
@@ -771,6 +782,68 @@ function GravitaSection({ pull, bb }: { pull?: Ema200Pull; bb?: BbReturn }) {
   );
 }
 
+// ── DNA Coin: cluster di liquidazione ───────────────────────────────────────
+
+const LIQ_SWEEP_BUCKET_ORDER = ['0-3%', '3-6%', '6-10%', '10-20%', '20%+'] as const;
+
+function LiquidationSweepSection({ data }: { data?: LiquidationSweep }) {
+  if (!data || Object.keys(data).length === 0) return null;
+  const buckets = LIQ_SWEEP_BUCKET_ORDER.filter(b => data[b]);
+  if (buckets.length === 0) return null;
+
+  return (
+    <div className="cassandra-card p-3 space-y-3">
+      <div style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+        <span className="section-tag">Cluster di Liquidazione</span>
+        <HelpButton helpKey="dna/liquidation_sweep" label="Cluster di Liquidazione" variant="section" />
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)' }}>
+        Solo livelli forti (densità alta) osservati nello storico OI — quante volte il prezzo li ha
+        raggiunti e in quanti giorni. Statistica descrittiva sul carattere della coin, non una
+        probabilità di sweep.
+      </div>
+      <div className="space-y-2.5">
+        {buckets.map(bucket => {
+          const d = data[bucket];
+          return (
+            <div key={bucket} className="space-y-1">
+              <div className="flex items-center justify-between" style={{ fontFamily: 'var(--font-mono)', fontSize: 11 }}>
+                <span style={{ color: 'var(--color-gold)' }}>{bucket} dal prezzo</span>
+                <span style={{ color: 'var(--color-text-dim)' }}>
+                  raggiunto {Math.round(d.sweep_rate * 100)}% delle volte
+                </span>
+              </div>
+              <GravitaBar val={d.sweep_rate} max={1} color="rgb(201,168,76)" />
+              <div className="grid grid-cols-2 gap-x-2" style={{ fontFamily: 'var(--font-mono)', fontSize: 10 }}>
+                <div>
+                  <span style={{ color: 'var(--color-text-dim)' }}>osservati </span>
+                  <span style={{ color: 'var(--color-text)' }}>{d.n_osservati}</span>
+                </div>
+                <div>
+                  <span style={{ color: 'var(--color-text-dim)' }}>raggiunti </span>
+                  <span style={{ color: 'var(--color-text)' }}>{d.n_mangiati}</span>
+                </div>
+                {d.giorni_media != null && (
+                  <>
+                    <div>
+                      <span style={{ color: 'var(--color-text-dim)' }}>giorni media </span>
+                      <span style={{ color: 'var(--color-text)' }}>{d.giorni_media.toFixed(1)}</span>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--color-text-dim)' }}>min–max </span>
+                      <span style={{ color: 'var(--color-text-dim)' }}>{d.giorni_min}–{d.giorni_max}</span>
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
 // ── Fear & Greed Widget ───────────────────────────────────────────────────────
 
 function fgColor(score: number): string {
@@ -1244,6 +1317,11 @@ function GenomeDetail({ genome, onClose, months }: { genome: GenomeFull; onClose
         {/* Gravità */}
         {(genome.ema200_pull || genome.bb_return) && (
           <GravitaSection pull={genome.ema200_pull} bb={genome.bb_return} />
+        )}
+
+        {/* DNA Coin: cluster di liquidazione */}
+        {genome.liquidation_sweep && (
+          <LiquidationSweepSection data={genome.liquidation_sweep} />
         )}
 
         {/* Contesto Macro — solo BTC */}
