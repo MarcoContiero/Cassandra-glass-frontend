@@ -178,6 +178,7 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
     (async () => {
       try {
         const r = await fetch('/api/macro-calendar/upcoming?days_ahead=14', { cache: 'no-store' });
+        if (!r.ok) throw new Error(`HTTP ${r.status}`);
         const js = (await r.json()) as MacroCalendarResponse;
         if (cancelled) return;
         if (!js.ok || !js.data) {
