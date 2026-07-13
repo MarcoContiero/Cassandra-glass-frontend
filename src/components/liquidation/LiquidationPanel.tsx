@@ -1,6 +1,7 @@
 'use client';
 
 import { useCallback, useEffect, useRef, useState } from 'react';
+import LiquidationHeatmapSection from './LiquidationHeatmapSection';
 
 // ── Types ──────────────────────────────────────────────────────────────────────
 
@@ -320,64 +321,82 @@ export default function LiquidationPanel() {
 
   return (
     <div style={{
-      display: 'grid',
-      gridTemplateColumns: '280px 1fr',
-      gridTemplateRows: '1fr',
+      display: 'flex',
+      flexDirection: 'column',
       gap: '12px',
       height: 'calc(100vh - 80px)',
       color: 'var(--color-text)',
     }}>
 
-      {/* ── Colonna sinistra: OI + LS ratio ─── */}
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
-
-        {/* Header coin selector */}
-        <div style={{
-          border: '1px solid var(--color-border)',
-          background: 'var(--color-surface)',
-          padding: '10px 14px',
-          display: 'flex', alignItems: 'center', gap: '10px',
-        }}>
-          <span style={labelSt}>Coin</span>
-          <select
-            value={coin}
-            onChange={e => setCoin(e.target.value)}
-            style={{
-              background: 'var(--color-void)',
-              border: '1px solid var(--color-border)',
-              color: 'var(--color-gold)',
-              fontFamily: 'var(--font-mono)',
-              fontSize: '11px',
-              padding: '4px 8px',
-              outline: 'none',
-              flex: 1,
-            }}
-          >
-            {COINS_DEFAULT.map(c => <option key={c} value={c}>{c}</option>)}
-          </select>
-          {lastUpdate && (
-            <span style={{ ...labelSt, fontSize: '8px', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
-              {lastUpdate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-            </span>
-          )}
-        </div>
-
-        <OISection data={oiData} />
-        <LSRatioSection data={oiData} />
-
-        {/* Disclaimer */}
-        <div style={{
-          fontFamily: 'var(--font-mono)', fontSize: '8px',
-          color: 'rgba(255,255,255,0.2)', lineHeight: 1.6,
-          padding: '10px 14px',
-          border: '1px solid var(--color-border)',
-        }}>
-          Dati OI aggregati da Bybit e Hyperliquid (stime su posizioni private). Probabilità di sweep calcolate su modello statistico — non garantiscono che il prezzo raggiunga quei livelli.
-        </div>
+      {/* ── Heatmap Liquidazioni (Coinglass-style) — altezza naturale, non
+          tocca lo scroll interno del feed sotto ─── */}
+      <div style={{ flex: '0 0 auto' }}>
+        <LiquidationHeatmapSection coin={coin} />
       </div>
 
-      {/* ── Colonna destra: feed liquidazioni ─── */}
-      <LiqFeed data={liqData} loading={liqLoading} />
+      {/* ── Griglia OI/L-S/feed esistente — invariata, flex:1+minHeight:0
+          perché overflowY:auto di LiqFeed continui a funzionare dentro un
+          flex item ─── */}
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: '280px 1fr',
+        gridTemplateRows: '1fr',
+        gap: '12px',
+        flex: '1 1 auto',
+        minHeight: 0,
+      }}>
+
+        {/* ── Colonna sinistra: OI + LS ratio ─── */}
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '12px', overflowY: 'auto' }}>
+
+          {/* Header coin selector */}
+          <div style={{
+            border: '1px solid var(--color-border)',
+            background: 'var(--color-surface)',
+            padding: '10px 14px',
+            display: 'flex', alignItems: 'center', gap: '10px',
+          }}>
+            <span style={labelSt}>Coin</span>
+            <select
+              value={coin}
+              onChange={e => setCoin(e.target.value)}
+              style={{
+                background: 'var(--color-void)',
+                border: '1px solid var(--color-border)',
+                color: 'var(--color-gold)',
+                fontFamily: 'var(--font-mono)',
+                fontSize: '11px',
+                padding: '4px 8px',
+                outline: 'none',
+                flex: 1,
+              }}
+            >
+              {COINS_DEFAULT.map(c => <option key={c} value={c}>{c}</option>)}
+            </select>
+            {lastUpdate && (
+              <span style={{ ...labelSt, fontSize: '8px', letterSpacing: '0.1em', whiteSpace: 'nowrap' }}>
+                {lastUpdate.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+              </span>
+            )}
+          </div>
+
+          <OISection data={oiData} />
+          <LSRatioSection data={oiData} />
+
+          {/* Disclaimer */}
+          <div style={{
+            fontFamily: 'var(--font-mono)', fontSize: '8px',
+            color: 'rgba(255,255,255,0.2)', lineHeight: 1.6,
+            padding: '10px 14px',
+            border: '1px solid var(--color-border)',
+          }}>
+            Dati OI aggregati da Bybit e Hyperliquid (stime su posizioni private). Probabilità di sweep calcolate su modello statistico — non garantiscono che il prezzo raggiunga quei livelli.
+          </div>
+        </div>
+
+        {/* ── Colonna destra: feed liquidazioni ─── */}
+        <LiqFeed data={liqData} loading={liqLoading} />
+      </div>
     </div>
   );
 }
