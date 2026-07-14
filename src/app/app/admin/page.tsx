@@ -29,6 +29,16 @@ interface StatusResponse {
   now_utc: string;
 }
 
+interface LiveV2Position {
+  asset: string;
+  side: string;
+  entry_px: number;
+  stop_px: number;
+  sl_placed: boolean;
+  sl_unprotected_seconds: number | null;
+  scenario?: string;
+}
+
 interface WindowData {
   current: { n: number; wr_pct: number | null; pf: number | null; avg_pnl: number | null };
   evaluation: { status: string; flags: string[] };
@@ -85,6 +95,7 @@ function fmtDate(iso: string | null) {
 export default function AdminPage() {
   const { user, isLoaded } = useUser();
   const [status, setStatus]             = useState<StatusResponse | null>(null);
+  const [unprotectedPositions, setUnprotectedPositions] = useState<LiveV2Position[]>([]);
   const [gate, setGate]                 = useState<GateMonitorResponse | null>(null);
   const [gateLoading, setGateLoading]   = useState(false);
   const [runMsg, setRunMsg]             = useState('');
@@ -109,6 +120,16 @@ export default function AdminPage() {
     } catch { /* ignore */ }
   }, []);
 
+  const loadLiveV2Status = useCallback(async () => {
+    try {
+      const r = await fetch('/api/tifide3/status', { cache: 'no-store' });
+      if (!r.ok) return;
+      const d = await r.json();
+      const positions: LiveV2Position[] = Array.isArray(d?.live_v2_positions) ? d.live_v2_positions : [];
+      setUnprotectedPositions(positions.filter(p => p.sl_placed === false));
+    } catch { /* ignore */ }
+  }, []);
+
   const loadGate = useCallback(async () => {
     setGateLoading(true);
     setError('');
@@ -126,7 +147,15 @@ export default function AdminPage() {
   useEffect(() => {
     loadStatus();
     loadGate();
-  }, [loadStatus, loadGate]);
+    loadLiveV2Status();
+  }, [loadStatus, loadGate, loadLiveV2Status]);
+
+  // Poll SL non protetto ogni 10s — è un avviso di sicurezza su soldi veri,
+  // deve aggiornarsi da solo senza bisogno di refresh manuale della pagina.
+  useEffect(() => {
+    const id = setInterval(loadLiveV2Status, 10000);
+    return () => clearInterval(id);
+  }, [loadLiveV2Status]);
 
   // Poll status ogni 10s se daily update è in running
   useEffect(() => {
@@ -280,6 +309,32 @@ export default function AdminPage() {
             Admin
           </h1>
         </div>
+
+        {/* Avviso: posizione live_v2 senza stop-loss su HL */}
+        {unprotectedPositions.length > 0 && (
+          <div
+            className="cassandra-card cassandra-card-corners"
+            style={{ padding: '20px 28px', marginBottom: '32px', border: '1px solid var(--color-short-bright)' }}
+          >
+            <span
+              style={{
+                fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em',
+                textTransform: 'uppercase', color: 'var(--color-short-bright)', display: 'block', marginBottom: '10px',
+              }}
+            >
+              ⚠ Tifi 4.0 — stop-loss non piazzato su HL
+            </span>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
+              {unprotectedPositions.map(p => (
+                <span key={p.asset} style={{ fontFamily: 'var(--font-mono)', fontSize: '12px', color: 'var(--color-text)' }}>
+                  {p.asset} {p.side} — entry {p.entry_px} — scoperta da{' '}
+                  {p.sl_unprotected_seconds != null ? `${Math.round(p.sl_unprotected_seconds)}s` : '—'}
+                  {p.scenario ? ` — ${p.scenario}` : ''}
+                </span>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Daily Update Status */}
         <div className="cassandra-card cassandra-card-corners" style={{ padding: '28px', marginBottom: '32px' }}>
