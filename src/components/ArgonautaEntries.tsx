@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import StrategiaAIOverlay from './overlays/StrategiaAIOverlay';
 import type { Suggestion } from '@/ts/argonauta/extract';
 import { Dialog } from '@/components/ui/dialog';
@@ -44,6 +44,8 @@ export type EntryItem = {
   distancePct?: number;
   // extra
   ai?: boolean; // true se confermato anche da StrategiaAI
+  formingBias?: 'bullish' | 'bearish'; // Pattern in Formazione in conflitto con dir — contesto, non un veto
+  formingPattern?: string;
   description?: string;
   tfs?: string[];
   confidence?: number;
@@ -124,6 +126,14 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
           {item.ai && (
             <span className="inline-flex items-center justify-center rounded-full border border-emerald-400/70 bg-emerald-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-emerald-200">
               AI
+            </span>
+          )}
+          {item.formingBias && (
+            <span
+              title={`${item.formingPattern ?? 'Pattern'} in formazione (${item.formingBias}) — contesto, non un veto`}
+              className="inline-flex items-center justify-center rounded-full border border-amber-400/70 bg-amber-400/10 px-1.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.16em] text-amber-200"
+            >
+              In formazione
             </span>
           )}
         </div>
@@ -376,10 +386,46 @@ export default function ArgonautaEntriesList({
     });
   }, [itemsBase, cassandraItems]);
 
+  // 1ter) Pattern in Formazione — badge di conflitto, calcolato lato backend
+  // (a differenza di "ai", che è calcolato qui client-side). Contesto, non
+  // un veto: il sistema marca, non sopprime — vedi
+  // cassandra-pattern-formazione-spec.md.
+  const [formingActive, setFormingActive] = useState<
+    { tf: string; direction: 'bullish' | 'bearish'; pattern: string; state: string }[]
+  >([]);
+  useEffect(() => {
+    let alive = true;
+    fetch(`/api/pattern-forming?coin=${encodeURIComponent(symbol)}`, { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then(json => {
+        if (!alive || !Array.isArray(json?.patterns)) return;
+        setFormingActive(
+          json.patterns
+            .filter((p: any) => p.state === 'FORMING' || p.state === 'NEAR_COMPLETE')
+            .map((p: any) => ({ tf: p.tf, direction: p.direction, pattern: p.pattern, state: p.state })),
+        );
+      })
+      .catch(() => { if (alive) setFormingActive([]); });
+    return () => { alive = false; };
+  }, [symbol]);
+
+  const withFormingFlag: EntryItem[] = useMemo(() => {
+    if (!formingActive.length) return withAiFlag;
+    return withAiFlag.map((it) => {
+      if (!it.dir) return it;
+      const conflict = formingActive.find(fp => {
+        const opposes = (it.dir === 'long' && fp.direction === 'bearish') || (it.dir === 'short' && fp.direction === 'bullish');
+        const tfMatch = !it.tfs || it.tfs.length === 0 || it.tfs.includes(fp.tf);
+        return opposes && tfMatch;
+      });
+      return conflict ? { ...it, formingBias: conflict.direction, formingPattern: conflict.pattern } : it;
+    });
+  }, [withAiFlag, formingActive]);
+
   // 2) Distanza dal prezzo come prima
   const price = readPriceHint(results, priceHint);
   const items = useMemo(() => {
-    return withAiFlag.map((it) => {
+    return withFormingFlag.map((it) => {
       const midEntry = mid(it.entry);
       const distancePct =
         Number.isFinite(price) && Number.isFinite(midEntry)
@@ -387,7 +433,7 @@ export default function ArgonautaEntriesList({
           : undefined;
       return { ...it, distancePct };
     });
-  }, [withAiFlag, price]);
+  }, [withFormingFlag, price]);
 
   if (!items.length) {
     return (
