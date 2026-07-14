@@ -40,13 +40,22 @@ export interface HeatmapBucket {
   side: 'long' | 'short';
 }
 
-// Scala colori standard heatmap liquidazioni (riconoscibile da chi conosce
-// Coinglass): trasparente/bianco (bassa) → oro #c9a84c (media) → rosso
-// #c94c4c (alta). Interpolazione lineare in RGB, non percettiva — è una
-// convenzione di dominio, non un ramp sequenziale in senso stretto.
-const STOP_LOW: [number, number, number] = [255, 255, 255];
-const STOP_MID: [number, number, number] = [201, 168, 76];  // #c9a84c
-const STOP_HIGH: [number, number, number] = [201, 76, 76];  // #c94c4c
+// Scala colori "termica" stile Coinglass/mappe meteo: blu (bassa densità) →
+// ciano → verde → giallo → arancio → rosso (alta densità), su sfondo scuro.
+// Multi-stop invece di un ramp a 2 soli colori (bianco→oro→rosso) — quello
+// leggeva come "smorzato", non riconoscibile come heatmap termica a colpo
+// d'occhio. L'alpha resta bassa alle densità basse (i candlestick sotto
+// restano leggibili) e sale rapidamente verso l'alto, cosi le zone calde
+// dominano visivamente come su Coinglass.
+const THERMAL_STOPS: Array<{ d: number; rgb: [number, number, number] }> = [
+  { d: 0.00, rgb: [20, 30, 90] },     // blu scuro (quasi invisibile)
+  { d: 0.18, rgb: [30, 100, 220] },   // blu
+  { d: 0.35, rgb: [30, 190, 210] },   // ciano
+  { d: 0.52, rgb: [60, 200, 90] },    // verde
+  { d: 0.68, rgb: [230, 220, 50] },   // giallo
+  { d: 0.84, rgb: [240, 140, 30] },   // arancio
+  { d: 1.00, rgb: [235, 40, 30] },    // rosso (più caldo)
+];
 
 function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
@@ -54,18 +63,27 @@ function lerp(a: number, b: number, t: number): number {
 
 export function densityColor(density: number): string {
   const d = Math.max(0, Math.min(1, density));
-  if (d <= 0.001) return 'rgba(255,255,255,0)';
-  let rgb: [number, number, number];
-  let alpha: number;
-  if (d < 0.5) {
-    const t = d / 0.5;
-    rgb = [lerp(STOP_LOW[0], STOP_MID[0], t), lerp(STOP_LOW[1], STOP_MID[1], t), lerp(STOP_LOW[2], STOP_MID[2], t)];
-    alpha = lerp(0.05, 0.55, t);
-  } else {
-    const t = (d - 0.5) / 0.5;
-    rgb = [lerp(STOP_MID[0], STOP_HIGH[0], t), lerp(STOP_MID[1], STOP_HIGH[1], t), lerp(STOP_MID[2], STOP_HIGH[2], t)];
-    alpha = lerp(0.55, 0.85, t);
+  if (d <= 0.001) return 'rgba(20,30,90,0)';
+
+  let lo = THERMAL_STOPS[0];
+  let hi = THERMAL_STOPS[THERMAL_STOPS.length - 1];
+  for (let i = 0; i < THERMAL_STOPS.length - 1; i++) {
+    if (d >= THERMAL_STOPS[i].d && d <= THERMAL_STOPS[i + 1].d) {
+      lo = THERMAL_STOPS[i];
+      hi = THERMAL_STOPS[i + 1];
+      break;
+    }
   }
+  const span = hi.d - lo.d;
+  const t = span > 0 ? (d - lo.d) / span : 0;
+  const rgb: [number, number, number] = [
+    lerp(lo.rgb[0], hi.rgb[0], t),
+    lerp(lo.rgb[1], hi.rgb[1], t),
+    lerp(lo.rgb[2], hi.rgb[2], t),
+  ];
+  // alpha: parte bassa (~0.12) cosi le candele restano leggibili nelle zone
+  // fredde, sale fino a quasi opaco (~0.92) nelle zone più calde
+  const alpha = lerp(0.12, 0.92, Math.pow(d, 0.7));
   return `rgba(${Math.round(rgb[0])},${Math.round(rgb[1])},${Math.round(rgb[2])},${alpha.toFixed(3)})`;
 }
 
