@@ -104,19 +104,35 @@ export function buildSuggestions(data: any): Suggestion[] {
 
     // Stop: prima una percentuale fissa (0.35%) indipendente da TF e da
     // cosa si stava tradando — su un 1w era rumore, non invalidazione.
-    // Ora ancorato a un livello reale, con due convenzioni diverse (stessa
-    // distinzione gia' usata da Strategia AI per BK1/BK2 vs levels/liquidity):
-    // - breakout: il livello appena rotto stesso (con un margine), perche'
-    //   l'invalidazione e' "il livello rotto tiene comunque", non "sono
-    //   arrivato al prossimo livello opposto" (che sarebbe troppo lontano)
+    // Ora ancorato a un livello reale — con due convenzioni diverse:
     // - pullback: il prossimo livello reale opposto (supporto sotto per un
     //   LONG, resistenza sopra per uno SHORT) — stessa logica di
     //   _costruisci_setup_unificato in strategia_ai_builder.py
+    // - breakout: NON il livello appena rotto (era il primo tentativo, ma
+    //   resta troppo stretto — colpito quasi sempre dal retest fisiologico
+    //   post-breakout, verificato: WR 0-5% anche dopo aver corretto il
+    //   trigger dell'entry nel backtest). Il breakout e' davvero invalidato
+    //   solo se cede anche la struttura PRIMA di quel livello, non se il
+    //   prezzo ritesta il livello appena rotto — quindi cerchiamo il
+    //   prossimo livello oltre quello di breakout, preferendo uno di forza
+    //   comparabile (>= meta' di quella del livello di breakout) per non
+    //   ancorarci a un livello trascurabile.
     // Fallback alla vecchia percentuale fissa solo se non esiste nessun
     // livello utilizzabile (pool di liquidita' vuoto in quel lato).
     let stop: number;
     if (kind === "breakout") {
-      stop = dir === "LONG" ? lvl.price * 0.998 : lvl.price * 1.003;
+      const refForza = lvl.forza ?? 0;
+      const pool = dir === "LONG"
+        ? sotto.filter(l => l.price < lvl.price)
+        : sopra.filter(l => l.price > lvl.price);
+      const byDist = [...pool].sort((a, b) => Math.abs(a.price - lvl.price) - Math.abs(b.price - lvl.price));
+      const strongEnough = byDist.filter(l => (l.forza ?? 0) >= refForza * 0.5);
+      const invLevel = strongEnough[0] ?? byDist[0];
+      if (invLevel) {
+        stop = dir === "LONG" ? invLevel.price * 0.998 : invLevel.price * 1.002;
+      } else {
+        stop = dir === "LONG" ? lvl.price * 0.998 : lvl.price * 1.003;
+      }
     } else {
       const stopLevel = dir === "LONG"
         ? [...sotto].filter(l => l.price < entry).sort((a, b) => b.price - a.price)[0]
@@ -126,9 +142,18 @@ export function buildSuggestions(data: any): Suggestion[] {
         : (dir === "LONG" ? entry * (1 - 0.0035) : entry * (1 + 0.0035));
     }
 
-    const nexts = dir === "LONG"
-      ? [...sopra].filter(l => l.price > entry).sort((a, b) => a.price - b.price).slice(0, 2)
-      : [...sotto].filter(l => l.price < entry).sort((a, b) => b.price - a.price).slice(0, 2);
+    // Target: stessa idea dello stop — un livello troppo debole potrebbe
+    // non rappresentare una vera resistenza/supporto (il prezzo lo
+    // attraversa senza reagire), quindi "raggiunto" solo sulla carta.
+    // Preferiamo livelli di forza comparabile (>= meta' di quella del
+    // livello di entry); fallback al piu' vicino disponibile se nessuno
+    // qualifica.
+    const refForzaTp = lvl.forza ?? 0;
+    const nextsAll = dir === "LONG"
+      ? [...sopra].filter(l => l.price > entry).sort((a, b) => a.price - b.price)
+      : [...sotto].filter(l => l.price < entry).sort((a, b) => b.price - a.price);
+    const nextsStrong = nextsAll.filter(l => (l.forza ?? 0) >= refForzaTp * 0.5);
+    const nexts = (nextsStrong.length ? nextsStrong : nextsAll).slice(0, 2);
 
     const tp1 = nexts[0]?.price ?? (dir === "LONG" ? entry * 1.0075 : entry * 0.9925);
     const tp2 = nexts[1]?.price ?? (dir === "LONG" ? entry * 1.0175 : entry * 0.9825);
