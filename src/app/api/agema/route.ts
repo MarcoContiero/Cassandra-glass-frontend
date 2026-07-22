@@ -41,8 +41,9 @@ type AgemaRow = {
   coin: string;
   price?: number | null;
   score?: number | null;
-  direction?: 'LONG' | 'SHORT' | string;
+  direction?: 'LONG' | 'SHORT' | string; // direzione della finestra ciclica, fallback sul miglior setup se ignota
   ciclica_label?: string | null;
+  ciclica_archetipo?: string | null;
   reentry_label?: string | null;
   eta_reentry_hours?: number;
   best?: StrategiaAIItem[];
@@ -263,15 +264,29 @@ async function processSymbol(
   const ciclica = json.ciclica || {};
   const reentryPath = ciclica.reentry_path || {};
   const faseAttuale = String(reentryPath.fase_attuale || '') || null;
-  const reentryLabel = formatZonaReentry(
-    (reentryPath.zone_operative || {}).zona_reentry_long || null,
-  );
+  const archetipo = reentryPath.archetipo ? String(reentryPath.archetipo) : null;
+
+  // Direzione della FINESTRA ciclica — questa e' la lente primaria di Agema
+  // ("radar ciclico"), non il singolo setup Strategia AI con lo score piu'
+  // alto (comportamento precedente: badge preso da top3[0].direction,
+  // scollegato dalla ciclica — verificato causare disaccordo nel 60% dei
+  // casi su un campione live di 20 coin).
+  const dirCiclica = normalizeDirection(reentryPath.direzione_reentry);
+
+  // zona_reentry_long/short: il builder ne popola solo UNA a seconda della
+  // direzione — leggere sempre "long" (comportamento precedente) faceva
+  // sparire l'etichetta per ogni coin in scenario SHORT.
+  const zonaReentry =
+    dirCiclica === 'SHORT'
+      ? (reentryPath.zone_operative || {}).zona_reentry_short
+      : (reentryPath.zone_operative || {}).zona_reentry_long;
+  const reentryLabel = formatZonaReentry(zonaReentry || null);
 
   const rawStrategia: any[] = Array.isArray(json.strategia_ai)
     ? json.strategia_ai
     : [];
 
-  const top3: StrategiaAIItem[] = rawStrategia
+  const allSetups: StrategiaAIItem[] = rawStrategia
     .filter((s) => s && typeof s === 'object')
     .map((s) => ({
       tf: String(s.tf || ''),
@@ -290,7 +305,22 @@ async function processSymbol(
       tags: s.tags,
       ciclica_window: s.ciclica_window ?? null,
     }))
-    .filter((s) => s.tf && Number.isFinite(s.entry))
+    .filter((s) => s.tf && Number.isFinite(s.entry));
+
+  if (allSetups.length === 0) return null;
+
+  // Segnali "dentro la finestra": se conosciamo la direzione ciclica,
+  // teniamo solo i setup Strategia AI coerenti con quella direzione — il
+  // pannello deve leggersi "dentro una finestra ribassista, questi
+  // segnali", non mischiare segnali rialzisti in una finestra ribassista.
+  // Se nessun setup e' coerente (raro) o la ciclica non ha una direzione
+  // chiara, ripieghiamo sull'intero pool.
+  const coherentSetups = dirCiclica
+    ? allSetups.filter((s) => normalizeDirection(s.direction) === dirCiclica)
+    : allSetups;
+  const pool = coherentSetups.length > 0 ? coherentSetups : allSetups;
+
+  const top3: StrategiaAIItem[] = [...pool]
     .sort((a, b) => {
       const as = safeNumber(a.score, 0);
       const bs = safeNumber(b.score, 0);
@@ -302,8 +332,6 @@ async function processSymbol(
     })
     .slice(0, 3);
 
-  if (top3.length === 0) return null;
-
   const top3WithETA: StrategiaAIItem[] = top3.map((s) => {
     const cw = s.ciclica_window || null;
     return {
@@ -312,13 +340,16 @@ async function processSymbol(
     };
   });
 
-  // filtro direzione
-  if (dirParam) {
-    const hasDir = top3WithETA.some(
-      (s) => normalizeDirection(s.direction) === dirParam,
-    );
-    if (!hasDir) return null;
-  }
+  const best = top3WithETA[0];
+  const bestDir = normalizeDirection(best.direction) || 'LONG';
+  // Direzione mostrata: la finestra ciclica quando la conosciamo, altrimenti
+  // il miglior setup disponibile (fallback, ora raro dopo il fix di
+  // reentry_path — prima era sempre cosi').
+  const rowDirection = dirCiclica || bestDir;
+
+  // filtro direzione: sulla direzione mostrata (ciclica quando nota), non
+  // piu' su "almeno un setup tra i primi 3 combacia"
+  if (dirParam && rowDirection !== dirParam) return null;
 
   // filtro tempo: applica solo se ci sono ETA valide;
   // se ciclica_window manca su tutti i setup, non filtrare (ETA sconosciuta ≠ fuori finestra)
@@ -330,9 +361,6 @@ async function processSymbol(
       return null;
     }
   }
-
-  const best = top3WithETA[0];
-  const bestDir = normalizeDirection(best.direction) || 'LONG';
 
   const etaMin = (() => {
     const vals = top3WithETA
@@ -366,8 +394,9 @@ async function processSymbol(
     coin: symbol,
     price,
     score: scoreAgema,
-    direction: bestDir,
+    direction: rowDirection,
     ciclica_label: faseAttuale,
+    ciclica_archetipo: archetipo,
     reentry_label: reentryLabel,
     eta_reentry_hours: etaMin ?? undefined,
     best: top3WithETA.map((s) => ({

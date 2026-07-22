@@ -43,8 +43,9 @@ type AgemaRow = {
   coin: string;                 // "LINKUSDT"
   price?: number | null;
   score?: number | null;        // punteggio "classifica"
-  direction?: 'LONG' | 'SHORT' | string;
+  direction?: 'LONG' | 'SHORT' | string; // direzione della finestra ciclica (fallback sul miglior setup se ignota)
   ciclica_label?: string | null;
+  ciclica_archetipo?: string | null;
   reentry_label?: string | null;
   eta_reentry_hours?: number | null;
   best?: StrategiaAIItem[];
@@ -440,6 +441,14 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
                       </span>
                     )}
                   </div>
+
+                  {best.length > 0 && (
+                    <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">
+                      {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
+                      {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
+                      {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
+                    </div>
+                  )}
 
                   {/* Strategy sub-cards */}
                   <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
