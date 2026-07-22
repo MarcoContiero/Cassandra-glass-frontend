@@ -102,7 +102,29 @@ export function buildSuggestions(data: any): Suggestion[] {
       ? (kind === "breakout" ? lvl.price * (1 + buffer) : lvl.price)
       : (kind === "breakout" ? lvl.price * (1 - buffer) : lvl.price);
 
-    const stop = dir === "LONG" ? entry * (1 - 0.0035) : entry * (1 + 0.0035);
+    // Stop: prima una percentuale fissa (0.35%) indipendente da TF e da
+    // cosa si stava tradando — su un 1w era rumore, non invalidazione.
+    // Ora ancorato a un livello reale, con due convenzioni diverse (stessa
+    // distinzione gia' usata da Strategia AI per BK1/BK2 vs levels/liquidity):
+    // - breakout: il livello appena rotto stesso (con un margine), perche'
+    //   l'invalidazione e' "il livello rotto tiene comunque", non "sono
+    //   arrivato al prossimo livello opposto" (che sarebbe troppo lontano)
+    // - pullback: il prossimo livello reale opposto (supporto sotto per un
+    //   LONG, resistenza sopra per uno SHORT) — stessa logica di
+    //   _costruisci_setup_unificato in strategia_ai_builder.py
+    // Fallback alla vecchia percentuale fissa solo se non esiste nessun
+    // livello utilizzabile (pool di liquidita' vuoto in quel lato).
+    let stop: number;
+    if (kind === "breakout") {
+      stop = dir === "LONG" ? lvl.price * 0.998 : lvl.price * 1.003;
+    } else {
+      const stopLevel = dir === "LONG"
+        ? [...sotto].filter(l => l.price < entry).sort((a, b) => b.price - a.price)[0]
+        : [...sopra].filter(l => l.price > entry).sort((a, b) => a.price - b.price)[0];
+      stop = stopLevel
+        ? stopLevel.price
+        : (dir === "LONG" ? entry * (1 - 0.0035) : entry * (1 + 0.0035));
+    }
 
     const nexts = dir === "LONG"
       ? [...sopra].filter(l => l.price > entry).sort((a, b) => a.price - b.price).slice(0, 2)
