@@ -47,6 +47,7 @@ type AgemaRow = {
   ciclica_label?: string | null;
   ciclica_archetipo?: string | null;
   reentry_label?: string | null;
+  has_coherent_signals?: boolean;
   eta_reentry_hours?: number | null;
   best?: StrategiaAIItem[];
 };
@@ -444,9 +445,15 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
 
                   {best.length > 0 && (
                     <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">
-                      {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
-                      {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
-                      {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
+                      {row.has_coherent_signals === false ? (
+                        'Nessun segnale coerente con questa finestra al momento — i più vicini per punteggio:'
+                      ) : (
+                        <>
+                          {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
+                          {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
+                          {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
+                        </>
+                      )}
                     </div>
                   )}
 

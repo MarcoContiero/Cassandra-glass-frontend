@@ -45,6 +45,7 @@ type AgemaRow = {
   ciclica_label?: string | null;
   ciclica_archetipo?: string | null;
   reentry_label?: string | null;
+  has_coherent_signals?: boolean;
   eta_reentry_hours?: number;
   best?: StrategiaAIItem[];
 };
@@ -313,12 +314,15 @@ async function processSymbol(
   // teniamo solo i setup Strategia AI coerenti con quella direzione — il
   // pannello deve leggersi "dentro una finestra ribassista, questi
   // segnali", non mischiare segnali rialzisti in una finestra ribassista.
-  // Se nessun setup e' coerente (raro) o la ciclica non ha una direzione
-  // chiara, ripieghiamo sull'intero pool.
+  // Se nessun setup e' coerente — verificato NON raro, capita spesso —
+  // ripieghiamo sull'intero pool ma segnaliamo il fallback al FE tramite
+  // has_coherent_signals, cosi' il testo di cornice non dichiara una
+  // coerenza che non c'e'.
   const coherentSetups = dirCiclica
     ? allSetups.filter((s) => normalizeDirection(s.direction) === dirCiclica)
     : allSetups;
-  const pool = coherentSetups.length > 0 ? coherentSetups : allSetups;
+  const hasCoherentSignals = coherentSetups.length > 0;
+  const pool = hasCoherentSignals ? coherentSetups : allSetups;
 
   const top3: StrategiaAIItem[] = [...pool]
     .sort((a, b) => {
@@ -398,6 +402,7 @@ async function processSymbol(
     ciclica_label: faseAttuale,
     ciclica_archetipo: archetipo,
     reentry_label: reentryLabel,
+    has_coherent_signals: hasCoherentSignals,
     eta_reentry_hours: etaMin ?? undefined,
     best: top3WithETA.map((s) => ({
       tf: s.tf,
