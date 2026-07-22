@@ -138,8 +138,11 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
           )}
         </div>
         {typeof item.confidence === 'number' && (
-          <span className="text-xs px-2 py-0.5 rounded bg-white/10 border border-white/15">
-            {item.confidence}%
+          <span
+            title="Forza del livello e del bias — non una probabilità di successo"
+            className="text-xs px-2 py-0.5 rounded bg-white/10 border border-white/15"
+          >
+            Forza {item.confidence}
           </span>
         )}
       </div>
