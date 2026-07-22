@@ -151,7 +151,7 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
       {/* numeri: celle larghe e stabili */}
       <div className="mt-2 grid grid-cols-2 xl:grid-cols-4 gap-2 text-sm">
         <div className="space-y-0.5">
-          <div className="text-[10px] opacity-70">Punto di ingresso</div>
+          <div className="text-[10px] opacity-70">Punto di riferimento</div>
           <div className={numCell}>
             {Array.isArray(item.entry)
               ? `${fmtN(item.entry[0])} – ${fmtN(item.entry[1])}`

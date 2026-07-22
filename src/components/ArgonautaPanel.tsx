@@ -800,7 +800,7 @@ export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) 
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>
                 <tr>
-                  {['Coin', 'Bias', '% Mancante', 'Prezzo Attuale', 'Punto di ingresso'].map((h) => (
+                  {['Coin', 'Bias', '% Mancante', 'Prezzo Attuale', 'Punto di riferimento'].map((h) => (
                     <th
                       key={h}
                       style={{

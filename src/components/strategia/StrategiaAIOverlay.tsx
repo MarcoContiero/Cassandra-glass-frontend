@@ -483,7 +483,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                         ? "Punto di rimbalzo"
                         : s.source === "rottura"
                         ? "Punto di rottura"
-                        : "Punto di ingresso"}
+                        : "Punto di riferimento"}
                     </div>
                     <div className="font-mono text-sm text-white">
                       {formatPrice(s.entry)}
