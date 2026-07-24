@@ -444,17 +444,25 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
                   </div>
 
                   {best.length > 0 && (
-                    <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">
-                      {row.has_coherent_signals === false ? (
-                        'Nessun segnale coerente con questa finestra al momento — i più vicini per punteggio:'
-                      ) : (
-                        <>
-                          {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
-                          {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
-                          {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
-                        </>
-                      )}
-                    </div>
+                    row.has_coherent_signals === false ? (
+                      <div
+                        className="font-mono text-[11px] mb-2 px-2 py-1 inline-flex items-center gap-1.5"
+                        style={{
+                          color: 'var(--color-gold-bright)',
+                          background: 'var(--color-gold-faint)',
+                          border: '1px solid rgba(201,168,76,0.35)',
+                        }}
+                      >
+                        <span aria-hidden="true">⚠</span>
+                        Nessun segnale coerente con questa finestra al momento — sotto, i più vicini per punteggio (direzione opposta o mista):
+                      </div>
+                    ) : (
+                      <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">
+                        {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
+                        {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
+                        {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
+                      </div>
+                    )
                   )}
 
                   {/* Strategy sub-cards */}
