@@ -48,6 +48,7 @@ type AgemaRow = {
   ciclica_archetipo?: string | null;
   reentry_label?: string | null;
   has_coherent_signals?: boolean;
+  sync_conflict?: string | null;
   eta_reentry_hours?: number | null;
   best?: StrategiaAIItem[];
 };
@@ -454,7 +455,9 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
                         }}
                       >
                         <span aria-hidden="true">⚠</span>
-                        Nessun segnale coerente con questa finestra al momento — sotto, i più vicini per punteggio (direzione opposta o mista):
+                        {row.sync_conflict
+                          ? `${row.sync_conflict} Sotto, i segnali più vicini per punteggio:`
+                          : 'Nessun segnale coerente con questa finestra al momento — sotto, i più vicini per punteggio (direzione opposta o mista):'}
                       </div>
                     ) : (
                       <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">

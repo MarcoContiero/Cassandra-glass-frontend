@@ -46,6 +46,7 @@ type AgemaRow = {
   ciclica_archetipo?: string | null;
   reentry_label?: string | null;
   has_coherent_signals?: boolean;
+  sync_conflict?: string | null;
   eta_reentry_hours?: number;
   best?: StrategiaAIItem[];
 };
@@ -238,6 +239,26 @@ function formatZonaReentry(zone: any): string | null {
   return `≈ ${vmin.toFixed(digits)}–${vmax.toFixed(digits)}`;
 }
 
+// direzione_reentry (il badge) guarda SOLO il TF 1h — quando i setup
+// Strategia AI non concordano, la spiegazione piu' pertinente e' se il
+// motore ciclica_v3 (eventi + sync multi-TF) ha gia' rilevato un conflitto
+// proprio sulle coppie che coinvolgono 1h. Se c'e', usiamo il suo "why"
+// reale al posto di un avviso generico.
+function findRelevantSyncConflict(ciclicaV3: any): string | null {
+  const pairs: any[] = Array.isArray(ciclicaV3?.sync) ? ciclicaV3.sync : [];
+  if (pairs.length === 0) return null;
+
+  const priority = ['15m->1h', '1h->4h', '4h->12h', '12h->1d'];
+  const conflicts = pairs.filter(
+    (p) => p && (p.sync_state === 'IN_CONFLITTO' || p.sync_type === 'COUNTERTREND_BOUNCE'),
+  );
+  if (conflicts.length === 0) return null;
+
+  conflicts.sort((a, b) => priority.indexOf(a?.pair) - priority.indexOf(b?.pair));
+  const why = conflicts[0]?.why;
+  return typeof why === 'string' && why.trim() ? why.trim() : null;
+}
+
 /**
  * Processa un singolo simbolo e ritorna AgemaRow | null
  */
@@ -323,6 +344,9 @@ async function processSymbol(
     : allSetups;
   const hasCoherentSignals = coherentSetups.length > 0;
   const pool = hasCoherentSignals ? coherentSetups : allSetups;
+  const syncConflict = hasCoherentSignals
+    ? null
+    : findRelevantSyncConflict(ciclica.ciclica_v3);
 
   const top3: StrategiaAIItem[] = [...pool]
     .sort((a, b) => {
@@ -403,6 +427,7 @@ async function processSymbol(
     ciclica_archetipo: archetipo,
     reentry_label: reentryLabel,
     has_coherent_signals: hasCoherentSignals,
+    sync_conflict: syncConflict,
     eta_reentry_hours: etaMin ?? undefined,
     best: top3WithETA.map((s) => ({
       tf: s.tf,
