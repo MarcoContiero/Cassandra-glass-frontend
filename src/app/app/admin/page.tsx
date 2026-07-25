@@ -23,8 +23,20 @@ interface DailyStatus {
   is_running: boolean;
 }
 
+interface CiclicaFeatureStoreStatus {
+  last_write_ts: string | null;
+  last_write_hours_ago: number | null;
+  last_resolve_ts: string | null;
+  last_resolve_hours_ago: number | null;
+  pending_unresolved_stale: number;
+  stale_after_hours: number;
+  write_stale: boolean;
+  error: string | null;
+}
+
 interface StatusResponse {
   daily_update: DailyStatus;
+  ciclica_feature_store?: CiclicaFeatureStoreStatus;
   scripts: { daily_update: boolean; gate_monitor: boolean; gate_config: boolean };
   now_utc: string;
 }
@@ -377,6 +389,76 @@ export default function AdminPage() {
               )}
             </div>
           </div>
+        </div>
+
+        {/* Ciclica Feature Store — Fase 0.2 spec Agema 4.0. Stesso principio
+            del box SL scoperto sopra: non fidarsi che scrittore/resolver
+            girino, verificarlo da dati reali (non c'e' alert attivo, va
+            controllato qui — vedi discussione su come evitare la fine dei
+            job morti in silenzio). */}
+        <div
+          className="cassandra-card cassandra-card-corners"
+          style={{
+            padding: '28px', marginBottom: '32px',
+            ...(status?.ciclica_feature_store?.write_stale
+              ? { border: '1px solid var(--color-short-bright)' }
+              : {}),
+          }}
+        >
+          <span className="cassandra-panel-header">CICLICA FEATURE STORE</span>
+          {status?.ciclica_feature_store?.error ? (
+            <div style={{ marginTop: '16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-short-bright)' }}>
+              Errore: {status.ciclica_feature_store.error}
+            </div>
+          ) : (
+            <div style={{ marginTop: '16px', display: 'flex', gap: '40px', alignItems: 'flex-start', flexWrap: 'wrap' }}>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                {[
+                  {
+                    label: 'Ultima scrittura',
+                    value: status?.ciclica_feature_store?.last_write_hours_ago != null
+                      ? `${status.ciclica_feature_store.last_write_hours_ago.toFixed(1)}h fa`
+                      : 'mai',
+                  },
+                  {
+                    label: 'Ultima risoluzione',
+                    value: status?.ciclica_feature_store?.last_resolve_hours_ago != null
+                      ? `${status.ciclica_feature_store.last_resolve_hours_ago.toFixed(1)}h fa`
+                      : 'mai',
+                  },
+                  {
+                    label: 'In attesa da troppo (stale)',
+                    value: status?.ciclica_feature_store
+                      ? String(status.ciclica_feature_store.pending_unresolved_stale)
+                      : '—',
+                  },
+                ].map(({ label, value }) => (
+                  <div key={label} style={{ display: 'flex', gap: '16px', alignItems: 'baseline', borderBottom: '1px solid var(--color-text-faint)', paddingBottom: '6px' }}>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.3em', textTransform: 'uppercase', color: 'var(--color-text-dim)', minWidth: '200px' }}>{label}</span>
+                    <span style={{ fontFamily: 'var(--font-mono)', fontSize: '13px', color: 'var(--color-text)' }}>{value}</span>
+                  </div>
+                ))}
+              </div>
+
+              <div style={{ marginLeft: 'auto', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span
+                  style={{
+                    width: '6px', height: '6px', borderRadius: '50%',
+                    background: status?.ciclica_feature_store?.write_stale ? 'var(--color-short-bright)' : 'var(--color-long-bright)',
+                    display: 'inline-block',
+                  }}
+                />
+                <span
+                  style={{
+                    fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.2em',
+                    color: status?.ciclica_feature_store?.write_stale ? 'var(--color-short-bright)' : 'var(--color-long-bright)',
+                  }}
+                >
+                  {status?.ciclica_feature_store?.write_stale ? 'SCRITTORE FERMO' : 'ATTIVO'}
+                </span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Aggiungi Nuova Coin */}
