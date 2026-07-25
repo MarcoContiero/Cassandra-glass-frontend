@@ -406,7 +406,14 @@ export default function AdminPage() {
           }}
         >
           <span className="cassandra-panel-header">CICLICA FEATURE STORE</span>
-          {status?.ciclica_feature_store?.error ? (
+          {!status?.ciclica_feature_store ? (
+            // Chiave assente dalla risposta (non {error:...}): probabilmente
+            // il deploy col nuovo /api/admin/status non è ancora attivo.
+            // Non renderizzare "ATTIVO" di default — sarebbe un falso verde.
+            <div style={{ marginTop: '16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-dim)' }}>
+              {status ? 'Dato non presente nella risposta — deploy backend non ancora propagato?' : 'Caricamento...'}
+            </div>
+          ) : status.ciclica_feature_store.error ? (
             <div style={{ marginTop: '16px', fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-short-bright)' }}>
               Errore: {status.ciclica_feature_store.error}
             </div>
