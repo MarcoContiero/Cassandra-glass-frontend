@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start",
+    "start": "NODE_OPTIONS=--max-old-space-size=768 next start",
     "lint": "next lint",
     "bt": "node --loader ts-node/esm scripts/orione_single_bt.ts"
   },

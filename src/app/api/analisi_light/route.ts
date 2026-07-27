@@ -21,8 +21,20 @@ export async function GET(req: NextRequest): Promise<Response> {
     if (backendRes.ok) {
       const bodyText = await backendRes.text();
 
-      // Argonauta alert hook — fire-and-forget, non blocca la risposta
-      void (async () => {
+      // Argonauta alert hook — fire-and-forget, non blocca la risposta.
+      // 27/7: su richieste multi-TF con tipo=riepilogo_totale il payload puo'
+      // superare i 20MB — un secondo JSON.parse() dell'intero body solo per
+      // leggere strategia_ai ha mandato in OOM il processo Node (crash reale,
+      // vedi log Render "JavaScript heap out of memory" dentro JsonParser::ParseJson).
+      // Sotto questa soglia il parse resta economico; sopra, salta l'hook
+      // invece di rischiare un secondo crash — l'alert non e' sulla via critica.
+      const MAX_BODY_FOR_ALERT_PARSE = 3_000_000; // ~3MB
+      if (bodyText.length > MAX_BODY_FOR_ALERT_PARSE) {
+        console.warn(
+          "[api/analisi_light] payload troppo grande per l'alert hook, salto il parse",
+          { bytes: bodyText.length }
+        );
+      } else void (async () => {
         try {
           const data = JSON.parse(bodyText);
           const strategia: Array<Record<string, unknown>> = Array.isArray(data?.strategia_ai)
