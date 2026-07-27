@@ -56,30 +56,8 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
   const {
     activeTimeframes,
     cyclesByTf,
-    windows,
-    timelineItems,
-    scenariosCompatibility,
-    strategiaAiCompat,
-    narrative,
-    summary,
-    roadmap,
-    nodoTransizione,
-    customRoadmap,
-    reentryPath,
-    guidaUmano,
     pivotConfirmSignal,
-    // --- CICLICA 2.8: segnali globali ---
-    pivotPred,
-    qualitaMassimo,
-    qualitaMinimo,
-    energia,
-    crossSync,
-    eventRisk,
-    gestioneOperativa,
   } = data as CiclicaViewModel;
-
-  const activeWindows = windows.filter((w) => w.stateKey === "attiva" || w.stateKey === "in_arrivo");
-  const historicalWindows = windows.filter((w) => w.stateKey === "storica");
 
   return (
     <div className={className}>
@@ -119,72 +97,24 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
         </Card>
 
         {/* Segnale validato (walk-forward reale, 27/7) --------------------------- */}
-        {pivotConfirmSignal && <PivotConfirmSignalSection data={pivotConfirmSignal} />}
-
-        {/* Semaforo + guida umana ---------------------------------------------- */}
-        {guidaUmano && <TrafficLightSection data={guidaUmano} />}
-        {guidaUmano && <GuidaUmanaSection data={guidaUmano} />}
-
-        {/* Stato dei cicli ------------------------------------------------------ */}
-        <CyclesByTfSection cyclesByTf={cyclesByTf} />
-
-        {/* Re-entry consigliata ------------------------------------------------- */}
-        {reentryPath && <ReentryPathSection data={reentryPath} />}
-
-        {/* Dettagli avanzati ---------------------------------------------------- */}
-        <details className="rounded-xl border bg-background/40 p-3">
-          <summary className="cursor-pointer text-sm font-semibold">
-            Dettagli avanzati
-            <span className="ml-2 text-xs text-muted-foreground">
-              finestre · timeline · compatibilità · narrativa · roadmap
-            </span>
-          </summary>
-
-          <div className="mt-3 flex flex-col gap-4">
-            {/* Finestre attive / in arrivo ------------------------------------- */}
-            <WindowsSection activeWindows={activeWindows} />
-
-            {/* Timeline sintetica ----------------------------------------------- */}
-            <TimelineSection items={timelineItems} />
-
-            {/* Nodo di Transizione ---------------------------------------------- */}
-            <NodoTransizioneSection nodo={nodoTransizione} />
-
-            {/* Compatibilità scenari / Strategia AI ---------------------------- */}
-            <CompatibilitySection
-              scenarios={scenariosCompatibility}
-              strategia={strategiaAiCompat ?? undefined}
-            />
-
-            {/* Sintesi ciclica multi-timeframe -------------------------------- */}
-            <SummarySection summary={summary} />
-
-            {/* Segnali di fine gamba / pivot (Ciclica 2.8) --------------------- */}
-            <GlobalSignalsSection
-              pivotPred={pivotPred}
-              qualitaMassimo={qualitaMassimo}
-              qualitaMinimo={qualitaMinimo}
-              energia={energia}
-              crossSync={crossSync}
-              eventRisk={eventRisk}
-              gestioneOperativa={gestioneOperativa}
-            />
-
-            {/* Roadmap ciclica strutturata 2.5 -------------------------------- */}
-            {customRoadmap?.hasData && <CustomRoadmapSection data={customRoadmap} />}
-
-            {/* Roadmap temporale del ciclo ------------------------------------- */}
-            <RoadmapSection roadmap={roadmap} />
-
-            {/* Narrativa gassosa ------------------------------------------------ */}
-            <NarrativeSection narrative={narrative} />
-
-            {/* Storico ---------------------------------------------------------- */}
-            {historicalWindows.length > 0 && (
-              <HistoricalWindowsSection historicalWindows={historicalWindows} />
-            )}
-          </div>
-        </details>
+        {/* 27/7: unica sezione mostrata sotto l'header — tutto il resto della
+            Ciclica (semaforo/guardrail/oracle, stato cicli fase_x/posizione_y/
+            convergenza_z/distorsione_d, percorso di rientro, finestre/timeline/
+            roadmap/narrativa in "Dettagli avanzati") deriva da logica mai
+            sottoposta alla stessa verifica walk-forward e viene nascosta finche'
+            non lo sara' — vedi ciclica.pivot_confirm_signal nel backend. */}
+        {pivotConfirmSignal ? (
+          <PivotConfirmSignalSection data={pivotConfirmSignal} />
+        ) : (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-sm">Analisi Ciclica</CardTitle>
+              <CardDescription className="text-xs text-muted-foreground">
+                Nessun segnale ciclico validato disponibile per questa coin/timeframe al momento.
+              </CardDescription>
+            </CardHeader>
+          </Card>
+        )}
       </div>
     </div>
   );
@@ -1094,7 +1024,7 @@ function PivotConfirmSignalSection({ data }: PivotConfirmSignalSectionProps) {
           <div>
             <CardTitle className="text-sm">Fase ciclica — segnale validato</CardTitle>
             <CardDescription className="text-xs text-muted-foreground">
-              L'unica lettura ciclica confermata con verifica su dati storici mai usati per
+              L&apos;unica lettura ciclica confermata con verifica su dati storici mai usati per
               calibrarla (walk-forward), non solo osservati a posteriori.
             </CardDescription>
           </div>
