@@ -1175,6 +1175,27 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
   } = data;
   if (!data.hasData) return null;
 
+  // 27/7: se il backend marca questo blocco come non validato, non mostriamo
+  // le fasi/tempistiche sotto — mostrarle con solo un avviso sopra lascerebbe
+  // comunque leggere numeri che non hanno un riscontro storico reale. Stessa
+  // regola già applicata a pivot_confirm_signal: dove non abbiamo dati certi
+  // non pubblichiamo nulla.
+  if (!validated) {
+    return (
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-sm">Percorso ciclico &amp; rientro</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[0.7rem] text-amber-700 dark:text-amber-400 leading-snug">
+            {validationNote ||
+              "Percorso non validato come segnale direzionale — nessuna verifica storica affidabile per queste fasi."}
+          </div>
+        </CardContent>
+      </Card>
+    );
+  }
+
   return (
     <Card>
       <CardHeader>
@@ -1185,13 +1206,6 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-xs">
-        {!validated && (
-          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[0.7rem] text-amber-700 dark:text-amber-400 leading-snug">
-            {validationNote ||
-              "Percorso non validato come segnale direzionale — nessuna verifica storica affidabile per queste fasi."}
-          </div>
-        )}
-
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-[0.7rem]">
             {archetypeLabel}
