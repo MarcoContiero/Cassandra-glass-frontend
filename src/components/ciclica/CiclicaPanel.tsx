@@ -10,6 +10,7 @@ import type {
   CiclicaNodoTransizioneVM,
   CiclicaCustomRoadmapVM,
   CiclicaReentryVM,
+  PivotConfirmSignalVM,
 } from "@/lib/ciclica/ciclicaViewModel";
 
 import { Card, CardHeader, CardTitle, CardDescription, CardContent } from "@/components/ui/card";
@@ -66,6 +67,7 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
     customRoadmap,
     reentryPath,
     guidaUmano,
+    pivotConfirmSignal,
     // --- CICLICA 2.8: segnali globali ---
     pivotPred,
     qualitaMassimo,
@@ -115,6 +117,9 @@ export function CiclicaPanel({ data, className }: CiclicaPanelProps) {
             </div>
           </CardHeader>
         </Card>
+
+        {/* Segnale validato (walk-forward reale, 27/7) --------------------------- */}
+        {pivotConfirmSignal && <PivotConfirmSignalSection data={pivotConfirmSignal} />}
 
         {/* Semaforo + guida umana ---------------------------------------------- */}
         {guidaUmano && <TrafficLightSection data={guidaUmano} />}
@@ -1066,6 +1071,89 @@ function CustomRoadmapSection({ data }: CustomRoadmapSectionProps) {
   );
 }
 
+interface PivotConfirmSignalSectionProps {
+  data: PivotConfirmSignalVM;
+}
+
+function PivotConfirmSignalSection({ data }: PivotConfirmSignalSectionProps) {
+  const {
+    rilevabile,
+    confidenceLabel,
+    reasons,
+    directionLabel,
+    tf,
+    confirmPriceLabel,
+    hoursSinceConfirmLabel,
+    resistanceLabel,
+  } = data;
+
+  return (
+    <Card className={rilevabile ? "border-emerald-500/40" : undefined}>
+      <CardHeader>
+        <div className="flex items-center justify-between gap-2 flex-wrap">
+          <div>
+            <CardTitle className="text-sm">Fase ciclica — segnale validato</CardTitle>
+            <CardDescription className="text-xs text-muted-foreground">
+              L'unica lettura ciclica confermata con verifica su dati storici mai usati per
+              calibrarla (walk-forward), non solo osservati a posteriori.
+            </CardDescription>
+          </div>
+          {tf && (
+            <Badge variant="outline" className="text-[0.7rem]">
+              TF {tf}
+            </Badge>
+          )}
+        </div>
+      </CardHeader>
+      <CardContent className="flex flex-col gap-3 text-xs">
+        {rilevabile ? (
+          <>
+            <div className="flex flex-wrap items-center gap-2">
+              {directionLabel && (
+                <Badge className="text-[0.7rem] px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-600 border-emerald-500/40">
+                  Tendenza {directionLabel.toLowerCase()}
+                </Badge>
+              )}
+              {confidenceLabel && (
+                <Badge variant="outline" className="text-[0.7rem]">
+                  Affidabilità storica ≈ {confidenceLabel}
+                </Badge>
+              )}
+              {hoursSinceConfirmLabel && (
+                <Badge variant="outline" className="text-[0.7rem]">
+                  Confermato {hoursSinceConfirmLabel}
+                </Badge>
+              )}
+              {confirmPriceLabel && (
+                <Badge variant="outline" className="text-[0.7rem]">
+                  Prezzo di conferma {confirmPriceLabel}
+                </Badge>
+              )}
+            </div>
+            {resistanceLabel && (
+              <p className="text-[0.75rem] text-muted-foreground leading-snug">
+                {resistanceLabel}
+              </p>
+            )}
+          </>
+        ) : (
+          <p className="text-[0.75rem] text-muted-foreground leading-snug">
+            Nessuna fase rilevabile con affidabilità storica in questo momento.
+          </p>
+        )}
+
+        {reasons.length > 0 && (
+          <ul className="list-disc pl-4 space-y-1 text-[0.7rem] text-muted-foreground">
+            {reasons.map((r, idx) => (
+              <li key={idx}>{r}</li>
+            ))}
+          </ul>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
 interface ReentryPathSectionProps {
   data: CiclicaReentryVM;
 }
@@ -1082,6 +1170,8 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
     pivotWindowLabel,
     roadmapCategoryLines,
     roadmapSummary,
+    validated,
+    validationNote,
   } = data;
   if (!data.hasData) return null;
 
@@ -1095,6 +1185,13 @@ function ReentryPathSection({ data }: ReentryPathSectionProps) {
         </CardDescription>
       </CardHeader>
       <CardContent className="flex flex-col gap-4 text-xs">
+        {!validated && (
+          <div className="rounded-lg border border-amber-500/40 bg-amber-500/10 px-3 py-2 text-[0.7rem] text-amber-700 dark:text-amber-400 leading-snug">
+            {validationNote ||
+              "Percorso non validato come segnale direzionale — nessuna verifica storica affidabile per queste fasi."}
+          </div>
+        )}
+
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="outline" className="text-[0.7rem]">
             {archetypeLabel}

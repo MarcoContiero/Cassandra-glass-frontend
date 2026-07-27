@@ -33,6 +33,10 @@ export type CiclicaRaw = {
   // 🧠 Testo guida umano (guardrail + oracle + re-entry)
   guida_umano?: CiclicaGuidaUmanoRaw | null;
 
+  // Unico segnale Ciclica validato con walk-forward reale (27/7) — vedi
+  // backend builders/ciclica/pivot_builder.py:_build_pivot_confirm_signal.
+  pivot_confirm_signal?: PivotConfirmSignalRaw | null;
+
   // --- CICLICA 2.8: segnali globali di fine gamba / pivot ---
   pivot_pred?: {
     probabilita?: number | null;
@@ -183,6 +187,37 @@ export type CiclicaReentryRaw = {
       strength?: number | null;
     } | null;
   } | null;
+
+  // 26/7: il backend marca questo blocco come non validato come segnale
+  // direzionale (Fase 0.4, 47-56% di accuratezza). Vedi ciclica.pivot_confirm_signal
+  // per l'unica risposta validata.
+  validato?: boolean;
+  nota_validazione?: string;
+};
+
+// -----------------------------------------------------------------------------
+// Segnale di conferma pivot (27/7) — unico segnale Ciclica validato con
+// walk-forward reale. Vedi backend builders/ciclica/pivot_builder.py.
+// -----------------------------------------------------------------------------
+
+export type PivotConfirmResistenzaStoricaRaw = {
+  eta_giorni?: number;
+  fresca?: boolean;
+  distanza_pct?: number;
+  prezzo_resistenza?: number;
+};
+
+export type PivotConfirmSignalRaw = {
+  rilevabile?: boolean;
+  confidenza_rilevabilita?: number | null;
+  motivi_rilevabilita?: string[];
+  fase?: "SHORT" | string | null;
+  confidenza_fase?: number | null;
+  motivi_fase?: string[];
+  tf?: string;
+  prezzo_conferma?: number | null;
+  ore_da_conferma?: number | null;
+  resistenza_storica?: PivotConfirmResistenzaStoricaRaw | null;
 };
 
 // Nuovo: finestre cicliche 2.5 (windows_2_5) con proiezione
@@ -370,6 +405,11 @@ export type CiclicaReentryVM = {
   tpLabel?: string | null;
   reentryZoneLabel?: string | null;
 
+  // 26/7: se false, il backend non ritiene questo percorso un segnale
+  // direzionale affidabile — vedi validationNote per la spiegazione.
+  validated: boolean;
+  validationNote?: string | null;
+
   // Roadmap temporale dettagliata (lista puntata)
   roadmapLines?: string[];
 
@@ -446,6 +486,9 @@ export type CiclicaViewModel = {
   } | null;
 
   guidaUmano?: CiclicaGuidaUmanoVM;
+
+  // Unico segnale Ciclica validato con walk-forward reale (27/7).
+  pivotConfirmSignal?: PivotConfirmSignalVM;
 };
 
 export type CiclicaNodoTransizioneVM = {
@@ -628,6 +671,22 @@ export type CiclicaGuidaUmanoVM = {
 };
 
 // -----------------------------------------------------------------------------
+// Segnale di conferma pivot (27/7) — view model
+// -----------------------------------------------------------------------------
+
+export type PivotConfirmSignalVM = {
+  rilevabile: boolean;
+  confidenceLabel: string | null;
+  reasons: string[];
+  // "SHORT" -> "ribassista" (linee guida lessicali: descrittivo, non prescrittivo)
+  directionLabel: string | null;
+  tf: string | null;
+  confirmPriceLabel: string | null;
+  hoursSinceConfirmLabel: string | null;
+  resistanceLabel: string | null;
+};
+
+// -----------------------------------------------------------------------------
 // 3) Funzione principale di mapping: raw -> CiclicaViewModel
 // -----------------------------------------------------------------------------
 
@@ -668,6 +727,8 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
   const customRoadmap = mapCiclicaCustom(raw.ciclica_custom);
 
   const reentryPath = mapReentryPath(raw.reentry_path ?? null);
+
+  const pivotConfirmSignal = mapPivotConfirmSignal(raw.pivot_confirm_signal ?? null);
 
   // --- CICLICA 2.8: mapping diretto dai campi raw globali ---
   const pivotPred = raw.pivot_pred
@@ -768,6 +829,7 @@ export function buildCiclicaViewModel(raw: CiclicaRaw | null | undefined): Cicli
     customRoadmap,
     reentryPath,
     guidaUmano,
+    pivotConfirmSignal,
     pivotPred,
     qualitaMassimo,
     qualitaMinimo,
@@ -1201,6 +1263,47 @@ function mapReentryPath(raw: CiclicaReentryRaw | null | undefined): CiclicaReent
     roadmapLines,
     roadmapCategoryLines,
     roadmapSummary,
+    validated: raw.validato !== false,
+    validationNote: raw.nota_validazione ?? null,
+  };
+}
+
+function mapPivotConfirmSignal(
+  raw: PivotConfirmSignalRaw | null | undefined
+): PivotConfirmSignalVM | undefined {
+  if (!raw) return undefined;
+
+  const confidence = raw.rilevabile ? raw.confidenza_fase : raw.confidenza_rilevabilita;
+  const confidenceLabel =
+    typeof confidence === "number" ? `${Math.round(confidence)}%` : null;
+
+  // Linee guida lessicali: descrittivo, non prescrittivo — SHORT -> ribassista.
+  const directionLabel =
+    raw.fase === "SHORT" ? "Ribassista" : raw.fase ? String(raw.fase) : null;
+
+  const hoursSinceConfirmLabel =
+    typeof raw.ore_da_conferma === "number" ? `${raw.ore_da_conferma.toFixed(1)}h fa` : null;
+
+  const confirmPriceLabel =
+    typeof raw.prezzo_conferma === "number" ? `≈ ${Math.round(raw.prezzo_conferma)}` : null;
+
+  const rs = raw.resistenza_storica;
+  const resistanceLabel =
+    rs && typeof rs.eta_giorni === "number" && typeof rs.distanza_pct === "number"
+      ? `Resistenza storica a ${rs.distanza_pct.toFixed(1)}% dal picco, formatasi ${rs.eta_giorni}gg fa${rs.fresca ? " (fresca)" : ""}`
+      : null;
+
+  const reasons = raw.rilevabile ? raw.motivi_fase ?? [] : raw.motivi_rilevabilita ?? [];
+
+  return {
+    rilevabile: !!raw.rilevabile,
+    confidenceLabel,
+    reasons,
+    directionLabel,
+    tf: raw.tf ?? null,
+    confirmPriceLabel,
+    hoursSinceConfirmLabel,
+    resistanceLabel,
   };
 }
 
