@@ -47,6 +47,29 @@ interface AxisBucket {
   avg_pnl: number;
 }
 
+// Fase 5.2 Agema 4.0 — affidabilità ciclica per-coin (feature store, non backtest OHLCV)
+interface BadgeBranchStat {
+  n: number;
+  wr_24h_pct: number;
+  periodo: string;
+}
+
+interface EtaStat {
+  n: number;
+  errore_mediano_barre: number;
+  bias_mediano_barre: number;
+  periodo: string;
+}
+
+interface CiclicaAffidabilitaAxis {
+  calcolato_il: string;
+  badge_1h?: {
+    scarico_da_top?: BadgeBranchStat;
+    rientro_da_bottom?: BadgeBranchStat;
+  };
+  eta_1h?: EtaStat;
+}
+
 // ── Tre Moire — tipi analisi grafico ────────────────────────────────────────
 
 interface DistStats {
@@ -113,6 +136,7 @@ interface GenomeFull {
   sr_dist_axis?:        { [bucket: string]: AxisBucket };
   pool_liquidity_axis?: { [combo: string]: AxisBucket };
   ciclica_axis?:        { [tf: string]: { [phase: string]: AxisBucket } };
+  ciclica_affidabilita_axis?: CiclicaAffidabilitaAxis;
   // Tre Moire — analisi grafico
   moire_phase_stats?:   MoirePhaseStats;
   moire_reversion_map?: MoireReversionMap;
@@ -618,6 +642,81 @@ function AxisBucketSection({
           opacity: 0.65, marginTop: 7, fontStyle: 'italic',
         }}>
           → {summary}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function CiclicaAffidabilitaSection({ data, coin }: { data: CiclicaAffidabilitaAxis | undefined; coin: string }) {
+  const hasBadge = !!data?.badge_1h && (data.badge_1h.scarico_da_top || data.badge_1h.rientro_da_bottom);
+  const hasEta = !!data?.eta_1h;
+  const hasAny = hasBadge || hasEta;
+
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12 }}>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>9.</span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text)', letterSpacing: '0.08em' }}>
+          AFFIDABILITÀ CICLICA
+        </span>
+        {!hasAny && (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.35, marginLeft: 'auto' }}>
+            nessun dato
+          </span>
+        )}
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 8 }}>
+        Badge ciclico (hit rate direzionale, 1h) + timing ETA (errore/bias in barre, 1h) — solo celle con n≥30, frequenze osservate.
+      </div>
+
+      {!hasAny && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 10, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+          — dati insufficienti per {coin} (serve n≥30 osservazioni)
+        </div>
+      )}
+
+      {hasBadge && (
+        <div className="grid grid-cols-2 gap-2 mb-2">
+          {(['scarico_da_top', 'rientro_da_bottom'] as const).map(branch => {
+            const b = data?.badge_1h?.[branch];
+            if (!b) return null;
+            const col = branch === 'scarico_da_top' ? 'var(--color-short-bright)' : 'var(--color-long-bright)';
+            const lbl = branch === 'scarico_da_top' ? 'scarico da top' : 'rientro da bottom';
+            return (
+              <div key={branch} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2 }}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: col, marginBottom: 4, letterSpacing: '0.05em' }}>
+                  {lbl}
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 18, color: 'var(--color-text)', fontWeight: 300 }}>
+                  {b.wr_24h_pct.toFixed(1)}%
+                </div>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.55, marginTop: 2 }}>
+                  hit rate 24h · n={b.n.toLocaleString('it-IT')}
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {hasEta && data?.eta_1h && (
+        <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.015)', border: '1px solid rgba(255,255,255,0.05)', borderRadius: 2 }}>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)', opacity: 0.7, marginBottom: 4, letterSpacing: '0.05em' }}>
+            timing (ETA prossimo pivot)
+          </div>
+          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text)' }}>
+            errore mediano {data.eta_1h.errore_mediano_barre.toFixed(1)} barre
+            {' · '}bias {data.eta_1h.bias_mediano_barre > 0 ? '+' : ''}{data.eta_1h.bias_mediano_barre.toFixed(1)} barre
+            {' · '}n={data.eta_1h.n.toLocaleString('it-IT')}
+          </div>
+        </div>
+      )}
+
+      {data?.calcolato_il && (
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.4, marginTop: 6 }}>
+          calcolato il {data.calcolato_il}
+          {data.eta_1h && ` · ${data.eta_1h.periodo}`}
         </div>
       )}
     </div>
@@ -1299,6 +1398,9 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
           <AxisBucketSection n={8} title="POOL LIQUIDITÀ" desc="Cluster swing 4h ≥2 tocchi · sopra/sotto il prezzo"
             explanation="Cluster di prezzi con ≥2 tocchi storici nel 4h (potenziali zone di accumulo ordini / liquidity pools). sopra il prezzo = resistenza/target potenziale (il mercato tende ad andare a prendere la liquidità sopra), sotto = supporto. La presenza di pool sopra in un contesto rialzista funge spesso da magnete."
             data={genome.pool_liquidity_axis} />
+
+          {/* Asse 9: Affidabilità ciclica (Fase 5.2 Agema 4.0) */}
+          <CiclicaAffidabilitaSection data={genome.ciclica_affidabilita_axis} coin={genome.coin} />
 
         </div>
 
