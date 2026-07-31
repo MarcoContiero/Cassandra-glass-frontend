@@ -11,6 +11,7 @@ import DnaPanel from './dna/DnaPanel';
 import TreMoirePanel from './moire/TreMoirePanel';
 import Tifide3Panel from '@/app/tifide3/page';
 import Orione2Page from '@/app/orione2/patterns/page';
+import ChannelPanel from '@/app/app/channel/page';
 import PiziaCompanion from './pizia/PiziaCompanion';
 import AvvisiPanel from './avvisi/AvvisiPanel';
 import CostellazioniPage from './tifide3/CostellazioniPage';
@@ -21,7 +22,7 @@ import LiquidationPanel from './liquidation/LiquidationPanel';
 import StarHome from './starhome/StarHome';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'home';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'channel' | 'home';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra',     label: 'Cassandra' },
@@ -36,6 +37,7 @@ const APPS: { key: AppKey; label: string }[] = [
   { key: 'journal',       label: 'Journal' },
   { key: 'tifide3',       label: 'Tifi 4.0' },
   { key: 'orione2',       label: 'Pattern & EMA' },
+  { key: 'channel',       label: 'Canale' },
 ];
 
 const ALERT_POLL_MS = 60_000; // polling unread count ogni 60s
@@ -81,6 +83,7 @@ export default function ProgramsHub() {
     () => APPS.filter(a => {
       if (a.key === 'tifide3') return hasTifideAccess;
       if (a.key === 'orione2') return hasOrione2Access;
+      if (a.key === 'channel') return hasTifideAccess;
       return true;
     }),
     [hasTifideAccess, hasOrione2Access],
@@ -96,7 +99,7 @@ export default function ProgramsHub() {
     setCassandraContext('');
   }
 
-  const isWide = activeApp === 'tifide3';
+  const isWide = activeApp === 'tifide3' || activeApp === 'channel';
   const isHome = activeApp === 'home';
 
   const content = useMemo(() => {
@@ -119,6 +122,7 @@ export default function ProgramsHub() {
       case 'avvisi':    return <AvvisiPanel onUnreadChange={handleUnreadChange} />;
       case 'journal':      return <JournalPanel />;
       case 'liquidation':  return <LiquidationPanel />;
+      case 'channel':      return <ChannelPanel />;
       case 'cassandra':
       default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
     }
