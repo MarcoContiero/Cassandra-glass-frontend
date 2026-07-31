@@ -128,11 +128,16 @@ export default function ChannelPage() {
   }, [activeModule, loadingOlder, hasMoreOlder, messages]);
 
   // Polling incrementale con after_id, separato dal caricamento iniziale.
+  // pollInFlightRef evita richieste sovrapposte (es. risposta lenta che dura
+  // più di POLL_INTERVAL_MS): senza guard, due fetch con lo stesso after_id
+  // ritornerebbero le stesse righe, ciascuna aggiunta separatamente alla lista.
   useEffect(() => {
     if (!isSignedIn) return;
+    let pollInFlight = false;
     const timer = setInterval(async () => {
       const after = cursorRef.current;
-      if (after == null) return;
+      if (after == null || pollInFlight) return;
+      pollInFlight = true;
       try {
         const r = await fetch(
           `/api/channel/messages?module=${encodeURIComponent(activeModule)}&after_id=${after}&limit=200`,
@@ -140,11 +145,17 @@ export default function ChannelPage() {
         );
         const rows: ChannelMessage[] = await r.json();
         if (rows.length > 0) {
-          setMessages(prev => [...prev, ...rows]);
+          setMessages(prev => {
+            const seen = new Set(prev.map(m => m.id));
+            const fresh = rows.filter(m => !seen.has(m.id));
+            return fresh.length > 0 ? [...prev, ...fresh] : prev;
+          });
           cursorRef.current = rows[rows.length - 1].id;
         }
       } catch {
         // polling best-effort: un fallimento isolato non blocca il prossimo giro
+      } finally {
+        pollInFlight = false;
       }
     }, POLL_INTERVAL_MS);
     return () => clearInterval(timer);
