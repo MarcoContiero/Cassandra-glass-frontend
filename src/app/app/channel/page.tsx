@@ -61,7 +61,10 @@ function displayAuthor(m: ChannelMessage): string {
 
 function fmtTime(iso: string): string {
   try {
-    return new Date(iso).toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    const d = new Date(iso);
+    const date = d.toLocaleDateString('it-IT', { day: '2-digit', month: '2-digit' });
+    const time = d.toLocaleTimeString('it-IT', { hour: '2-digit', minute: '2-digit' });
+    return `${date} ${time}`;
   } catch {
     return '';
   }
