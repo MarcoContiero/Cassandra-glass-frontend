@@ -17,6 +17,14 @@ interface ChannelModule {
   display_name: string;
 }
 
+interface ChannelAttachment {
+  id: number;
+  filename: string;
+  content_type: string | null;
+  size_bytes: number;
+  created_at: string;
+}
+
 interface ChannelMessage {
   id: number;
   author_type: 'user' | 'claude_code' | 'claude_advisor' | 'chatgpt_advisor';
@@ -27,9 +35,17 @@ interface ChannelMessage {
   parent_message_id: number | null;
   reply_to_id: number | null;
   created_at: string;
+  attachments?: ChannelAttachment[];
 }
 
 const POLL_INTERVAL_MS = 4000;
+const MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
+function fmtSize(bytes: number): string {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+}
 
 const AUTHOR_LABEL: Record<ChannelMessage['author_type'], string> = {
   user: '',
@@ -64,9 +80,11 @@ export default function ChannelPage() {
   const [error, setError] = useState<string | null>(null);
   const [loadingOlder, setLoadingOlder] = useState(false);
   const [hasMoreOlder, setHasMoreOlder] = useState(true);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
 
   const cursorRef = useRef<number | null>(null);
   const scrollBottomRef = useRef<HTMLDivElement | null>(null);
+  const fileInputRef = useRef<HTMLInputElement | null>(null);
   const INITIAL_LIMIT = 50;
 
   useEffect(() => {
@@ -187,17 +205,50 @@ export default function ChannelPage() {
         setError(body?.detail || `Invio fallito (${res.status})`);
         return;
       }
-      const created: ChannelMessage = await res.json();
+      let created: ChannelMessage = await res.json();
+
+      if (pendingFile) {
+        const form = new FormData();
+        form.append('file', pendingFile);
+        try {
+          const upRes = await fetch(`/api/channel/messages/${created.id}/attachments`, {
+            method: 'POST',
+            body: form,
+          });
+          if (upRes.ok) {
+            const attachment: ChannelAttachment = await upRes.json();
+            created = { ...created, attachments: [attachment] };
+          } else {
+            const body = await upRes.json().catch(() => ({}));
+            setError(body?.detail || `Messaggio inviato, ma allegato non caricato (${upRes.status})`);
+          }
+        } catch {
+          setError('Messaggio inviato, ma allegato non caricato: errore di rete');
+        }
+      }
+
       setMessages(prev => (prev.some(m => m.id === created.id) ? prev : [...prev, created]));
       if (cursorRef.current == null || created.id > cursorRef.current) cursorRef.current = created.id;
       setContent('');
       setReplyTarget(null);
+      setPendingFile(null);
+      if (fileInputRef.current) fileInputRef.current.value = '';
     } catch {
       setError('Invio fallito: errore di rete');
     } finally {
       setSending(false);
     }
-  }, [content, sending, activeModule, replyTarget]);
+  }, [content, sending, activeModule, replyTarget, pendingFile]);
+
+  const onPickFile = useCallback((file: File | null) => {
+    setError(null);
+    if (file && file.size > MAX_ATTACHMENT_BYTES) {
+      setError(`File troppo grande (${fmtSize(file.size)}): il limite è ${fmtSize(MAX_ATTACHMENT_BYTES)}`);
+      if (fileInputRef.current) fileInputRef.current.value = '';
+      return;
+    }
+    setPendingFile(file);
+  }, []);
 
   if (!isLoaded || !isSignedIn) return null;
 
@@ -258,6 +309,21 @@ export default function ChannelPage() {
                   {m.parent_message_id != null && <span>↳ in risposta a #{m.parent_message_id}</span>}
                 </div>
                 <div className="text-sm whitespace-pre-wrap">{m.content}</div>
+                {m.attachments && m.attachments.length > 0 && (
+                  <div className="flex flex-col gap-0.5">
+                    {m.attachments.map(a => (
+                      <a
+                        key={a.id}
+                        href={`/api/channel/attachments/${a.id}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="self-start text-xs text-[var(--color-gold)] hover:underline"
+                      >
+                        📎 {a.filename} ({fmtSize(a.size_bytes)})
+                      </a>
+                    ))}
+                  </div>
+                )}
                 <button
                   className="self-start text-xs text-[var(--color-text-faint)] hover:text-[var(--color-gold)]"
                   onClick={() => setReplyTarget(m)}
@@ -279,8 +345,36 @@ export default function ChannelPage() {
               </button>
             </div>
           )}
+          {pendingFile && (
+            <div className="flex items-center gap-2 text-xs text-[var(--color-text-dim)]">
+              <span>allegato: {pendingFile.name} ({fmtSize(pendingFile.size)})</span>
+              <button
+                className="hover:text-[var(--color-gold)]"
+                onClick={() => {
+                  setPendingFile(null);
+                  if (fileInputRef.current) fileInputRef.current.value = '';
+                }}
+              >
+                rimuovi
+              </button>
+            </div>
+          )}
           {error && <div className="text-xs text-[var(--color-short-bright)]">{error}</div>}
           <div className="flex gap-2">
+            <input
+              ref={fileInputRef}
+              type="file"
+              className="hidden"
+              onChange={e => onPickFile(e.target.files?.[0] ?? null)}
+            />
+            <button
+              type="button"
+              className="px-2 text-[var(--color-text-dim)] hover:text-[var(--color-gold)]"
+              onClick={() => fileInputRef.current?.click()}
+              title={`Allega file (max ${fmtSize(MAX_ATTACHMENT_BYTES)})`}
+            >
+              📎
+            </button>
             <textarea
               className="flex-1 resize-none rounded-none border border-[var(--color-border-dim)] bg-transparent p-2 text-sm outline-none"
               rows={2}
