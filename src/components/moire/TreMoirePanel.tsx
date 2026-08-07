@@ -142,6 +142,22 @@ interface GenomeFull {
   moire_reversion_map?: MoireReversionMap;
   moire_volatility?:    MoireVolatility;
   moire_btc_beta?:      MoireBtcBeta;
+  // Tre Moire — varianti price-only di ciclica/mtf_bias/sr_dist/momentum
+  // (stessa classificazione delle 4 _axis sopra, ma su tutta la storia
+  // invece che solo sui trade — sempre popolate)
+  moire_ciclica_phase?: { [tf: string]: MoireDistribState };
+  moire_mtf_bias?:      MoireDistribState;
+  moire_sr_distance?:   MoireDistribState & { dist_pct_attuale?: number };
+  moire_momentum?:      MoireDistribState;
+}
+
+interface MoireDistribBucket { pct: number; n: number }
+interface MoireDistribState {
+  fase_attuale?:  string | null;
+  combo_attuale?: string | null;
+  bucket_attuale?: string | null;
+  distribuzione: { [key: string]: MoireDistribBucket };
+  n_barre: number;
 }
 
 // ── Lachesi / Atropo live snapshot types ─────────────────────────────────────
@@ -266,14 +282,18 @@ function hasData(obj: object | undefined | null): boolean {
 }
 
 function countAxesAvailable(genome: GenomeFull): number {
+  // Allineato ai campi realmente mostrati dai riquadri 1-8 del pannello:
+  // prima controllava ema200_pull/bb_return due volte (sempre veri, non
+  // servono trade) e non controllava mai ema200_dist_axis/cycle_amplitude_axis
+  // (mai mostrati qui) — risultato fuorviante, mai davvero 0-8 reale.
   return [
     genome.ema200_pull,
     genome.bb_return,
-    genome.ciclica_axis,
-    genome.mtf_bias_axis,
-    genome.momentum_xy_axis,
+    genome.moire_ciclica_phase,
+    genome.moire_mtf_bias,
+    genome.moire_momentum,
     genome.btc_regime_axis,
-    genome.sr_dist_axis,
+    genome.moire_sr_distance,
     genome.pool_liquidity_axis,
   ].filter(hasData).length;
 }
@@ -559,6 +579,115 @@ function BucketRow({ bucket, d }: { bucket: string; d: AxisBucket }) {
                      opacity: 0.45 }}>
         avg {d.avg_pnl >= 0 ? '+' : ''}{d.avg_pnl.toFixed(2)}%
       </span>
+    </div>
+  );
+}
+
+function MoireDistribRow({ bucket, d, isCurrent }: { bucket: string; d: MoireDistribBucket; isCurrent: boolean }) {
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, padding: '4px 0',
+                  borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9,
+                     color: isCurrent ? 'var(--color-gold)' : 'var(--color-text-dim)',
+                     minWidth: 120, opacity: isCurrent ? 1 : 0.8, fontWeight: isCurrent ? 600 : 400 }}>
+        {isCurrent ? '● ' : ''}{bucket}
+      </span>
+      <span style={{ fontFamily: 'var(--font-display)', fontSize: 16,
+                     color: isCurrent ? 'var(--color-gold)' : 'var(--color-text)',
+                     fontWeight: 300, minWidth: 52, textAlign: 'right' }}>
+        {d.pct.toFixed(1)}%
+      </span>
+      <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+                     opacity: 0.6 }}>
+        n={d.n}
+      </span>
+    </div>
+  );
+}
+
+function MoireDistribSection({
+  n, title, desc, explanation, data, nested, statoLabel,
+}: {
+  n: number;
+  title: string;
+  desc: string;
+  explanation?: string;
+  data: MoireDistribState | { [tf: string]: MoireDistribState } | undefined;
+  nested?: boolean;
+  statoLabel: string;
+}) {
+  const hasAny = !!data && Object.keys(data).length > 0;
+
+  function currentOf(s: MoireDistribState): string | null {
+    return s.fase_attuale ?? s.combo_attuale ?? s.bucket_attuale ?? null;
+  }
+
+  return (
+    <div style={{ borderTop: '1px solid var(--color-border-dim)', paddingTop: 12 }}>
+      <div className="flex items-baseline gap-2 mb-1">
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5 }}>
+          {n}.
+        </span>
+        <span style={{ fontFamily: 'var(--font-mono)', fontSize: 11, color: 'var(--color-text)', letterSpacing: '0.08em' }}>
+          {title}
+        </span>
+        {!hasAny && (
+          <span style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.35, marginLeft: 'auto' }}>
+            nessun dato
+          </span>
+        )}
+      </div>
+      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: explanation ? 4 : 6 }}>
+        {desc}
+      </div>
+
+      {explanation && (
+        <div style={{
+          fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)',
+          opacity: 0.55, marginBottom: 8, lineHeight: 1.6,
+          padding: '5px 8px',
+          background: 'rgba(255,255,255,0.015)',
+          border: '1px solid rgba(255,255,255,0.05)',
+          borderRadius: 2,
+        }}>
+          {explanation}
+        </div>
+      )}
+
+      {hasAny && !nested && (() => {
+        const s = data as MoireDistribState;
+        const cur = currentOf(s);
+        return (
+          <div>
+            <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)',
+                          opacity: 0.75, marginBottom: 4 }}>
+              {statoLabel}: {cur ?? '—'}
+            </div>
+            {Object.entries(s.distribuzione)
+              .sort((a, b) => b[1].n - a[1].n)
+              .map(([bk, d]) => <MoireDistribRow key={bk} bucket={bk} d={d} isCurrent={bk === cur} />)}
+          </div>
+        );
+      })()}
+
+      {hasAny && nested && (
+        <div className="space-y-3">
+          {Object.entries(data as { [tf: string]: MoireDistribState }).map(([tf, s]) => {
+            const cur = currentOf(s);
+            return (
+              <div key={tf}>
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-gold)',
+                              opacity: 0.7, letterSpacing: '0.12em', marginBottom: 2 }}>
+                  {tf} — {statoLabel.toLowerCase()}: {cur ?? '—'}
+                </div>
+                {Object.entries(s.distribuzione)
+                  .sort((a, b) => b[1].n - a[1].n)
+                  .map(([bk, d]) => <MoireDistribRow key={bk} bucket={bk} d={d} isCurrent={bk === cur} />)}
+              </div>
+            );
+          })}
+        </div>
+      )}
     </div>
   );
 }
@@ -1366,20 +1495,20 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
         {/* ── Assi 3-8 ── */}
         <div className="space-y-3">
 
-          {/* Asse 3: Ciclica */}
-          <AxisBucketSection n={3} title="CICLICA" desc="Fase EMA21/50 + età swing · 1h e 4h"
-            explanation="EMA21 vs EMA50 determina la direzione (±0.15% = neutro). L'età del ciclo è la distanza dall'ultimo swing locale normalizzata sul ciclo medio: early 0–33%, mid 33–66%, late 66–100%. Il bucket mostra come performa il sistema quando entra in quella specifica fase strutturale."
-            data={genome.ciclica_axis} nested />
+          {/* Asse 3: Ciclica — price-only (distribuzione su tutta la storia + fase attuale) */}
+          <MoireDistribSection n={3} title="CICLICA" desc="Fase EMA21/50 + età swing · 1h e 4h · tutta la storia"
+            explanation="EMA21 vs EMA50 determina la direzione (±0.15% = neutro). L'età del ciclo è la distanza dall'ultimo swing locale normalizzata sul ciclo medio: early 0–33%, mid 33–66%, late 66–100%. Distribuzione calcolata su ogni barra della storia (non solo sui trade) — mostra quanto spesso la coin è stata in ciascuna fase e in quale si trova adesso."
+            data={genome.moire_ciclica_phase} nested statoLabel="fase attuale" />
 
-          {/* Asse 4: MTF Bias */}
-          <AxisBucketSection n={4} title="STRUTTURA MTF BIAS" desc="EMA21 su 15m/1h/4h · L=long S=short"
-            explanation="Tre caratteri: 1°=15m, 2°=1h, 3°=4h. L = close ≥ EMA21 (bias long), S = close < EMA21 (bias short). LLL = tutti e tre i TF long-biased = trend strutturale forte. Divergenze come SLL (contro-tendenza a 15m) o LLS (4h short contro 15m/1h long) indicano pullback in corso."
-            data={genome.mtf_bias_axis} />
+          {/* Asse 4: MTF Bias — price-only */}
+          <MoireDistribSection n={4} title="STRUTTURA MTF BIAS" desc="EMA21 su 30m/1h/4h · L=long S=short · tutta la storia"
+            explanation="Tre caratteri: 1°=30m, 2°=1h, 3°=4h. L = close ≥ EMA21 (bias long), S = close < EMA21 (bias short). LLL = tutti e tre i TF long-biased = trend strutturale forte. Distribuzione su tutta la storia (non solo sui trade) — mostra quanto spesso la coin è stata in ciascuna combinazione e in quale si trova adesso."
+            data={genome.moire_mtf_bias} statoLabel="combo attuale" />
 
-          {/* Asse 5: Momentum X/Y */}
-          <AxisBucketSection n={5} title="MOMENTUM X/Y" desc="X = impulso/misto/contrarian · Y = alto/centrale/basso nel range 20b"
-            explanation="X misura il tipo di spinta: impulso = prezzo nel terzo estremo del range 5b con EMA21 a favore; contrarian = prezzo nel terzo opposto alla direzione EMA21; misto = intermedio. Y misura la posizione nel range delle ultime 20 barre al momento dell'entry: alto &gt;66%, centrale 33–66%, basso &lt;33%. Ogni combinazione identifica la 'firma' del setup."
-            data={genome.momentum_xy_axis} />
+          {/* Asse 5: Momentum X/Y — price-only, X ridefinito come direzione assoluta */}
+          <MoireDistribSection n={5} title="MOMENTUM X/Y" desc="X = rialzista/misto/ribassista · Y = alto/centrale/basso nel range 20b · tutta la storia"
+            explanation="X misura la spinta direzionale assoluta a 5 barre 1m: rialzista/ribassista = ≥3/5 barre nette in una direzione, misto = zona grigia. Y misura la posizione nel range delle ultime 20 barre: alto &gt;66%, centrale 33–66%, basso &lt;33%. Distribuzione su ogni barra della storia (non solo sui trade)."
+            data={genome.moire_momentum} statoLabel="combo attuale" />
 
           {/* Asse 6: BTC Regime Score */}
           {genome.btc_regime_axis && Object.keys(genome.btc_regime_axis).length > 0 ? (
@@ -1389,10 +1518,10 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
               buckets={['0-1 downtrend', '2-3 misto rib.', '4-5 misto rialz.', '6-7 uptrend']} />
           )}
 
-          {/* Asse 7: Distanza S/R */}
-          <AxisBucketSection n={7} title="DISTANZA S/R" desc="Pivot 4h · in_zona <1% / vicino 1-3% / medio 3-7% / lontano >7%"
-            explanation="Pivot 4h calcolati con swing high/low window ±3 barre — solo pivot antecedenti all'entry (no lookahead). in_zona (&lt;1%) = il prezzo è esattamente su un livello S/R, vicino (1–3%) = nell'area di influenza immediata, medio/lontano = in zona più neutra. Un livello di S/R può fungere da magnete o da rimbalzo."
-            data={genome.sr_dist_axis} />
+          {/* Asse 7: Distanza S/R — price-only */}
+          <MoireDistribSection n={7} title="DISTANZA S/R" desc="Pivot 4h · in_zona <1% / vicino 1-3% / medio 3-7% / lontano >7% · tutta la storia"
+            explanation="Pivot 4h calcolati con swing high/low window ±3 barre — solo pivot antecedenti a ogni barra (no lookahead). in_zona (&lt;1%) = il prezzo è esattamente su un livello S/R, vicino (1–3%) = nell'area di influenza immediata, medio/lontano = in zona più neutra. Distribuzione su ogni barra 4h della storia (non solo sui trade)."
+            data={genome.moire_sr_distance} statoLabel="zona attuale" />
 
           {/* Asse 8: Pool Liquidità */}
           <AxisBucketSection n={8} title="POOL LIQUIDITÀ" desc="Cluster swing 4h ≥2 tocchi · sopra/sotto il prezzo"
