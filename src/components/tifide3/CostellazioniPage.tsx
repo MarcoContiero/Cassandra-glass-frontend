@@ -581,7 +581,7 @@ export default function CostellazioniPage() {
     setGenomeLoading(true);
     const backendBase = (process.env.NEXT_PUBLIC_BACKEND_BASE || '').replace(/\/+$/, '');
     const url = backendBase ? `${backendBase}/api/tradedb/genome-cache` : '/api/tradedb/genome-cache';
-    fetch(url)
+    fetch(url, { cache: 'no-store' })
       .then(r => r.ok ? r.json() : null)
       .then(d => { if (Array.isArray(d)) setGenomeData(d); })
       .catch(() => {})

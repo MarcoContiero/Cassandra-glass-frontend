@@ -1444,7 +1444,7 @@ export default function DnaPanel({ onPiziaContext }: DnaPanelProps) {
     setLoading(true);
     setError(null);
     const url = mo > 0 ? `/api/tradedb/genome-cache?months=${mo}` : '/api/tradedb/genome-cache';
-    fetch(url)
+    fetch(url, { cache: 'no-store' })
       .then(async r => {
         if (!r.ok) {
           const txt = await r.text();
