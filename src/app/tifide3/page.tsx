@@ -111,6 +111,33 @@ type RejectedShadowItem = {
   third_reason?: string | null;
 };
 
+type ShadowSideFilterSide = {
+  suspended?: boolean;
+  recent_history?: boolean[];
+  recent_wr?: number | null;
+  paper_wins?: number;
+  paper_wins_needed?: number;
+  paper_pos?: {
+    coin_key?: string | null;
+    entry_px?: number | null;
+    stop_px?: number | null;
+    trail_start_pct?: number | null;
+    scenario?: string | null;
+    open_ts_ms?: number | null;
+  } | null;
+};
+
+type ShadowSideFilter = {
+  enabled?: boolean;
+  lookback?: number;
+  wr_threshold?: number;
+  resume_wins?: number;
+  sides?: {
+    LONG?: ShadowSideFilterSide;
+    SHORT?: ShadowSideFilterSide;
+  };
+};
+
 type CoinsStatus = Record<
   string,
   {
@@ -152,6 +179,8 @@ type TifideStatus = {
 
   rejected_shadow_open_count?: number;
   rejected_shadow_open?: RejectedShadowItem[];
+
+  shadow_side_filter?: ShadowSideFilter;
 
   monitor?: Monitor;
 
@@ -369,7 +398,7 @@ function dedupSignals(items: SignalItem[]): SignalItem[] {
 type TradeStat = { count: number; wins: number; wr: number; pf: number | null };
 
 // Counter groups
-type CounterGroupId = 'core' | 'prelive' | 'scenari' | 'filtri' | 'shadow' | 'portfolio';
+type CounterGroupId = 'core' | 'prelive' | 'scenari' | 'filtri' | 'shadow' | 'shadow_filter' | 'portfolio';
 
 function CtrRow({ label, value, desc }: { label: string; value: React.ReactNode; desc?: string }) {
   return (
@@ -478,6 +507,10 @@ export default function TifidePage() {
 
   const rejectedShadowOpen = status?.rejected_shadow_open ?? [];
   const rejectedShadowOpenCount = status?.rejected_shadow_open_count ?? 0;
+
+  const shadowSideFilter = status?.shadow_side_filter ?? null;
+  const shadowSidesSuspendedCount =
+    (shadowSideFilter?.sides?.LONG?.suspended ? 1 : 0) + (shadowSideFilter?.sides?.SHORT?.suspended ? 1 : 0);
 
   // fallback UI: se lo state locale e vuoto usa i buffer arrivati nello status
   const rawSignalsView = signals.length ? signals : (status?.recent_signals ?? []);
@@ -1066,6 +1099,59 @@ export default function TifidePage() {
               label="open_count"
               value={<span style={{ color: 'var(--color-gold)' }}>{rejectedShadowOpenCount}</span>}
             />
+          </CounterGroup>
+
+          {/* Shadow Side Filter (sospensione LONG/SHORT su WR basso) */}
+          <CounterGroup
+            id="shadow_filter" title="Shadow Filter"
+            badge={
+              <span
+                className="font-mono text-[10px]"
+                style={{ color: shadowSidesSuspendedCount > 0 ? 'var(--color-short-bright)' : 'var(--color-text-dim)' }}
+              >
+                {shadowSidesSuspendedCount} sospesi
+              </span>
+            }
+            open={openGroups.has('shadow_filter')} onToggle={() => toggleGroup('shadow_filter')}
+          >
+            <CtrRow label="enabled" value={shadowSideFilter?.enabled ? 'si' : 'no'} />
+            <CtrRow label="lookback / soglia WR" value={`${shadowSideFilter?.lookback ?? '—'} / ${shadowSideFilter?.wr_threshold != null ? Math.round(shadowSideFilter.wr_threshold * 100) + '%' : '—'}`} />
+            <CtrRow label="resume_wins" value={shadowSideFilter?.resume_wins ?? '—'} />
+            {(['LONG', 'SHORT'] as const).map((side) => {
+              const s = shadowSideFilter?.sides?.[side];
+              if (!s) return null;
+              const hist = s.recent_history ?? [];
+              return (
+                <div key={side} style={{ marginTop: 6, paddingTop: 6, borderTop: '1px solid var(--color-border-dim)' }}>
+                  <CtrRow
+                    label={side}
+                    value={
+                      <span style={{ color: s.suspended ? 'var(--color-short-bright)' : 'var(--color-long-bright)' }}>
+                        {s.suspended ? 'SOSPESO' : 'attivo'}
+                      </span>
+                    }
+                  />
+                  <CtrRow
+                    label="storico recente"
+                    value={hist.length ? hist.map((w) => (w ? '✓' : '✗')).join(' ') : '—'}
+                  />
+                  <CtrRow label="WR recente" value={s.recent_wr != null ? `${Math.round(s.recent_wr * 100)}%` : '—'} />
+                  {s.suspended && (
+                    <>
+                      <CtrRow label="paper wins" value={`${s.paper_wins ?? 0} / ${s.paper_wins_needed ?? '—'}`} />
+                      <CtrRow
+                        label="paper pos"
+                        value={
+                          s.paper_pos
+                            ? `${s.paper_pos.coin_key ?? '—'} @ ${fmtNum(s.paper_pos.entry_px, 6)} (SL ${fmtNum(s.paper_pos.stop_px, 6)})`
+                            : '—'
+                        }
+                      />
+                    </>
+                  )}
+                </div>
+              );
+            })}
           </CounterGroup>
 
           {/* Portfolio */}
