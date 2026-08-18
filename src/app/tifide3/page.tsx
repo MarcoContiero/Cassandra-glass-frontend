@@ -246,6 +246,15 @@ function fmtTs(ms?: number | null) {
   }
 }
 
+function fmtHM(ms?: number | null) {
+  if (!ms) return null;
+  try {
+    return new Date(ms).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit", hour12: false });
+  } catch {
+    return null;
+  }
+}
+
 function fmtMs(ms?: number | null) {
   if (!ms && ms !== 0) return "—";
   if (ms < 1000) return `${ms}ms`;
@@ -302,17 +311,37 @@ function signalDisplayTf(s: SignalItem): string | null {
   return uniq.join(" + ");
 }
 
+// "ema_cross_9_50_up_raw@5m" + timestamp reale del componente -> "ema_cross_9_50_up_raw 5m 02:55"
+// (fix 2026-08-18: prima si mostrava solo il token grezzo col TF concatenato via @,
+// e un unico TF "di esecuzione" in testa che confondeva i due componenti — vedi
+// backend/tifide3/orione_adapter.py per l'origine dei timestamp per-componente)
+function formatComponent(c: SignalComponent | string): string {
+  if (typeof c === "string") {
+    const tf = extractTfFromToken(c);
+    const base = tf ? c.slice(0, c.length - tf.length - 1) : c;
+    return base || c;
+  }
+  const token = String(c?.token || "");
+  const tf = extractTfFromToken(token);
+  const base = tf ? token.slice(0, token.length - tf.length - 1) : token;
+  const time = fmtHM(c?.bar_close_ts_ms ?? c?.ts_ms);
+  const parts = [base || token];
+  if (tf) parts.push(tf);
+  if (time) parts.push(time);
+  return parts.join(" ");
+}
+
 function signalDisplayComponents(s: SignalItem): string[] {
   if (Array.isArray(s?.components) && s.components.length) {
-    return s.components.map((c) => String(c?.token || "")).filter(Boolean);
+    return s.components.map(formatComponent).filter(Boolean);
   }
 
   if (Array.isArray(s?.patterns_hit) && s.patterns_hit.length) {
     if (typeof s.patterns_hit[0] === "string") {
-      return (s.patterns_hit as string[]).filter(Boolean);
+      return (s.patterns_hit as string[]).map(formatComponent).filter(Boolean);
     }
     return (s.patterns_hit as SignalComponent[])
-      .map((c) => String(c?.token || ""))
+      .map(formatComponent)
       .filter(Boolean);
   }
 
@@ -1480,15 +1509,10 @@ export default function TifidePage() {
                     <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(s.timestamp_ms)}</span>
                   </div>
                   <div className="font-mono text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
-                    {s.scenario} · {s.classe}
-                    {displayTf ? ` · ${displayTf}` : ''}
+                    {displayComponents.length > 0 ? displayComponents.join(' + ') : s.scenario} · {s.classe}
+                    {displayComponents.length === 0 && displayTf ? ` · ${displayTf}` : ''}
                     {typeof s.trigger_price === 'number' ? ` · px ${s.trigger_price}` : ''}
                   </div>
-                  {displayComponents.length > 0 && (
-                    <div className="font-mono text-[10px] mt-0.5" style={{ color: 'var(--color-text-dim)' }}>
-                      {displayComponents.join(' + ')}
-                    </div>
-                  )}
                   {s.third?.token && (
                     <div
                       className="mt-1.5 inline-flex items-center gap-1.5 font-mono text-[10px] px-2 py-0.5"
