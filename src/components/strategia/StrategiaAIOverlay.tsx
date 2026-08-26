@@ -289,6 +289,18 @@ function formatDistanceBps(v: number | null | undefined): string {
   return v.toFixed(1);
 }
 
+// Fasce di score validate su backtest storico reale (85.115 setup, 39 coin,
+// nov 2024-mar 2026, simulazione candela-per-candela) — vedi
+// backend/tifide3/backtest/validazione_sai_score_bands.md. Sotto score 10
+// il campione non è stato validato per fascia: nessuna etichetta, per non
+// dare un numero non verificato.
+function scoreBandLabel(score: number | null | undefined): string | null {
+  if (score == null || !isFinite(score)) return null;
+  if (score >= 15) return "storico 68,6% WR";
+  if (score >= 10) return "storico 61,6% WR";
+  return null;
+}
+
 export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = [] }: Props) {
   const [maxDistanceBps, setMaxDistanceBps] = useState<number | null>(null);
   const [minScore, setMinScore] = useState<number>(0);
@@ -477,6 +489,9 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                   {s.score != null && (
                     <span className="ml-1 text-[9px] text-zinc-300">
                       Score {s.score}
+                      {scoreBandLabel(s.score) && (
+                        <span className="text-zinc-400"> · {scoreBandLabel(s.score)}</span>
+                      )}
                     </span>
                   )}
                 </div>
