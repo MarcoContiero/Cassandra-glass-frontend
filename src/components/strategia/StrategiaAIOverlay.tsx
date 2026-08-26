@@ -27,6 +27,14 @@ type StrategiaAIStrategy = {
   tp1_price?: number | null;
   tp2_price?: number | null;
 
+  // Livelli strutturali oltre il punto critico 2, stessa direzione del
+  // trade (fino a 3) — 2026-08-26, vedi strategia_ai_builder.py.
+  livelli_oltre?: {
+    prezzo: number;
+    forza?: number | null;
+    tipo?: string | null;
+  }[];
+
   rr1?: number | null;
   rr2?: number | null;
 
@@ -524,6 +532,18 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                   </div>
                 </div>
               </div>
+
+              {/* Livelli oltre il punto critico 2 — 2026-08-26 */}
+              {Array.isArray(s.livelli_oltre) && s.livelli_oltre.length > 0 && (
+                <div className="mt-2 rounded-lg bg-amber-950/30 px-2 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-amber-300/80">
+                    Oltre il punto critico 2
+                  </div>
+                  <div className="font-mono text-xs text-amber-100">
+                    {s.livelli_oltre.map((lv) => formatPrice(lv.prezzo)).join(" / ")}
+                  </div>
+                </div>
+              )}
 
               {/* Toggle dettagli */}
               {hasDetails && (
