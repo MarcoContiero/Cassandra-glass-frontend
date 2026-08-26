@@ -117,6 +117,9 @@ export default function AlertFiltersConfig() {
   const [error, setError] = useState('');
 
   const userId = user?.id ?? null;
+  // Limite filtri per piano (backend/router/alerts.py, 2026-08-26) — stesso
+  // meccanismo gia' usato per le Costellazioni (CostellazioniPage.tsx).
+  const userTier = (user?.publicMetadata?.tier as string | undefined) ?? '';
 
   const fetchFilters = useCallback(async () => {
     if (!userId) return;
@@ -138,7 +141,7 @@ export default function AlertFiltersConfig() {
     try {
       const res = await fetch('/api/alerts/filters', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+        headers: { 'Content-Type': 'application/json', 'X-User-Id': userId, 'X-User-Tier': userTier },
         body: JSON.stringify({
           modulo: form.modulo,
           condizione: buildCondizione(form),
@@ -162,7 +165,7 @@ export default function AlertFiltersConfig() {
     if (!userId) return;
     await fetch(`/api/alerts/filters/${f.id}`, {
       method: 'PATCH',
-      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId },
+      headers: { 'Content-Type': 'application/json', 'X-User-Id': userId, 'X-User-Tier': userTier },
       body: JSON.stringify({ attivo: !f.attivo }),
     });
     await fetchFilters();
@@ -345,12 +348,12 @@ export default function AlertFiltersConfig() {
           {form.modulo === 'argonauta' && (
             <>
               <div style={{ marginBottom: '14px' }}>
-                <label style={labelStyle}>Score minimo (opzionale)</label>
+                <label style={labelStyle}>Score minimo (opzionale, scala 0-100)</label>
                 <input
-                  type="number" min="0" max="10" step="0.5"
+                  type="number" min="0" max="100" step="1"
                   value={form.argonauta_score_min}
                   onChange={e => setForm(f => ({ ...f, argonauta_score_min: e.target.value }))}
-                  placeholder="es. 7"
+                  placeholder="es. 40"
                   style={inputStyle}
                 />
               </div>
