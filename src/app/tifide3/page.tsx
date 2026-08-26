@@ -30,6 +30,13 @@ type Counters = {
   ignored_signal_too_old?: number;
   ignored_ema_not_fresh?: number;
 
+  // Gate scenari vero (26 tag, catalogo TF+variant-aware) — 2026-08-27,
+  // vedi live_filter.py::filter_live_signals. Prima non esisteva nessun
+  // contatore aggregato su questo stadio, solo print di log.
+  gate_evaluated?: number;
+  gate_passed?: number;
+  gate_blocked?: number;
+
   rejected_shadow_started?: number;
   rejected_shadow_sl?: number;
   rejected_shadow_trail_armed?: number;
@@ -1088,26 +1095,35 @@ export default function TifidePage() {
             />
           </CounterGroup>
 
-          {/* Filtri / Ignored */}
+          {/* Gate scenari (26 tag, catalogo TF+variant-aware) — 2026-08-27,
+              sostituisce il vecchio pannello "Filtri" (third/freshness):
+              quello misurava lo stadio del matcher, non il gate vero che
+              oggi decide se un trade apre davvero. Vedi live_filter.py. */}
           <CounterGroup
-            id="filtri" title="Filtri"
+            id="filtri" title="Gate"
             badge={
-              <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>
-                {(counters?.ignored_third ?? 0) + (counters?.ignored_freshness ?? 0)} ign.
+              <span className="font-mono text-[10px]" style={{ color: 'var(--color-short-bright)' }}>
+                {counters?.gate_blocked ?? 0} bloccati
               </span>
             }
             open={openGroups.has('filtri')} onToggle={() => toggleGroup('filtri')}
           >
-            <CtrRow label="ignored_third" value={counters?.ignored_third ?? 0} />
-            <CtrRow label="third_missing" value={counters?.ignored_third_missing ?? 0} />
-            <CtrRow label="third_too_old" value={counters?.ignored_third_too_old ?? 0} />
-            <CtrRow label="third_weak" value={counters?.ignored_third_weak ?? 0} />
-            <CtrRow label="ignored_freshness" value={counters?.ignored_freshness ?? 0} />
-            <CtrRow label="signal_too_old" value={counters?.ignored_signal_too_old ?? 0} />
-            <CtrRow label="ema_not_fresh" value={counters?.ignored_ema_not_fresh ?? 0} />
+            <CtrRow label="gate_evaluated" value={counters?.gate_evaluated ?? 0} />
+            <CtrRow
+              label="gate_passed"
+              value={<span style={{ color: 'var(--color-long-bright)' }}>{counters?.gate_passed ?? 0}</span>}
+            />
+            <CtrRow
+              label="gate_blocked"
+              value={<span style={{ color: 'var(--color-short-bright)' }}>{counters?.gate_blocked ?? 0}</span>}
+            />
           </CounterGroup>
 
-          {/* Shadow trades */}
+          {/* Shadow trades — 2026-08-27: ora segue anche le candidature
+              bloccate dal gate vero (gate_blocked sopra), non più solo le
+              reject del matcher (third/freshness, rare). Risponde a "i
+              gate stanno buttando via trade buoni?" con dati reali invece
+              che a intuito. */}
           <CounterGroup
             id="shadow" title="Shadow"
             badge={
