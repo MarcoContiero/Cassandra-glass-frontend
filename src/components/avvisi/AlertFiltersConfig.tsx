@@ -3,7 +3,13 @@
 import { useCallback, useEffect, useState } from 'react';
 import { useUser } from '@clerk/nextjs';
 
-const MAX_FILTERS = 5;
+// Fallback SOLO se l'header X-Filters-Limit non arriva (rete/errore) — il
+// limite vero e reale per-piano ora lo decide il backend (alerts.py,
+// _filter_limit), letto dinamicamente sotto. Prima questo valore fisso
+// disabilitava "+ Nuovo filtro" a 5 per chiunque, bypass illimitato incluso
+// (trovato 2026-08-26 — l'utente aveva impostato il bypass ma vedeva
+// comunque 5).
+const MAX_FILTERS_FALLBACK = 5;
 
 const ORIONE_PATTERNS = [
   { value: 'engulfing_bull', label: 'Engulfing rialzista' },
@@ -120,17 +126,23 @@ export default function AlertFiltersConfig() {
   // Limite filtri per piano (backend/router/alerts.py, 2026-08-26) — stesso
   // meccanismo gia' usato per le Costellazioni (CostellazioniPage.tsx).
   const userTier = (user?.publicMetadata?.tier as string | undefined) ?? '';
+  const [maxFilters, setMaxFilters] = useState<number>(MAX_FILTERS_FALLBACK);
 
   const fetchFilters = useCallback(async () => {
     if (!userId) return;
     try {
       const res = await fetch('/api/alerts/filters', {
-        headers: { 'X-User-Id': userId },
+        headers: { 'X-User-Id': userId, 'X-User-Tier': userTier },
       });
+      const limitHeader = res.headers.get('X-Filters-Limit');
+      if (limitHeader) {
+        const n = Number(limitHeader);
+        if (Number.isFinite(n) && n > 0) setMaxFilters(n);
+      }
       if (res.ok) setFilters(await res.json());
     } catch { /* ignore */ }
     finally { setLoading(false); }
-  }, [userId]);
+  }, [userId, userTier]);
 
   useEffect(() => { fetchFilters(); }, [fetchFilters]);
 
@@ -217,8 +229,8 @@ export default function AlertFiltersConfig() {
             I tuoi filtri
           </h2>
         </div>
-        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: activeCount >= MAX_FILTERS ? 'var(--color-short-bright, #a83d3d)' : 'var(--color-text-dim)', letterSpacing: '0.1em' }}>
-          {activeCount}/{MAX_FILTERS} attivi
+        <div style={{ fontFamily: 'var(--font-mono)', fontSize: '10px', color: activeCount >= maxFilters ? 'var(--color-short-bright, #a83d3d)' : 'var(--color-text-dim)', letterSpacing: '0.1em' }}>
+          {activeCount}/{maxFilters >= 1_000_000 ? '∞' : maxFilters} attivi
         </div>
       </div>
 
@@ -282,14 +294,14 @@ export default function AlertFiltersConfig() {
       {!showForm ? (
         <button
           onClick={() => setShowForm(true)}
-          disabled={activeCount >= MAX_FILTERS}
+          disabled={activeCount >= maxFilters}
           style={{
             fontFamily: 'var(--font-mono)', fontSize: '10px', letterSpacing: '0.25em',
-            textTransform: 'uppercase', color: activeCount >= MAX_FILTERS ? 'var(--color-text-dim)' : 'var(--color-gold)',
+            textTransform: 'uppercase', color: activeCount >= maxFilters ? 'var(--color-text-dim)' : 'var(--color-gold)',
             background: 'transparent',
-            border: `1px solid ${activeCount >= MAX_FILTERS ? 'var(--color-border)' : 'rgba(201,168,76,0.4)'}`,
-            padding: '8px 18px', cursor: activeCount >= MAX_FILTERS ? 'not-allowed' : 'pointer',
-            opacity: activeCount >= MAX_FILTERS ? 0.4 : 1,
+            border: `1px solid ${activeCount >= maxFilters ? 'var(--color-border)' : 'rgba(201,168,76,0.4)'}`,
+            padding: '8px 18px', cursor: activeCount >= maxFilters ? 'not-allowed' : 'pointer',
+            opacity: activeCount >= maxFilters ? 0.4 : 1,
           }}
         >
           + Nuovo filtro
