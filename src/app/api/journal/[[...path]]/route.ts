@@ -28,7 +28,6 @@ type Ctx = { params: Promise<{ path?: string[] }> };
 
 async function handler(req: Request, ctx: Ctx) {
   const { userId, getToken } = await auth();
-  console.log(`[journal-proxy] userId=${userId ?? "null"}`);
   if (!userId) {
     return new Response(JSON.stringify({ detail: "unauthorized" }), {
       status: 401,
@@ -36,12 +35,13 @@ async function handler(req: Request, ctx: Ctx) {
     });
   }
   const token = await getToken();
-  console.log(`[journal-proxy] token=${token ? `present(len=${token.length})` : String(token)}`);
 
   const { path = [] } = await ctx.params;
   const url = new URL(req.url);
-  const upstreamUrl = `${backendBase()}/api/journal/${path.join("/")}${url.search}`;
-  console.log(`[journal-proxy] backendBase=${backendBase()} upstreamUrl=${upstreamUrl}`);
+  // Niente barra finale quando path e' vuoto (lista base) — la rotta
+  // FastAPI e' registrata come "/api/journal" senza barra, e qui non
+  // scatta nessun redirect automatico: "/api/journal/" tornava 404.
+  const upstreamUrl = `${backendBase()}/api/journal${path.length ? "/" + path.join("/") : ""}${url.search}`;
 
   const headers = new Headers(req.headers);
   headers.delete("host");
@@ -53,7 +53,6 @@ async function handler(req: Request, ctx: Ctx) {
   for (const [k, v] of Object.entries(serverAuthHeaders())) headers.set(k, v);
   headers.set("Authorization", `Bearer ${token}`);
   if (!headers.get("accept")) headers.set("accept", "application/json");
-  console.log(`[journal-proxy] outgoing Authorization header len=${(headers.get("authorization") || "").length}`);
 
   const upstream = await fetch(upstreamUrl, {
     method: req.method,
@@ -61,7 +60,6 @@ async function handler(req: Request, ctx: Ctx) {
     body: req.method === "GET" || req.method === "HEAD" ? undefined : await req.arrayBuffer(),
     cache: "no-store",
   });
-  console.log(`[journal-proxy] upstream status=${upstream.status}`);
 
   const respHeaders = new Headers(upstream.headers);
   respHeaders.set("cache-control", "no-store, no-cache");
