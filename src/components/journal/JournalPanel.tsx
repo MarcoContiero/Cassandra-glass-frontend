@@ -19,10 +19,16 @@ interface TradeEntry {
     bias_per_tf?: Record<string, string>;
     scenari_attivi?: string[];
     prezzo_snapshot?: number;
+    source?: 'tifi4_auto' | 'tifi4_shadow';
+    scenario?: string;
+    classe?: string;
+    patterns_hit?: string[];
+    reject_reason?: string;
+    close_reason?: string;
   };
 }
 
-type Filter = 'tutte' | 'aperta' | 'chiusa';
+type Filter = 'tutte' | 'aperta' | 'chiusa' | 'shadow';
 
 function fmt(ms: number) {
   return new Date(ms).toLocaleString('it-IT', {
@@ -43,6 +49,21 @@ function calcPnl(entry: TradeEntry): number | null {
   return entry.direzione === 'rialzista' ? ratio : -ratio;
 }
 
+// Shadow: due stadi di rifiuto molto diversi.
+// "matcher" = mai diventato un candidato valido (freschezza/third/EMA,
+// Orione2). "gate" = candidato valido, respinto dalle regole del gate
+// scenario (i 26 *_gate.py) — il dato utile per giudicare il gate.
+const MATCHER_REJECT_REASONS = new Set([
+  'TRIGGER_TOO_OLD', 'NO_THIRD', 'LATE_EMA', 'PATTERN_TF_NOT_1M',
+]);
+
+function rejectStage(reason?: string): 'matcher' | 'gate' | null {
+  if (!reason) return null;
+  if (reason === 'gate_blocked') return 'gate';
+  if (MATCHER_REJECT_REASONS.has(reason)) return 'matcher';
+  return null;
+}
+
 export default function JournalPanel() {
   const { user } = useUser();
   const [entries, setEntries] = useState<TradeEntry[]>([]);
@@ -56,7 +77,17 @@ export default function JournalPanel() {
     if (!user?.id) return;
     setLoading(true);
     try {
-      const qs = filter !== 'tutte' ? `?stato=${filter}` : '';
+      // "Shadow" e' una sezione separata (segnali rifiutati dal live, mai
+      // realmente tradati) — mai mischiata con le operazioni reali nelle
+      // altre tab, per non sporcare lo storico che conta davvero.
+      const params = new URLSearchParams();
+      if (filter === 'shadow') {
+        params.set('source', 'tifi4_shadow');
+      } else {
+        params.set('exclude_source', 'tifi4_shadow');
+        if (filter !== 'tutte') params.set('stato', filter);
+      }
+      const qs = `?${params.toString()}`;
       const res = await fetch(`/api/journal/${qs}`, {
         headers: { 'X-User-Id': user.id },
       });
@@ -114,7 +145,7 @@ export default function JournalPanel() {
       </div>
 
       {/* Filtri */}
-      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
         {(['tutte', 'aperta', 'chiusa'] as Filter[]).map(f => (
           <button
             key={f}
@@ -131,6 +162,23 @@ export default function JournalPanel() {
             {f === 'tutte' ? 'Tutte' : f === 'aperta' ? 'Aperte' : 'Chiuse'}
           </button>
         ))}
+        {/* Shadow: segnali rifiutati dal live ma tracciati in parallelo da
+            Tifi 4.0 — mai realmente tradati, sezione separata apposta per
+            non mischiarli con le operazioni reali. Popolata solo per il
+            proprietario (TIFI4_JOURNAL_USER_ID lato backend). */}
+        <button
+          onClick={() => setFilter('shadow')}
+          style={{
+            ...mono, fontSize: '9px', letterSpacing: '0.15em', textTransform: 'uppercase',
+            padding: '5px 12px', borderRadius: '2px', cursor: 'pointer',
+            border: '1px solid',
+            background: filter === 'shadow' ? 'rgba(125,79,156,0.12)' : 'transparent',
+            borderColor: filter === 'shadow' ? 'rgba(193,147,224,0.4)' : 'rgba(255,255,255,0.1)',
+            color: filter === 'shadow' ? '#c193e0' : 'var(--color-text-dim)',
+          }}
+        >
+          ◐ Shadow
+        </button>
         <button onClick={load} style={{ ...mono, marginLeft: 'auto', fontSize: '9px',
           letterSpacing: '0.12em', textTransform: 'uppercase', padding: '5px 12px',
           borderRadius: '2px', cursor: 'pointer', background: 'transparent',
@@ -239,6 +287,70 @@ export default function JournalPanel() {
                   </div>
                 )}
 
+                {/* Scenario + pattern/EMA che hanno generato il segnale (Tifi 4.0, reale o shadow) */}
+                {(e.contesto?.scenario || (e.contesto?.patterns_hit && e.contesto.patterns_hit.length > 0)) && (
+                  <div style={{ marginBottom: '8px' }}>
+                    {e.contesto?.scenario && (
+                      <div style={{ ...mono, fontSize: '10px', ...dim, marginBottom: '4px' }}>
+                        {e.contesto.scenario}
+                      </div>
+                    )}
+                    {e.contesto?.patterns_hit && e.contesto.patterns_hit.length > 0 && (
+                      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px' }}>
+                        {e.contesto.patterns_hit.map((tok, i) => (
+                          <span key={i} style={{
+                            ...mono, fontSize: '9px', padding: '1px 6px', borderRadius: '2px',
+                            background: 'rgba(201,168,76,0.06)', color: 'var(--color-gold)',
+                            border: '1px solid rgba(201,168,76,0.15)',
+                          }}>
+                            {tok}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Motivo scarto (solo Shadow) + motivo chiusura */}
+                {(e.contesto?.reject_reason || e.contesto?.close_reason) && (
+                  <div style={{ display: 'flex', flexWrap: 'wrap', gap: '4px', marginBottom: '8px', alignItems: 'center' }}>
+                    {(() => {
+                      const stage = rejectStage(e.contesto?.reject_reason);
+                      if (!stage) return null;
+                      const isGate = stage === 'gate';
+                      return (
+                        <span style={{
+                          ...mono, fontSize: '9px', padding: '1px 6px', borderRadius: '2px',
+                          letterSpacing: '0.08em', textTransform: 'uppercase',
+                          background: isGate ? 'rgba(224,169,74,0.1)' : 'rgba(255,255,255,0.04)',
+                          color: isGate ? '#e0a94a' : 'var(--color-text-dim)',
+                          border: `1px solid ${isGate ? 'rgba(224,169,74,0.3)' : 'rgba(255,255,255,0.1)'}`,
+                        }}>
+                          {isGate ? '⛊ gate' : '✳ matcher'}
+                        </span>
+                      );
+                    })()}
+                    {e.contesto?.reject_reason && (
+                      <span style={{
+                        ...mono, fontSize: '9px', padding: '1px 6px', borderRadius: '2px',
+                        background: 'rgba(193,147,224,0.08)', color: '#c193e0',
+                        border: '1px solid rgba(193,147,224,0.2)',
+                      }}>
+                        rifiutato: {e.contesto.reject_reason}
+                      </span>
+                    )}
+                    {e.contesto?.close_reason && (
+                      <span style={{
+                        ...mono, fontSize: '9px', padding: '1px 6px', borderRadius: '2px',
+                        background: 'rgba(255,255,255,0.04)', ...dim,
+                        border: '1px solid rgba(255,255,255,0.08)',
+                      }}>
+                        chiuso: {e.contesto.close_reason}
+                      </span>
+                    )}
+                  </div>
+                )}
+
                 {/* Nota */}
                 {e.note && (
                   <div style={{ ...mono, fontSize: '11px', ...dim, lineHeight: 1.55,
@@ -248,8 +360,8 @@ export default function JournalPanel() {
                   </div>
                 )}
 
-                {/* Azioni: chiudi trade */}
-                {e.stato === 'aperta' && (
+                {/* Azioni: chiudi trade — non per Shadow, si chiudono da sole (SL/trail/timeout lato backend) */}
+                {e.stato === 'aperta' && e.contesto?.source !== 'tifi4_shadow' && (
                   <div style={{ display: 'flex', gap: '6px', alignItems: 'center', marginTop: '8px' }}>
                     <input
                       type="text"
