@@ -85,6 +85,12 @@ type SignalItem = {
   classe: string;
   timestamp_ms: number;
   trigger_price?: number;
+  // Orario reale di comparsa (dopo il gate) e prezzo a quel momento — vedi
+  // backend/tifide3/runtime_core/ui_debug.py (fix 2026-09-09): timestamp_ms
+  // e trigger_price restano quelli del pattern/match, non di quando il
+  // segnale e' davvero diventato visibile/valido qui.
+  published_ts_ms?: number;
+  gate_validation_price?: number;
 
   patterns_hit?: string[] | SignalComponent[];
   components?: SignalComponent[];
@@ -1522,12 +1528,17 @@ export default function TifidePage() {
                         {s.side}
                       </span>
                     </div>
-                    <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(s.timestamp_ms)}</span>
+                    {/* Orario di pubblicazione (dopo il gate) — non il timestamp del
+                        pattern/EMA, che puo' essere di minuti precedente (vedi SignalItem) */}
+                    <span className="font-mono text-[10px]" style={{ color: 'var(--color-text-dim)' }}>{fmtTs(s.published_ts_ms ?? s.timestamp_ms)}</span>
                   </div>
                   <div className="font-mono text-[11px]" style={{ color: 'var(--color-text-dim)' }}>
                     {displayComponents.length > 0 ? displayComponents.join(' + ') : s.scenario} · {s.classe}
                     {displayComponents.length === 0 && displayTf ? ` · ${displayTf}` : ''}
-                    {typeof s.trigger_price === 'number' ? ` · px ${s.trigger_price}` : ''}
+                    {(() => {
+                      const px = s.gate_validation_price ?? s.trigger_price;
+                      return typeof px === 'number' ? ` · px ${px}` : '';
+                    })()}
                   </div>
                   {s.third?.token && (
                     <div
