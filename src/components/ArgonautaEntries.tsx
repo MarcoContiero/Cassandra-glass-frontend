@@ -54,6 +54,11 @@ export type EntryItem = {
   invalidation_text?: string;
   trigger_zone?: string;
   invalidation_zone?: string;
+  // Affidabilita' storica score v2 (2026-09-15) — MAI il win-rate (decisione
+  // "niente WR in UI"), solo il rendimento atteso in R e la numerosita'.
+  scoreV2Affidabilita?: 'bassa' | 'media' | 'alta';
+  scoreV2Ev?: number;
+  scoreV2N?: number;
 };
 
 /* =================== Helpers =================== */
@@ -96,6 +101,9 @@ function fromSuggestion(symbol: string, s: Suggestion): EntryItem {
     tfs: s.tf ? [s.tf] : undefined,
     confidence: s.score ?? undefined,
     description: s.desc,
+    scoreV2Affidabilita: s.scoreV2?.affidabilita,
+    scoreV2Ev: s.scoreV2?.affidabilitaEv,
+    scoreV2N: s.scoreV2?.affidabilitaNStorico,
   };
 }
 
@@ -174,6 +182,31 @@ function EntryCard({ item, alertThresholdPct }: { item: EntryItem; alertThreshol
           <div className={numCell}>{fmtN(item.tp2)}</div>
         </div>
       </div>
+
+      {/* Affidabilita' storica per fascia score v2 (2026-09-15) — mai il
+          win-rate, solo rendimento atteso (R) e numerosita' storica, stesso
+          principio gia' applicato alle fasce Strategia AI. */}
+      {item.scoreV2Affidabilita && typeof item.scoreV2Ev === 'number' && (
+        <div className="mt-2 rounded-lg bg-white/5 border border-white/10 px-2 py-1 text-[11px] text-white/70">
+          Affidabilità storica{' '}
+          <span
+            className={
+              item.scoreV2Affidabilita === 'alta'
+                ? 'text-emerald-300'
+                : item.scoreV2Affidabilita === 'media'
+                ? 'text-amber-300'
+                : 'text-red-300'
+            }
+          >
+            {item.scoreV2Affidabilita}
+          </span>
+          {' '}— rendimento atteso {item.scoreV2Ev >= 0 ? '+' : ''}
+          {item.scoreV2Ev.toFixed(2)}R
+          {typeof item.scoreV2N === 'number' && (
+            <span className="text-white/40"> (n={item.scoreV2N.toLocaleString('it-IT')})</span>
+          )}
+        </div>
+      )}
 
       {/* footer: distanza/alert info */}
       <div className="mt-2 text-xs text-white/60 flex justify-between">

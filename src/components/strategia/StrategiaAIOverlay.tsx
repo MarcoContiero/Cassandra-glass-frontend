@@ -5,6 +5,7 @@ const sanitizeDir = (text: string) =>
   text.replace(/\bLONG\b/g, "rialzista").replace(/\bSHORT\b/g, "ribassista");
 import { X, ChevronDown, ChevronRight, GitBranch } from "lucide-react";
 import { OverlayShell } from "../overlays/OverlayShell";
+import { scoreBandStats } from "@/ts/strategia/scoreBands";
 
 // Tipo locale: modelliamo solo ciò che usiamo qui dentro
 type StrategiaAICondition = {
@@ -431,6 +432,8 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
           const hasTp2 =
             typeof tp2 === "number" && isFinite(tp2) && tp2 !== 0;
 
+          const bandStats = scoreBandStats(s.tf, s.score ?? null, dir);
+
           const nodes = buildBiviNodes(s, supporti, resistenze);
           const hasBivi = nodes.length > 0;
           const biviOpen = !!openBivi[cardId];
@@ -532,6 +535,26 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                   </div>
                 </div>
               </div>
+
+              {/* Rendimento storico per fascia di punteggio — 2026-09-15.
+                  Niente WR (motivi legali, vedi scoreBands.ts) — solo EV in
+                  multipli di rischio (R) + numerosita' storica, stesso
+                  principio gia' usato per le fasce Argonauta. */}
+              {bandStats && (
+                <div className="mt-2 rounded-lg bg-white/5 px-2 py-1.5">
+                  <div className="text-[10px] uppercase tracking-wide text-zinc-400">
+                    Rendimento storico · fascia punteggio {bandStats.band}
+                  </div>
+                  <div className="font-mono text-xs text-zinc-100">
+                    {bandStats.evR >= 0 ? "+" : ""}
+                    {bandStats.evR.toFixed(2)}R atteso
+                    <span className="ml-2 font-sans text-[10px] text-zinc-500">
+                      (su {bandStats.nEntry.toLocaleString("it-IT")} casi storici
+                      {!bandStats.reliable ? " — campione piccolo" : ""})
+                    </span>
+                  </div>
+                </div>
+              )}
 
               {/* Livelli oltre il punto critico 2 — 2026-08-26 */}
               {Array.isArray(s.livelli_oltre) && s.livelli_oltre.length > 0 && (

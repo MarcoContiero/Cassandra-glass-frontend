@@ -298,7 +298,11 @@ export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) 
   /* ------------------------------ SCAN LOGIC ------------------------------ */
 
   const [alertPct, setAlertPct] = useState<number>(0.20); // es. 0.20% default
-  const TF_OPTIONS = ["1m", "3m", "5m", "15m", "30m", "1h", "2h", "3h", "4h", "6h", "8h", "12h", "1d", "2d", "3d", "1w", "1M"] as const;
+  // Solo i 4 TF validati dal backtest (vedi backend/builders/argonauta_engine.py
+  // e le fasce score_v2/CONTROTREND_RR/MIN_STOP_PCT_BY_TF, tutte calibrate
+  // solo su 15m/1h/4h/1d) — gli altri TF non hanno mai avuto una validazione
+  // storica dietro le proposte, mostrarli sarebbe fuorviante.
+  const TF_OPTIONS = ["15m", "1h", "4h", "1d"] as const;
   const [tfsSelected, setTfsSelected] = useState<string[]>(["15m", "1h", "4h"]);
   const toggleTf = (tf: string) =>
     setTfsSelected(prev => prev.includes(tf) ? prev.filter(x => x !== tf) : [...prev, tf]);
@@ -927,6 +931,23 @@ export default function ArgonautaPanel({ onPiziaContext }: ArgonautaPanelProps) 
           );
         })}
       </div>
+
+      {/* Disclaimer legale (2026-09-15) — nessun dato mostrato qui (score,
+          score v2, affidabilita' storica, ecc.) e' un segnale finanziario o
+          un suggerimento di investimento. */}
+      <p
+        style={{
+          marginTop: '16px',
+          textAlign: 'center',
+          fontFamily: 'var(--font-mono)',
+          fontSize: '9px',
+          letterSpacing: '0.15em',
+          textTransform: 'uppercase',
+          color: 'var(--color-text-dim)',
+        }}
+      >
+        I dati riportati sono solo dati statistici e non rappresentano suggerimenti di investimento
+      </p>
     </div>
   );
 }

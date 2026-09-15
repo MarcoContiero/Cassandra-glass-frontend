@@ -1044,6 +1044,16 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
           </details>
         </div>
 
+        {/* Disclaimer legale (2026-09-15) — nessun dato mostrato in questa
+            pagina (score, punteggi, fasce di affidabilita', ecc.) e' un
+            segnale finanziario o un suggerimento di investimento. */}
+        <p
+          className="mt-4 text-center font-mono text-[9px] uppercase tracking-[0.15em]"
+          style={{ color: 'var(--color-text-dim)' }}
+        >
+          I dati riportati sono solo dati statistici e non rappresentano suggerimenti di investimento
+        </p>
+
         {/* Dialog overlay */}
         <Dialog
           open={Boolean(overlayKey) || Boolean(showMiddles)}
