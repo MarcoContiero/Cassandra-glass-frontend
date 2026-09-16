@@ -184,6 +184,7 @@ interface LachesiEma200 {
   bucket: string;
   ema200_px: number;
   p_revert_20b?: number;
+  p_revert_25b?: number;
   p_revert_50b?: number;
   n_hist?: number;
 }
@@ -216,9 +217,12 @@ interface MoireSnapshot {
   bars_1h: number;
   lachesi: Record<string, LachesiTf>;
   atropo: {
-    P_up_10b?: number;
+    P_ema200_3b?: number;
+    P_ema200_5b?: number;
+    P_ema200_10b?: number;
+    P_ema200_15b?: number;
+    P_ema200_25b?: number;
     P_ema200_50b?: number;
-    P_bb_return_20b?: number;
     confidence?: number;
     key_signals?: string[];
     volatility_regime?: Record<string, { regime: VolRegime; current_atr?: number; hist_p50?: number }>;
@@ -1576,49 +1580,42 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
           {/* Atropo — metriche principali */}
           {snapshot ? (
             <>
-              {detailView !== 'lachesi' && <div className="grid grid-cols-3 gap-2 mb-4">
-                {/* P(direzione 10b) */}
-                {(() => {
-                  const p = snapshot.atropo.P_up_10b;
-                  const col = p == null ? 'var(--color-text-dim)'
-                    : p > 0.55 ? 'var(--color-long-bright)'
-                    : p < 0.45 ? 'var(--color-short-bright)'
-                    : 'var(--color-gold)';
-                  return (
-                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(up 10b · 1h)</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: col, fontWeight: 300 }}>
-                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+              {/* P(tocca EMA200 · Nb) — famiglia di 6 orizzonti, due file da
+                  tre, per dare un'idea del trend (2026-09-16: 28/28
+                  combinazioni orizzonte×fold battono il naive da 3 a 50
+                  barre, validazione_orizzonti.py — unico risultato Atropo
+                  con edge misurato. P_up_10b e P_bb_return rimossi lo
+                  stesso giorno: nessun edge il primo in 9 tentativi, poco
+                  discriminante il secondo — decisione dell'utente di
+                  limitare Atropo a EMA200). */}
+              {detailView !== 'lachesi' && <div className="mb-4">
+                <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', opacity: 0.5, marginBottom: 4 }}>P(tocca EMA200 · N barre)</div>
+                <div className="grid grid-cols-3 gap-2 mb-2">
+                  {([3, 5, 10] as const).map(w => {
+                    const p = snapshot.atropo[`P_ema200_${w}b` as const];
+                    return (
+                      <div key={w} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>{w}b</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
+                          {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })()}
-
-                {/* P(tocca EMA200 50b) */}
-                {(() => {
-                  const p = snapshot.atropo.P_ema200_50b;
-                  return (
-                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(EMA200 · 50b)</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
-                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                    );
+                  })}
+                </div>
+                <div className="grid grid-cols-3 gap-2">
+                  {([15, 25, 50] as const).map(w => {
+                    const p = snapshot.atropo[`P_ema200_${w}b` as const];
+                    return (
+                      <div key={w} style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>{w}b</div>
+                        <div style={{ fontFamily: 'var(--font-mono)', fontSize: 20, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
+                          {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
+                        </div>
                       </div>
-                    </div>
-                  );
-                })()}
-
-                {/* P(rientro BB 20b) */}
-                {(() => {
-                  const p = snapshot.atropo.P_bb_return_20b;
-                  return (
-                    <div style={{ padding: '8px 10px', background: 'rgba(255,255,255,0.02)', border: '1px solid var(--color-border-dim)', borderRadius: 2, textAlign: 'center' }}>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 9, color: 'var(--color-text-dim)', marginBottom: 4 }}>P(rientro BB · 20b)</div>
-                      <div style={{ fontFamily: 'var(--font-mono)', fontSize: 22, color: p != null ? 'var(--color-text)' : 'var(--color-text-dim)', fontWeight: 300 }}>
-                        {p != null ? `${(p * 100).toFixed(0)}%` : '—'}
-                      </div>
-                    </div>
-                  );
-                })()}
+                    );
+                  })}
+                </div>
               </div>}
 
               {/* Lachesi — snapshot per TF */}
@@ -1666,6 +1663,9 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
                           <span style={{ color: em.side === 'above' ? 'var(--color-long-bright)' : 'var(--color-short-bright)' }}>
                             {em.dist_pct > 0 ? '+' : ''}{em.dist_pct.toFixed(1)}%
                           </span>
+                          {em.p_revert_25b != null && (
+                            <span style={{ opacity: 0.6 }}> · rev25b {(em.p_revert_25b * 100).toFixed(0)}%</span>
+                          )}
                           {em.p_revert_50b != null && (
                             <span style={{ opacity: 0.6 }}> · rev50b {(em.p_revert_50b * 100).toFixed(0)}%</span>
                           )}
@@ -1714,15 +1714,7 @@ function ClotoDetail({ genome, onClose, initialView = 'cloto' }: {
                     LEGENDA
                   </div>
                   {([
-                    ['P(up 10b · 1h)',    'prob. direzione rialzista fra 10 candele · >55% bullish · <45% bearish'],
-                    ['P(EMA200 · 50b)',   'prob. toccare EMA200 nelle prossime 50 candele (~2gg su 1h)'],
-                    ['P(rientro BB)',     'prob. rientrare nelle Bollinger Bands se prezzo è fuori'],
-                    ['extreme durata',   'fase corrente oltre il p75 storico per durata — fase matura'],
-                    ['late durata',      'fase nel quartile superiore ma non ancora oltre p75'],
-                    ['mid durata',       'fase nella norma storica per durata'],
-                    ['extended ampiezza','% guadagnata > 1.5× la mediana storica della fase'],
-                    ['~X% al p75',       'quanto manca in % per raggiungere il p75 storico di ampiezza'],
-                    ['1.Nx p50',         'ampiezza attuale in multipli della mediana storica'],
+                    ['P(EMA200 · Nb)',    'prob. toccare EMA200 entro N candele (3/5/10/15/25/50, su 1h) — piu\' basso il numero, piu\' vicino nel tempo'],
                   ] as [string, string][]).map(([term, def]) => (
                     <div key={term} style={{ display: 'flex', gap: 6, marginBottom: 3, alignItems: 'baseline' }}>
                       <span style={{ fontFamily: 'var(--font-mono)', fontSize: 8, color: 'var(--color-text-dim)', opacity: 0.6, whiteSpace: 'nowrap', minWidth: 110 }}>
