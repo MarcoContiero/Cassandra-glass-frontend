@@ -3,60 +3,7 @@
 import * as React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import HelpButton from '../help/HelpButton';
-
-const sanitizeDir = (text: string) =>
-  text
-    .replace(/\bLONG\b/g, "rialzista")
-    .replace(/\bSHORT\b/g, "ribassista")
-    .replace(/\blong\b/g, "rialzista")
-    .replace(/\bshort\b/g, "ribassista")
-    .replace(/\breentry\b/gi, "reingresso");
-
-type CiclicaWindow = {
-  direction?: 'LONG' | 'SHORT' | string;
-  tf_ciclo?: string;            // es. "1h"
-  entry_from_bars?: number;     // es. 7
-  entry_to_bars?: number;       // es. 17
-  countdown_bars?: number;      // es. 16
-  timing_grade?: string;        // es. "neutro"
-  label?: string;               // testo pronto
-};
-
-type StrategiaAIItem = {
-  tf: string;                   // "1h", "4h", "1d"...
-  mode?: string;                // breve/medio/lungo...
-  direction?: 'LONG' | 'SHORT' | string;
-  entry: number;
-  sl_price?: number | null;
-  tp1_price?: number | null;
-  tp2_price?: number | null;
-  rr1?: number | null;
-  rr2?: number | null;
-  score?: number | null;
-  dist_bps?: number | null;
-  explanation?: string;
-  tags?: string[];
-  ciclica_window?: CiclicaWindow;
-};
-
-type AgemaRow = {
-  coin: string;                 // "LINKUSDT"
-  price?: number | null;
-  score?: number | null;        // punteggio "classifica"
-  direction?: 'LONG' | 'SHORT' | string; // direzione della finestra ciclica (fallback sul miglior setup se ignota)
-  ciclica_label?: string | null;
-  ciclica_archetipo?: string | null;
-  reentry_label?: string | null;
-  has_coherent_signals?: boolean;
-  sync_conflict?: string | null;
-  eta_reentry_hours?: number | null;
-  best?: StrategiaAIItem[];
-};
-
-type AgemaResponse = {
-  updated_at?: string;
-  rows: AgemaRow[];
-};
+import type { AgemaCiclicaPhase, AgemaPick, AgemaSnapshot } from '@/types/agema';
 
 type MacroEvent = {
   release_id: number;
@@ -92,71 +39,27 @@ function macroDateLabel(dateStr: string, daysUntil: number): string {
   return `${dd}/${mm} · tra ${daysUntil}gg`;
 }
 
-function tfToMinutes(tf?: string): number | null {
-  const s = String(tf || '').trim();
-  if (!s) return null;
-  if (s.endsWith('m')) return Number(s.replace('m', '')) || null;
-  if (s.endsWith('h')) return (Number(s.replace('h', '')) || 0) * 60 || null;
-  if (s === '1d') return 24 * 60;
-  if (s === '1w') return 7 * 24 * 60;
-  return null;
-}
-
-function barsToHours(bars: number | null | undefined, tf_ciclo?: string): number | null {
-  if (!Number.isFinite(bars as number)) return null;
-  const mins = tfToMinutes(tf_ciclo);
-  if (!mins) return null;
-  return (Number(bars) * mins) / 60;
-}
-
-function fmt(n?: number | null, digits = 2) {
+function fmt(n?: number | null, digits = 4) {
   if (!Number.isFinite(n as number)) return '—';
   return Number(n).toLocaleString('it-IT', { maximumFractionDigits: digits });
 }
 
-function dirLabel(d?: string): string {
-  const s = String(d || '').toUpperCase();
-  if (s === 'LONG') return 'Rialzista';
-  if (s === 'SHORT') return 'Ribassista';
-  return d || '';
-}
+// Fase ciclica -> etichetta descrittiva (mai il nome tecnico interno).
+const PHASE_LABEL: Record<AgemaCiclicaPhase, string> = {
+  early_up: 'salita iniziale',
+  mid_up: 'salita centrale',
+  late_up: 'salita matura',
+  early_down: 'discesa iniziale',
+  mid_down: 'discesa centrale',
+  late_down: 'discesa matura',
+};
 
-function buildScenarioPhrase(s: StrategiaAIItem): string {
-  const dir = String(s.direction || '').toUpperCase();
-  const isLong = dir === 'LONG';
-  const tags = (s.tags ?? []).map((t: string) => String(t).toUpperCase());
-  const isBreakout = tags.some(t => t.includes('BREAK'));
-  const score = s.score != null ? Math.round(Number(s.score)) : null;
-  const scoreStr = score != null ? ` (livello ${score})` : '';
-  const entry = s.entry != null ? fmt(s.entry, 6) : null;
-  const tp1 = s.tp1_price != null ? fmt(s.tp1_price, 6) : null;
-  const tp2 = s.tp2_price != null ? fmt(s.tp2_price, 6) : null;
-
-  if (!entry) return s.explanation || '—';
-
-  if (isLong) {
-    if (isBreakout) {
-      let ph = `Se supera ${entry}${scoreStr}`;
-      if (tp1) ph += ` — resistenza successiva a ${tp1}`;
-      if (tp2 && tp2 !== tp1) ph += `, poi ${tp2}`;
-      return ph;
-    } else {
-      let ph = `Se scende verso ${entry}, zona di supporto${scoreStr}`;
-      if (tp1) ph += ` — area rialzista a ${tp1}`;
-      return ph;
-    }
-  } else {
-    if (isBreakout) {
-      let ph = `Se scende sotto ${entry}${scoreStr}`;
-      if (tp1) ph += ` — supporto successivo a ${tp1}`;
-      if (tp2 && tp2 !== tp1) ph += `, poi ${tp2}`;
-      return ph;
-    } else {
-      let ph = `Se sale verso ${entry}, zona di resistenza${scoreStr}`;
-      if (tp1) ph += ` — area ribassista a ${tp1}`;
-      return ph;
-    }
-  }
+function updatedAtLabel(ms: number | null): string {
+  if (!ms) return '—';
+  const d = new Date(ms);
+  const hh = String(d.getHours()).padStart(2, '0');
+  const mm = String(d.getMinutes()).padStart(2, '0');
+  return `aggiornato alle ${hh}:${mm}`;
 }
 
 interface AgemaPanelProps {
@@ -164,13 +67,11 @@ interface AgemaPanelProps {
 }
 
 export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
-  const [data, setData] = useState<AgemaResponse | null>(null);
+  const [data, setData] = useState<AgemaSnapshot | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // filtri
-  const [minScore, setMinScore] = useState<number>(60);
-  const [maxHours, setMaxHours] = useState<number>(48);
+  const [minScore, setMinScore] = useState<number>(51);
   const [dir, setDir] = useState<'ALL' | 'LONG' | 'SHORT'>('ALL');
 
   const [macroEvents, setMacroEvents] = useState<MacroEvent[] | null>(null);
@@ -202,17 +103,9 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
     try {
       setLoading(true);
       setError(null);
-
-      const q = new URLSearchParams();
-      q.set('min_score', String(minScore));
-      q.set('max_hours', String(maxHours));
-      if (dir !== 'ALL') q.set('direction', dir);
-
-      const url = `/api/agema?${q.toString()}`;
-      const r = await fetch(url, { cache: 'no-store' });
+      const r = await fetch('/api/agema', { cache: 'no-store' });
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
-      const js = (await r.json()) as AgemaResponse;
-
+      const js = (await r.json()) as AgemaSnapshot;
       setData(js);
     } catch (e: any) {
       setError(e?.message || 'Errore');
@@ -222,65 +115,33 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
     }
   }
 
-  const rows = useMemo(() => {
-    const base = data?.rows ?? [];
+  useEffect(() => { fetchAgema(); }, []);
 
-    const filtered = base.filter((row) => {
-      const sc = Number(row.score ?? -1);
-      if (Number.isFinite(minScore) && sc < minScore) return false;
-
-      if (dir !== 'ALL') {
-        const hasDir = (row.best ?? []).some((s) => (s.direction || '') === dir);
-        if (!hasDir) return false;
-      }
-
-      if (Number.isFinite(maxHours) && maxHours > 0) {
-        const etas = (row.best ?? [])
-          .map((s) => {
-            const cw = s.ciclica_window;
-            if (!cw) return null;
-            return barsToHours(cw.countdown_bars, cw.tf_ciclo);
-          })
-          .filter((h): h is number => h !== null);
-        if (etas.length > 0 && !etas.some((h) => h <= maxHours)) return false;
-      }
-
+  const picks = useMemo(() => {
+    const base = data?.picks ?? [];
+    return base.filter((p) => {
+      if (Number.isFinite(minScore) && (p.score ?? -1) < minScore) return false;
+      if (dir !== 'ALL' && p.direction !== dir) return false;
       return true;
     });
-
-    return filtered.sort((a, b) => {
-      const sa = Number(a.score ?? -1);
-      const sb = Number(b.score ?? -1);
-      if (sb !== sa) return sb - sa;
-
-      const da = Math.min(...(a.best ?? []).map(x => Number(x.dist_bps ?? 9e9)));
-      const db = Math.min(...(b.best ?? []).map(x => Number(x.dist_bps ?? 9e9)));
-      return da - db;
-    });
-  }, [data, minScore, maxHours, dir]);
+  }, [data, minScore, dir]);
 
   useEffect(() => {
-    if (!onPiziaContext || rows.length === 0) return;
-    const dirFilter = dir === 'ALL' ? 'tutte le direzioni' : dir === 'LONG' ? 'rialzista' : 'ribassista';
+    if (!onPiziaContext || picks.length === 0) return;
     const lines: string[] = [
-      `Pannello: AGEMA — Radar ciclico`,
-      `${rows.length} coin in classifica (min_score ${minScore}, entro ${maxHours}h, ${dirFilter})`,
+      `Pannello: AGEMA — il reparto scelto delle coin`,
+      `${picks.length} pick in controtendenza rispetto al ciclo (min score ${minScore})`,
       '',
     ];
-    for (const row of rows) {
-      const dirStr = row.direction === 'LONG' ? 'rialzista' : row.direction === 'SHORT' ? 'ribassista' : (row.direction ?? '—');
-      let line = `${row.coin} — dir: ${dirStr} — score: ${fmt(row.score, 0)} — prezzo: ${fmt(row.price, 6)}`;
-      if (row.ciclica_label) line += ` — fase: ${row.ciclica_label}`;
-      if (row.reentry_label) line += ` — ${sanitizeDir(row.reentry_label)}`;
-      if (Number.isFinite(row.eta_reentry_hours as number)) line += ` — ETA ${fmt(row.eta_reentry_hours, 0)}h`;
-      lines.push(line);
-      for (const s of (row.best ?? []).slice(0, 3)) {
-        const sDir = s.direction === 'LONG' ? 'rialzista' : s.direction === 'SHORT' ? 'ribassista' : (s.direction ?? '');
-        lines.push(`  [${s.tf}] ${sDir} sc ${fmt(s.score, 0)}: ${buildScenarioPhrase(s)}`);
-      }
+    for (const p of picks) {
+      const dirStr = p.direction === 'LONG' ? 'rialzista' : 'ribassista';
+      lines.push(
+        `${p.coin} — ${dirStr} — score ${fmt(p.score, 0)} — tf ${p.tf ?? '—'} — ` +
+        `entry ${fmt(p.entry)} — fase ciclica: ${PHASE_LABEL[p.ciclica_phase_1h]}`
+      );
     }
     onPiziaContext(lines.join('\n'));
-  }, [rows, onPiziaContext, dir, minScore, maxHours]);
+  }, [picks, onPiziaContext, minScore]);
 
   return (
     <div className="cassandra-card cassandra-card-corners" style={{ padding: '24px 24px 20px' }}>
@@ -317,6 +178,14 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
         </div>
       )}
 
+      {/* Lede */}
+      <div className="font-mono text-[11px] text-[var(--color-text-dim)] leading-relaxed mb-5">
+        Coin con un segnale Strategia AI forte proprio mentre il prezzo va in
+        controtendenza rispetto al ciclo di mercato in corso — la combinazione
+        che storicamente si è dimostrata più solida, non una classifica di
+        tutte le coin.
+      </div>
+
       {/* Filter toolbar */}
       <div
         className="flex flex-wrap items-center gap-3 mb-5"
@@ -331,18 +200,6 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
             type="number"
             value={minScore}
             onChange={(e) => setMinScore(Number(e.target.value))}
-          />
-        </div>
-
-        <div className="flex items-center gap-2">
-          <span className="font-mono text-[10px] tracking-[0.2em] uppercase text-[var(--color-text-dim)]">
-            Entro (ore)
-          </span>
-          <input
-            className="bg-[var(--color-surface)] border border-[var(--color-border)] text-[var(--color-gold)] font-mono text-[11px] tracking-[0.1em] rounded-none focus:border-[var(--color-gold-dim)] focus:outline-none px-3 py-1.5 w-20"
-            type="number"
-            value={maxHours}
-            onChange={(e) => setMaxHours(Number(e.target.value))}
           />
         </div>
 
@@ -369,9 +226,9 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
           {loading ? 'CARICO...' : 'AGGIORNA'}
         </button>
 
-        {data?.updated_at && (
+        {data && (
           <span className="ml-auto font-mono text-[10px] text-[var(--color-text-dim)]">
-            {data.updated_at}
+            {updatedAtLabel(data.generated_at_ms)} · {data.coins_scanned} coin scansionate
           </span>
         )}
 
@@ -389,154 +246,73 @@ export default function AgemaPanel({ onPiziaContext }: AgemaPanelProps) {
       <div>
         {!data && !error && (
           <div className="font-mono text-[11px] text-[var(--color-text-dim)] text-center py-12 tracking-[0.2em]">
-            PREMI AGGIORNA PER CARICARE LA CLASSIFICA
+            CARICO LO SNAPSHOT...
           </div>
         )}
 
-        {rows.length > 0 && (
+        {picks.length > 0 && (
           <div className="flex flex-col">
-            {rows.map((row) => {
-              const best = (row.best ?? []).slice(0, 3);
-              return (
-                <div
-                  key={row.coin}
-                  className="px-0 py-3 transition-colors duration-200 hover:bg-[rgba(201,168,76,0.02)]"
-                  style={{ borderBottom: '1px solid var(--color-text-faint)' }}
-                >
-                  {/* Row header */}
-                  <div className="flex flex-wrap items-center gap-3 mb-3">
-                    <span
-                      className="text-[14px]"
-                      style={{ fontFamily: 'var(--font-cinzel, Cinzel, serif)', color: 'var(--color-gold)' }}
-                    >
-                      {row.coin}
-                    </span>
-
-                    {row.direction === 'LONG' && <span className="bias-long">Rialzista</span>}
-                    {row.direction === 'SHORT' && <span className="bias-short">Ribassista</span>}
-                    {row.direction && row.direction !== 'LONG' && row.direction !== 'SHORT' && (
-                      <span className="bias-neutral">{row.direction}</span>
-                    )}
-
-                    <span className="font-mono text-[11px] text-[var(--color-gold)]">
-                      score {fmt(row.score, 0)}
-                    </span>
-
-                    <span className="font-mono text-[12px] text-[var(--color-text)]">
-                      {fmt(row.price, 6)}
-                    </span>
-
-                    {row.reentry_label && (
-                      <span
-                        className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
-                        style={{ border: '1px solid var(--color-border)' }}
-                      >
-                        {sanitizeDir(row.reentry_label)}
-                      </span>
-                    )}
-                    {Number.isFinite(row.eta_reentry_hours as number) && (
-                      <span
-                        className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
-                        style={{ border: '1px solid var(--color-border)' }}
-                      >
-                        ETA {fmt(row.eta_reentry_hours, 0)}h
-                      </span>
-                    )}
-                  </div>
-
-                  {best.length > 0 && (
-                    row.has_coherent_signals === false ? (
-                      <div
-                        className="font-mono text-[11px] mb-2 px-2 py-1 inline-flex items-center gap-1.5"
-                        style={{
-                          color: 'var(--color-gold-bright)',
-                          background: 'var(--color-gold-faint)',
-                          border: '1px solid rgba(201,168,76,0.35)',
-                        }}
-                      >
-                        <span aria-hidden="true">⚠</span>
-                        {row.sync_conflict
-                          ? `${row.sync_conflict} Sotto, i segnali più vicini per punteggio:`
-                          : 'Nessun segnale coerente con questa finestra al momento — sotto, i più vicini per punteggio (direzione opposta o mista):'}
-                      </div>
-                    ) : (
-                      <div className="font-mono text-[10px] text-[var(--color-text-dim)] opacity-70 mb-2">
-                        {row.direction === 'LONG' && 'Dentro questa finestra rialzista, i segnali:'}
-                        {row.direction === 'SHORT' && 'Dentro questa finestra ribassista, i segnali:'}
-                        {row.direction !== 'LONG' && row.direction !== 'SHORT' && 'Segnali:'}
-                      </div>
-                    )
-                  )}
-
-                  {/* Strategy sub-cards */}
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                    {best.map((s, i) => {
-                      const cw = s.ciclica_window;
-                      const etaH = cw ? barsToHours(cw.countdown_bars, cw.tf_ciclo) : null;
-                      return (
-                        <div
-                          key={i}
-                          className="px-3 py-2"
-                          style={{
-                            background: 'var(--color-surface)',
-                            border: '1px solid var(--color-border-dim)',
-                          }}
-                        >
-                          {/* Header: TF + direzione + score + eta */}
-                          <div className="flex items-center gap-2 flex-wrap mb-2">
-                            <span
-                              className="font-mono text-[10px] tracking-[0.1em] text-[var(--color-text-dim)] px-1.5 py-0.5"
-                              style={{ border: '1px solid var(--color-border)' }}
-                            >
-                              {s.tf}
-                            </span>
-
-                            {s.direction === 'LONG' && (
-                              <span className="font-mono text-[10px] text-[var(--color-long-bright)]">rialzista</span>
-                            )}
-                            {s.direction === 'SHORT' && (
-                              <span className="font-mono text-[10px] text-[var(--color-short-bright)]">ribassista</span>
-                            )}
-
-                            {s.score != null && (
-                              <span className="font-mono text-[10px] text-[var(--color-gold)]">
-                                sc {fmt(s.score, 0)}
-                              </span>
-                            )}
-
-                            {etaH !== null && (
-                              <span className="font-mono text-[10px] text-[var(--color-text-dim)]">
-                                &le;{fmt(etaH, 0)}h
-                              </span>
-                            )}
-                          </div>
-
-                          {/* Frase descrittiva scenario */}
-                          <div className="font-mono text-[11px] text-[var(--color-text)] leading-relaxed">
-                            {buildScenarioPhrase(s)}
-                          </div>
-
-                          {/* Finestra ciclica */}
-                          {cw?.label && (
-                            <div className="font-mono text-[10px] text-[var(--color-text-dim)] mt-1.5 opacity-70">
-                              {cw.label}
-                            </div>
-                          )}
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              );
-            })}
+            {picks.map((p) => (
+              <AgemaRow key={p.coin} pick={p} />
+            ))}
           </div>
         )}
 
-        {data && rows.length === 0 && !error && (
+        {data && picks.length === 0 && !error && (
           <div className="font-mono text-[11px] text-[var(--color-text-dim)] text-center py-12 tracking-[0.2em]">
-            NESSUN RISULTATO CON I FILTRI ATTUALI
+            NESSUNA COIN IN CONTROTENDENZA AL MOMENTO
           </div>
         )}
+      </div>
+    </div>
+  );
+}
+
+function AgemaRow({ pick }: { pick: AgemaPick }) {
+  const isLong = pick.direction === 'LONG';
+  return (
+    <div
+      className="px-0 py-3 transition-colors duration-200 hover:bg-[rgba(201,168,76,0.02)]"
+      style={{ borderBottom: '1px solid var(--color-text-faint)' }}
+    >
+      <div className="flex flex-wrap items-center gap-3 mb-2">
+        <span
+          className="text-[14px]"
+          style={{ fontFamily: 'var(--font-cinzel, Cinzel, serif)', color: 'var(--color-gold)' }}
+        >
+          {pick.coin}
+        </span>
+
+        <span className={isLong ? 'bias-long' : 'bias-short'}>
+          {isLong ? 'Rialzista' : 'Ribassista'}
+        </span>
+
+        <span className="font-mono text-[11px] text-[var(--color-gold)]">
+          score {fmt(pick.score, 0)}
+        </span>
+
+        {pick.tf && (
+          <span
+            className="font-mono text-[10px] tracking-[0.1em] text-[var(--color-text-dim)] px-1.5 py-0.5"
+            style={{ border: '1px solid var(--color-border)' }}
+          >
+            {pick.tf}
+          </span>
+        )}
+
+        <span
+          className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
+          style={{ border: '1px solid var(--color-border)' }}
+        >
+          in controtendenza — coin in fase {PHASE_LABEL[pick.ciclica_phase_1h]}
+        </span>
+      </div>
+
+      <div className="font-mono text-[11px] text-[var(--color-text)] leading-relaxed flex flex-wrap gap-x-4 gap-y-1">
+        {pick.entry != null && <span>entry {fmt(pick.entry)}</span>}
+        {pick.sl_price != null && <span>sl {fmt(pick.sl_price)}</span>}
+        {pick.tp1_price != null && <span>tp1 {fmt(pick.tp1_price)}</span>}
+        {pick.tp2_price != null && <span>tp2 {fmt(pick.tp2_price)}</span>}
       </div>
     </div>
   );
