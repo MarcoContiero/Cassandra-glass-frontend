@@ -301,11 +301,32 @@ function AgemaRow({ pick }: { pick: AgemaPick }) {
         )}
 
         <span
+          className="font-mono text-[11px] px-2 py-0.5"
+          style={
+            pick.tier === 'forte'
+              ? { color: 'var(--color-gold-bright)', background: 'var(--color-gold-faint)', border: '1px solid rgba(201,168,76,0.45)', fontWeight: 700 }
+              : { color: 'var(--color-text-dim)', border: '1px solid var(--color-border)' }
+          }
+        >
+          {pick.tier === 'forte' ? 'Controtendenza forte' : 'Controtendenza'}
+        </span>
+
+        <span
           className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
           style={{ border: '1px solid var(--color-border)' }}
         >
-          in controtendenza — coin in fase {PHASE_LABEL[pick.ciclica_phase_1h]}
+          fase: {PHASE_LABEL[pick.ciclica_phase_1h]}
         </span>
+
+        {pick.tier === 'forte' && (
+          <span
+            className="font-mono text-[11px] text-[var(--color-text-dim)] px-2 py-0.5"
+            style={{ border: '1px solid var(--color-border)' }}
+            title="Tempo tipico storico fino al prossimo swing di inversione, misurato su 40 coin — non una previsione puntuale"
+          >
+            prossimo swing tipicamente tra 6-9h
+          </span>
+        )}
       </div>
 
       <div className="font-mono text-[11px] text-[var(--color-text)] leading-relaxed flex flex-wrap gap-x-4 gap-y-1">

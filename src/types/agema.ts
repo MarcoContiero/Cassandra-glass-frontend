@@ -13,6 +13,11 @@ export type AgemaCiclicaPhase =
   | 'early_up' | 'mid_up' | 'late_up'
   | 'early_down' | 'mid_down' | 'late_down';
 
+// "forte" = fase matura (late_up/late_down, trend vecchio — EV piu' alto,
+// verificato 18/9: 4/4 fold coerenti, 27/38 coin coerenti) vs "normale"
+// (iniziale/centrale — resta un pick valido, solo meno forte).
+export type AgemaTier = 'forte' | 'normale';
+
 export interface AgemaPick {
   coin: string;                    // es. "BTC"
   direction: AgemaDirection;
@@ -24,6 +29,7 @@ export interface AgemaPick {
   tp1_price?: number | null;
   tp2_price?: number | null;
   ciclica_phase_1h: AgemaCiclicaPhase;
+  tier: AgemaTier;
 }
 
 export interface AgemaSnapshot {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useUser } from '@clerk/nextjs';
+import AgemaJournalSection from './AgemaJournalSection';
 
 type Stato = 'aperta' | 'chiusa';
 
@@ -66,6 +67,7 @@ function rejectStage(reason?: string): 'matcher' | 'gate' | null {
 
 export default function JournalPanel() {
   const { user } = useUser();
+  const [section, setSection] = useState<'operazioni' | 'agema'>('operazioni');
   const [entries, setEntries] = useState<TradeEntry[]>([]);
   const [filter, setFilter] = useState<Filter>('tutte');
   const [loading, setLoading] = useState(true);
@@ -140,9 +142,36 @@ export default function JournalPanel() {
         </div>
         <h1 style={{ fontFamily: 'var(--font-display)', fontSize: '22px',
           fontWeight: 300, color: 'var(--color-gold)', margin: 0 }}>
-          Le mie operazioni
+          {section === 'operazioni' ? 'Le mie operazioni' : 'Storico pick Agema'}
         </h1>
       </div>
+
+      {/* Sezioni: operazioni reali vs storico Agema (18/9) — tenute
+          separate, Agema non sono trade reali ma pick da verificare */}
+      <div style={{ display: 'flex', gap: '6px', marginBottom: '18px' }}>
+        {([
+          { key: 'operazioni' as const, label: 'Operazioni' },
+          { key: 'agema' as const, label: 'Agema' },
+        ]).map(s => (
+          <button
+            key={s.key}
+            onClick={() => setSection(s.key)}
+            style={{
+              ...mono, fontSize: '10px', letterSpacing: '0.15em', textTransform: 'uppercase',
+              padding: '6px 16px', borderRadius: '2px', cursor: 'pointer',
+              border: '1px solid',
+              background: section === s.key ? 'rgba(201,168,76,0.1)' : 'transparent',
+              borderColor: section === s.key ? 'rgba(201,168,76,0.35)' : 'rgba(255,255,255,0.1)',
+              color: section === s.key ? 'var(--color-gold)' : 'var(--color-text-dim)',
+              fontWeight: section === s.key ? 700 : 400,
+            }}
+          >
+            {s.label}
+          </button>
+        ))}
+      </div>
+
+      {section === 'agema' ? <AgemaJournalSection /> : <>
 
       {/* Filtri */}
       <div style={{ display: 'flex', gap: '6px', marginBottom: '20px', flexWrap: 'wrap' }}>
@@ -409,6 +438,7 @@ export default function JournalPanel() {
           })}
         </div>
       )}
+      </>}
     </div>
   );
 }
