@@ -235,9 +235,15 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
                     <>
                       {dettaglio.pattern && <>Pattern: <strong>{dettaglio.pattern}</strong></>}
                       {dettaglio.score != null && <> · Score {dettaglio.score}</>}
+                      {dettaglio.posizione != null && <> · #{dettaglio.posizione} in classifica</>}
                       {dettaglio.direction && (
                         <span style={{ color: dettaglio.direction === 'LONG' ? 'var(--color-long-bright, #3da866)' : 'var(--color-short-bright, #a83d3d)', marginLeft: '6px', fontSize: '11px' }}>
                           {dettaglio.direction === 'LONG' ? 'rialzista' : 'ribassista'}
+                        </span>
+                      )}
+                      {dettaglio.direzione && dettaglio.direzione !== 'neutrale' && (
+                        <span style={{ color: dettaglio.direzione === 'rialzista' ? 'var(--color-long-bright, #3da866)' : 'var(--color-short-bright, #a83d3d)', marginLeft: '6px', fontSize: '11px' }}>
+                          {dettaglio.direzione}
                         </span>
                       )}
                     </>
