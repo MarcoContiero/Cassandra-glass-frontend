@@ -24,6 +24,31 @@ interface Props {
 const AMBIENT_TIMEOUT_MS = 22000;
 const FALLBACK = 'Non ho accesso ai dati in tempo reale di questa scheda in questo momento — puoi controllare il valore aggiornato direttamente in dashboard.';
 
+// Interfaccia vocale 5.0 (17/9) — Web Speech API nativa del browser, nessun
+// costo/dipendenza esterna (vedi discussione costi Whisper/ElevenLabs vs
+// browser-nativo in sessione: si parte da qui, si valuta un upgrade a
+// pagamento solo se la qualità non basta). Non tipizzata in lib.dom.d.ts
+// di TypeScript in modo completo — minima interfaccia locale, sufficiente
+// per l'uso che ne facciamo qui.
+interface SpeechRecognitionResultLike {
+  isFinal: boolean;
+  0: { transcript: string };
+}
+interface SpeechRecognitionEventLike {
+  resultIndex: number;
+  results: SpeechRecognitionResultLike[];
+}
+interface SpeechRecognitionLike {
+  lang: string;
+  continuous: boolean;
+  interimResults: boolean;
+  onresult: ((e: SpeechRecognitionEventLike) => void) | null;
+  onerror: (() => void) | null;
+  onend: (() => void) | null;
+  start: () => void;
+  stop: () => void;
+}
+
 export default function PiziaCompanion({ currentTab, currentCoin, currentTimeframe, cassandraContext, unreadAlerts = 0, onAlertBadgeClick }: Props) {
   const [size, setSize] = useState<PiziaSize>('ambient');
   const [messages, setMessages] = useState<Message[]>([]);
@@ -31,10 +56,15 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
   const [loading, setLoading] = useState(false);
   const [inputFocused, setInputFocused] = useState(false);
   const [orbHovered, setOrbHovered] = useState(false);
+  const [voiceMode, setVoiceMode] = useState(false);
+  const [listening, setListening] = useState(false);
+  const [voiceSupported, setVoiceSupported] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
+  const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const sendRef = useRef<() => void>(() => {});
 
   const clearTimer = () => {
     if (timerRef.current) { clearTimeout(timerRef.current); timerRef.current = null; }
@@ -56,6 +86,62 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
   useEffect(() => {
     if (size === 'expanded') setTimeout(() => inputRef.current?.focus(), 420);
   }, [size]);
+
+  // Interfaccia vocale: inizializza il riconoscimento una sola volta (il
+  // browser non supporta piu' istanze contemporanee) — sendRef evita
+  // closure stantie visto che send() viene ridefinita ad ogni render.
+  useEffect(() => {
+    const Ctor: (new () => SpeechRecognitionLike) | undefined =
+      (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
+    if (!Ctor) { setVoiceSupported(false); return; }
+    setVoiceSupported(true);
+    const rec = new Ctor();
+    rec.lang = 'it-IT';
+    rec.continuous = false;
+    rec.interimResults = true;
+    rec.onresult = (e) => {
+      let finalText = '';
+      let interimText = '';
+      for (let i = e.resultIndex; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finalText += r[0].transcript;
+        else interimText += r[0].transcript;
+      }
+      if (finalText) {
+        setInput(finalText.trim());
+        setTimeout(() => sendRef.current(), 0);
+      } else if (interimText) {
+        setInput(interimText);
+      }
+    };
+    rec.onerror = () => setListening(false);
+    rec.onend = () => setListening(false);
+    recognitionRef.current = rec;
+    return () => { rec.stop(); };
+  }, []);
+
+  const startListening = useCallback(() => {
+    if (!recognitionRef.current || listening) return;
+    window.speechSynthesis?.cancel(); // Pizia smette di parlare se l'utente interrompe a voce
+    setInput('');
+    setListening(true);
+    try { recognitionRef.current.start(); } catch { setListening(false); }
+  }, [listening]);
+
+  const toggleVoiceMode = useCallback(() => {
+    setVoiceMode(v => {
+      if (v) { window.speechSynthesis?.cancel(); recognitionRef.current?.stop(); setListening(false); }
+      return !v;
+    });
+  }, []);
+
+  const speak = useCallback((text: string) => {
+    if (!text || !window.speechSynthesis) return;
+    window.speechSynthesis.cancel();
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'it-IT';
+    window.speechSynthesis.speak(u);
+  }, []);
 
   const handleOrbEnter = () => {
     setOrbHovered(true);
@@ -106,6 +192,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
     setMessages([...history, { role: 'assistant', content: '', streaming: true }]);
     setInput('');
     setLoading(true);
+    let assistantText = ''; // fuori da React state: serve intatto e sincrono per la sintesi vocale in finally
 
     try {
       const res = await fetch('/api/pizia', {
@@ -118,7 +205,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
         }),
       });
 
-      if (!res.ok) { setError(FALLBACK); return; }
+      if (!res.ok) { setError(FALLBACK); assistantText = FALLBACK; return; }
 
       const reader = res.body!.getReader();
       const decoder = new TextDecoder();
@@ -136,8 +223,9 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           try {
             const payload = JSON.parse(raw);
             if (payload.done) break outer;
-            if (payload.error) { setError(FALLBACK); break outer; }
+            if (payload.error) { setError(FALLBACK); assistantText = FALLBACK; break outer; }
             if (payload.text) {
+              assistantText += payload.text;
               setMessages(prev => {
                 const upd = [...prev];
                 const last = upd[upd.length - 1];
@@ -152,7 +240,9 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
       }
     } catch {
       setError(FALLBACK);
+      assistantText = FALLBACK;
     } finally {
+      if (voiceMode) speak(assistantText);
       setMessages(prev => {
         const upd = [...prev];
         const last = upd[upd.length - 1];
@@ -163,7 +253,9 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
       });
       setLoading(false);
     }
-  }, [input, loading, messages, currentTab, currentCoin, currentTimeframe, cassandraContext]);
+  }, [input, loading, messages, currentTab, currentCoin, currentTimeframe, cassandraContext, voiceMode, speak]);
+
+  useEffect(() => { sendRef.current = send; }, [send]);
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
@@ -409,45 +501,94 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
 
           {/* Input */}
           <div style={{ width: '100%', maxWidth: '360px' }}>
-            <input
-              ref={inputRef}
-              value={input}
-              onChange={e => setInput(e.target.value)}
-              onKeyDown={onKey}
-              onFocus={() => setInputFocused(true)}
-              onBlur={() => setInputFocused(false)}
-              placeholder="Chiedi a Pizia…"
-              disabled={loading}
-              style={{
-                width: '100%',
-                background: 'transparent',
-                border: 'none',
-                borderBottom: `1px solid ${
-                  inputFocused
-                    ? 'var(--color-gold)'
-                    : 'rgba(201,168,76,0.25)'
-                }`,
-                color: 'var(--color-text)',
-                fontFamily: 'var(--font-display)',
-                fontSize: '14px',
-                fontWeight: 300,
-                textAlign: 'center',
-                padding: '8px 0',
-                letterSpacing: '0.02em',
-                outline: 'none',
-                opacity: loading ? 0.5 : 1,
-                transition: 'border-color 300ms ease, opacity 200ms ease',
-              }}
-            />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+              <input
+                ref={inputRef}
+                value={input}
+                onChange={e => setInput(e.target.value)}
+                onKeyDown={onKey}
+                onFocus={() => setInputFocused(true)}
+                onBlur={() => setInputFocused(false)}
+                placeholder={listening ? 'Ti ascolto…' : 'Chiedi a Pizia…'}
+                disabled={loading}
+                style={{
+                  flex: 1,
+                  minWidth: 0,
+                  background: 'transparent',
+                  border: 'none',
+                  borderBottom: `1px solid ${
+                    inputFocused || listening
+                      ? 'var(--color-gold)'
+                      : 'rgba(201,168,76,0.25)'
+                  }`,
+                  color: 'var(--color-text)',
+                  fontFamily: 'var(--font-display)',
+                  fontSize: '14px',
+                  fontWeight: 300,
+                  textAlign: 'center',
+                  padding: '8px 0',
+                  letterSpacing: '0.02em',
+                  outline: 'none',
+                  opacity: loading ? 0.5 : 1,
+                  transition: 'border-color 300ms ease, opacity 200ms ease',
+                }}
+              />
+              {voiceMode && voiceSupported && (
+                <button
+                  onClick={startListening}
+                  disabled={loading || listening}
+                  title="Parla con Pizia"
+                  style={{
+                    flexShrink: 0,
+                    width: '22px',
+                    height: '22px',
+                    borderRadius: '50%',
+                    border: `1px solid ${listening ? 'var(--color-gold)' : 'var(--color-border, rgba(201,168,76,0.35))'}`,
+                    background: listening ? 'var(--color-gold)' : 'transparent',
+                    cursor: loading ? 'default' : 'pointer',
+                    opacity: loading ? 0.4 : 1,
+                    animation: listening ? 'cassandraPulse 1.2s ease-in-out infinite' : 'none',
+                    padding: 0,
+                    transition: 'background 200ms ease, border-color 200ms ease',
+                  }}
+                />
+              )}
+            </div>
             <div style={{
-              fontFamily: 'var(--font-mono)',
-              fontSize: '8px',
-              letterSpacing: '0.25em',
-              color: 'var(--color-text-faint)',
-              textTransform: 'uppercase',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '14px',
               marginTop: '10px',
             }}>
-              Invio per chiedere
+              <div style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '8px',
+                letterSpacing: '0.25em',
+                color: 'var(--color-text-faint)',
+                textTransform: 'uppercase',
+              }}>
+                {listening ? 'Ascolto…' : 'Invio per chiedere'}
+              </div>
+              {voiceSupported && (
+                <button
+                  onClick={toggleVoiceMode}
+                  title={voiceMode ? 'Disattiva modalità vocale' : 'Attiva modalità vocale — parla e ascolta Pizia'}
+                  style={{
+                    fontFamily: 'var(--font-mono)',
+                    fontSize: '8px',
+                    letterSpacing: '0.25em',
+                    textTransform: 'uppercase',
+                    color: voiceMode ? 'var(--color-gold)' : 'var(--color-text-faint)',
+                    background: 'transparent',
+                    border: 'none',
+                    cursor: 'pointer',
+                    padding: 0,
+                  }}
+                >
+                  Voce {voiceMode ? 'on' : 'off'}
+                </button>
+              )}
             </div>
           </div>
         </div>
