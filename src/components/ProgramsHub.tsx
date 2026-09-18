@@ -46,6 +46,11 @@ export default function ProgramsHub() {
   const [activeApp, setActiveApp] = useState<AppKey>('home');
   const [cassandraContext, setCassandraContext] = useState<string>('');
   const [unreadAlerts, setUnreadAlerts] = useState(0);
+  // FIX 2026-09-18: il bottone Segnalazioni viveva nel gruppo a destra
+  // dell'header, senza overflow gestito — su mobile verticale finiva
+  // fuori viewport, invisibile. Spostato come ultima voce del menu tab
+  // (quello scorre correttamente, overflowX:auto gia' presente).
+  const [segnalaOpen, setSegnalaOpen] = useState(false);
   const { user, isLoaded } = useUser();
   const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
@@ -279,6 +284,41 @@ export default function ProgramsHub() {
                 </button>
               );
             })}
+            {/* Segnalazioni — ultima voce del menu scorrevole, vedi nota
+                sopra su segnalaOpen. Stesso stile dei tab, non un AppKey:
+                apre il modal invece di cambiare scheda. */}
+            <button
+              onClick={() => setSegnalaOpen(true)}
+              style={{
+                fontFamily: 'var(--font-mono)',
+                fontSize: '10px',
+                fontWeight: 300,
+                letterSpacing: '0.25em',
+                textTransform: 'uppercase',
+                color: 'rgba(2,2,14,0.5)',
+                padding: '0 16px',
+                border: 'none',
+                borderBottom: '2px solid transparent',
+                background: 'transparent',
+                cursor: 'pointer',
+                transition: 'color 200ms ease, background 200ms ease',
+                whiteSpace: 'nowrap',
+                alignSelf: 'stretch',
+                display: 'flex',
+                alignItems: 'center',
+                flexShrink: 0,
+              }}
+              onMouseEnter={e => {
+                (e.currentTarget).style.color = 'var(--color-void)';
+                (e.currentTarget).style.background = 'rgba(2,2,14,0.06)';
+              }}
+              onMouseLeave={e => {
+                (e.currentTarget).style.color = 'rgba(2,2,14,0.5)';
+                (e.currentTarget).style.background = 'transparent';
+              }}
+            >
+              Segnalazioni
+            </button>
           </nav>
 
           {/* Theme toggle + segnala + live indicator */}
@@ -293,7 +333,7 @@ export default function ProgramsHub() {
             }}
           >
             <HelpButton helpKey={activeApp} label={APPS.find(a => a.key === activeApp)?.label} variant="page" />
-            <SegnalaProblema />
+            <SegnalaProblema hideTrigger open={segnalaOpen} onOpenChange={setSegnalaOpen} />
             <ThemeToggle />
             <span
               style={{

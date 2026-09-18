@@ -5,9 +5,26 @@ import { useUser } from '@clerk/nextjs';
 
 type State = 'idle' | 'sending' | 'ok' | 'error';
 
-export default function SegnalaProblema() {
+interface Props {
+  // Uso controllato dall'esterno (es. da una voce di tab nel menu scorrevole
+  // di ProgramsHub, 18/9 — il vecchio bottone inline finiva fuori schermo
+  // su mobile verticale, il menu delle schede invece scorre correttamente).
+  // Senza queste prop il componente si comporta come prima: bottone +
+  // modal autonomi.
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  hideTrigger?: boolean;
+}
+
+export default function SegnalaProblema({ open: openProp, onOpenChange, hideTrigger }: Props = {}) {
   const { user } = useUser();
-  const [open, setOpen] = useState(false);
+  const [openState, setOpenState] = useState(false);
+  const isControlled = openProp !== undefined;
+  const open = isControlled ? openProp : openState;
+  const setOpen = (v: boolean) => {
+    onOpenChange?.(v);
+    if (!isControlled) setOpenState(v);
+  };
   const [descrizione, setDescrizione] = useState('');
   const [state, setState] = useState<State>('idle');
   const [errMsg, setErrMsg] = useState('');
@@ -78,6 +95,7 @@ export default function SegnalaProblema() {
   return (
     <>
       {/* Trigger button */}
+      {!hideTrigger && (
       <button
         onClick={() => setOpen(true)}
         style={{
@@ -106,6 +124,7 @@ export default function SegnalaProblema() {
       >
         Segnalazioni
       </button>
+      )}
 
       {/* Modal */}
       {open && (
