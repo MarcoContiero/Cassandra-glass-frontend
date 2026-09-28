@@ -10,6 +10,7 @@ import AgemaPanel from './agema/AgemaPanel';
 import DnaPanel from './dna/DnaPanel';
 import TreMoirePanel from './moire/TreMoirePanel';
 import Tifide3Panel from '@/app/tifide3/page';
+import Tifide3SubPanel from '@/app/tifide3-sub/page';
 import Orione2Page from '@/app/orione2/patterns/page';
 import ChannelPanel from '@/app/app/channel/page';
 import PiziaCompanion from './pizia/PiziaCompanion';
@@ -22,7 +23,7 @@ import LiquidationPanel from './liquidation/LiquidationPanel';
 import StarHome from './starhome/StarHome';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'channel' | 'home';
+type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'tifide3s' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'channel' | 'home';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra',     label: 'Cassandra' },
@@ -36,6 +37,7 @@ const APPS: { key: AppKey; label: string }[] = [
   { key: 'avvisi',        label: 'Avvisi' },
   { key: 'journal',       label: 'Journal' },
   { key: 'tifide3',       label: 'Tifi 4.0' },
+  { key: 'tifide3s',      label: 'Tifi 4.0_S' },
   { key: 'orione2',       label: 'Pattern & EMA' },
   { key: 'channel',       label: 'Canale' },
 ];
@@ -87,6 +89,7 @@ export default function ProgramsHub() {
   const visibleApps = useMemo(
     () => APPS.filter(a => {
       if (a.key === 'tifide3') return hasTifideAccess;
+      if (a.key === 'tifide3s') return hasTifideAccess;
       if (a.key === 'orione2') return hasOrione2Access;
       if (a.key === 'channel') return hasTifideAccess;
       return true;
@@ -104,7 +107,7 @@ export default function ProgramsHub() {
     setCassandraContext('');
   }
 
-  const isWide = activeApp === 'tifide3' || activeApp === 'channel';
+  const isWide = activeApp === 'tifide3' || activeApp === 'tifide3s' || activeApp === 'channel';
   const isHome = activeApp === 'home';
 
   const content = useMemo(() => {
@@ -119,6 +122,7 @@ export default function ProgramsHub() {
       case 'argonauta': return <ArgonautaPanel onPiziaContext={handlePiziaContext} />;
       case 'orione':    return <OrionePanel onPiziaContext={handlePiziaContext} />;
       case 'tifide3':   return <Tifide3Panel />;
+      case 'tifide3s':  return <Tifide3SubPanel />;
       case 'agema':     return <AgemaPanel onPiziaContext={handlePiziaContext} />;
       case 'dna':       return <DnaPanel onPiziaContext={handlePiziaContext} />;
       case 'moire':     return <TreMoirePanel onPiziaContext={handlePiziaContext} />;
