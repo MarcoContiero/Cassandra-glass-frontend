@@ -49,6 +49,10 @@ const ALERT_POLL_MS = 60_000; // polling unread count ogni 60s
 export default function ProgramsHub() {
   const [activeApp, setActiveApp] = useState<AppKey>('home');
   const [cassandraContext, setCassandraContext] = useState<string>('');
+  const [piziaRequest, setPiziaRequest] = useState<{id: string; text: string; context: string} | undefined>();
+  const askWatchlistPizia = useCallback(() => {
+    setPiziaRequest({id: crypto.randomUUID(), context: cassandraContext, text: 'Spiegami cosa è cambiato nella mia watchlist e quali coin meritano attenzione. Usa solo i dati forniti, indica gli orari, i bias contrastanti e le condizioni dei miei piani. Distingui le variazioni dal rilevamento precedente da un riepilogo giornaliero; non inventare conferme o dati mancanti.'});
+  }, [cassandraContext]);
   const [watchlistCoin, setWatchlistCoin] = useState<string | undefined>();
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   // FIX 2026-09-18: il bottone Segnalazioni viveva nel gruppo a destra
@@ -122,7 +126,7 @@ export default function ProgramsHub() {
             onModuleSelect={handleTabChange}
           />
         );
-      case 'watchlist': return <WatchlistPanel key={user?.id} onPiziaContext={handlePiziaContext} onOpenCoin={coin => { setWatchlistCoin(coin); handleTabChange('cassandra'); }} />;
+      case 'watchlist': return <WatchlistPanel key={user?.id} onAskPizia={askWatchlistPizia} onPiziaContext={handlePiziaContext} onOpenCoin={coin => { setWatchlistCoin(coin); handleTabChange('cassandra'); }} />;
       case 'argonauta': return <ArgonautaPanel onPiziaContext={handlePiziaContext} />;
       case 'orione':    return <OrionePanel onPiziaContext={handlePiziaContext} />;
       case 'tifide3':   return <Tifide3Panel />;
@@ -139,7 +143,7 @@ export default function ProgramsHub() {
       case 'cassandra':
       default:          return <CassandraUI key={watchlistCoin} initialSymbol={watchlistCoin} onPiziaContext={handlePiziaContext} />;
     }
-  }, [activeApp, handlePiziaContext, handleUnreadChange, watchlistCoin, user?.id]);
+  }, [activeApp, handlePiziaContext, handleUnreadChange, watchlistCoin, user?.id, askWatchlistPizia]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-section-main)', color: 'var(--color-text)' }}>
@@ -383,6 +387,7 @@ export default function ProgramsHub() {
       </main>
 
       <PiziaCompanion
+        requestedQuestion={piziaRequest}
         currentTab={activeApp}
         cassandraContext={cassandraContext}
         unreadAlerts={unreadAlerts}

@@ -5,7 +5,8 @@ import styles from './WatchlistPanel.module.css';
 import WatchlistSnapshot, { type CoinSnapshots } from './WatchlistSnapshot';
 import { WatchlistOverview, ObservationPlan, type Preferences, type Notice } from './WatchlistWorkspace';
 
-export default function WatchlistPanel({ onOpenCoin, onPiziaContext }: {
+export default function WatchlistPanel({ onOpenCoin, onPiziaContext, onAskPizia }: {
+  onAskPizia: () => void;
   onOpenCoin: (coin: string) => void; onPiziaContext: (context: string) => void;
 }) {
   const { user } = useUser();
@@ -79,6 +80,8 @@ export default function WatchlistPanel({ onOpenCoin, onPiziaContext }: {
     <div role="status" className={styles.status}>{loading ? 'Caricamento…' : saving ? 'Salvataggio…' : error ? 'Controlla il messaggio di errore' : `${coins.length} / ${limit === null ? '∞' : limit} coin · Salvata sul tuo account`}</div>
     {!loading && atLimit && <p className={styles.note}>Hai raggiunto il limite del tuo piano. Rimuovi una coin per aggiungerne un’altra.</p>}
     {!loading && !coins.length && !error && <div className={styles.empty}>La tua watchlist è vuota. Aggiungi la prima coin per ritrovarla qui a ogni accesso.</div>}
+    <button disabled={loading || saving || !coins.some(coin=>snapshots[coin]?.latest)} onClick={onAskPizia}>Chiedi a Pizia cosa è cambiato</button>
+    <p className={styles.note}>Invia una richiesta a Pizia solo al clic, secondo le condizioni di accesso del tuo piano.</p>
     {!loading && coins.length > 0 && <WatchlistOverview coins={coins} snapshots={snapshots} notices={notices} onOpenCoin={onOpenCoin} />}
     <ul className={styles.grid}>{coins.map(coin => <li key={coin} className={styles.card}>
       <div><span className={styles.star} aria-hidden="true">★</span><strong>{coin}</strong></div>

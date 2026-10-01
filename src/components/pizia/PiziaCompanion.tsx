@@ -15,6 +15,7 @@ interface Message {
 }
 
 interface Props {
+  requestedQuestion?: {id: string; text: string; context: string};
   currentTab?: string;
   currentCoin?: string;
   currentTimeframe?: string;
@@ -51,7 +52,7 @@ interface SpeechRecognitionLike {
   stop: () => void;
 }
 
-export default function PiziaCompanion({ currentTab, currentCoin, currentTimeframe, cassandraContext, unreadAlerts = 0, onAlertBadgeClick }: Props) {
+export default function PiziaCompanion({ requestedQuestion, currentTab, currentCoin, currentTimeframe, cassandraContext, unreadAlerts = 0, onAlertBadgeClick }: Props) {
   const [size, setSize] = useState<PiziaSize>('ambient');
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
@@ -66,6 +67,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
   const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionIdRef = useRef<string>(crypto.randomUUID());
   const recognitionRef = useRef<SpeechRecognitionLike | null>(null);
+  const consumedRequest = useRef<string | null>(null);
   const sendRef = useRef<() => void>(() => {});
 
   const clearTimer = () => {
@@ -177,15 +179,15 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
       return upd;
     });
 
-  const send = useCallback(async () => {
-    const text = input.trim();
+  const send = useCallback(async (requestedText?: string, requestedContext?: string) => {
+    const text = (requestedText ?? input).trim();
     if (!text || loading) return;
 
     const context: Record<string, string> = {};
-    if (currentTab) context.scheda = currentTab;
+    if (currentTab) context.scheda = requestedContext !== undefined ? 'watchlist' : currentTab;
     if (currentCoin) context.coin = currentCoin;
     if (currentTimeframe) context.timeframe = currentTimeframe;
-    if (cassandraContext) context.analisi_corrente = cassandraContext;
+    if (requestedContext ?? cassandraContext) context.analisi_corrente = requestedContext ?? cassandraContext!;
 
     posthog.capture('pizia_message_sent', { tab: currentTab, message_length: text.length });
 
@@ -258,6 +260,19 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
   }, [input, loading, messages, currentTab, currentCoin, currentTimeframe, cassandraContext, voiceMode, speak]);
 
   useEffect(() => { sendRef.current = send; }, [send]);
+
+  useEffect(() => {
+    if (!requestedQuestion || consumedRequest.current === requestedQuestion.id) return;
+    consumedRequest.current = requestedQuestion.id;
+    clearTimer();
+    setSize('expanded');
+    if (loading) {
+      // Never queue a paid request to run automatically after another response.
+      setInput(requestedQuestion.text);
+      return;
+    }
+    void send(requestedQuestion.text, requestedQuestion.context);
+  }, [requestedQuestion, loading, send]);
 
   const onKey = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send(); }
