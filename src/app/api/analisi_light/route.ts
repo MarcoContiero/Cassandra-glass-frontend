@@ -1,6 +1,7 @@
 // app/api/analisi_light/route.ts
 import { NextRequest } from "next/server";
 import { callBackend } from "@/lib/proxy";
+import { readTopLevelJsonField } from "@/lib/topLevelJson";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -21,24 +22,14 @@ export async function GET(req: NextRequest): Promise<Response> {
     if (backendRes.ok) {
       const bodyText = await backendRes.text();
 
-      // Argonauta alert hook — fire-and-forget, non blocca la risposta.
-      // 27/7: su richieste multi-TF con tipo=riepilogo_totale il payload puo'
-      // superare i 20MB — un secondo JSON.parse() dell'intero body solo per
-      // leggere strategia_ai ha mandato in OOM il processo Node (crash reale,
-      // vedi log Render "JavaScript heap out of memory" dentro JsonParser::ParseJson).
-      // Sotto questa soglia il parse resta economico; sopra, salta l'hook
-      // invece di rischiare un secondo crash — l'alert non e' sulla via critica.
-      const MAX_BODY_FOR_ALERT_PARSE = 3_000_000; // ~3MB
-      if (bodyText.length > MAX_BODY_FOR_ALERT_PARSE) {
-        console.warn(
-          "[api/analisi_light] payload troppo grande per l'alert hook, salto il parse",
-          { bytes: bodyText.length }
-        );
-      } else void (async () => {
+      // Parse only the small strategy field: the full multi-TF analysis can
+      // exceed several MB. Keep the response intact and bound hook allocation.
+      void (async () => {
         try {
-          const data = JSON.parse(bodyText);
-          const strategia: Array<Record<string, unknown>> = Array.isArray(data?.strategia_ai)
-            ? data.strategia_ai
+          const field = readTopLevelJsonField(bodyText, "strategia_ai");
+          const strategia: Array<Record<string, unknown>> = Array.isArray(field)
+            ? field.filter((item): item is Record<string, unknown> =>
+                item !== null && typeof item === "object" && !Array.isArray(item))
             : [];
           const coin = (
             url.searchParams.get("coin") ||
