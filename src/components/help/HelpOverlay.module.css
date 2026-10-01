@@ -1,0 +1,18 @@
+
+.panel {
+  margin: auto;
+  padding: 32px clamp(20px, 5vw, 44px);
+  border: 1px solid rgba(201,168,76,.32);
+  border-radius: 20px;
+  background: linear-gradient(145deg, #141421, #080812);
+  box-shadow: 0 24px 90px rgba(0,0,0,.55);
+  color-scheme: dark;
+}
+.close { width: 36px; height: 36px; border-radius: 10px; }
+.close:hover { background: rgba(201,168,76,.12) !important; color: #e8c96a !important; }
+.close:focus-visible { outline: 2px solid #e8c96a; outline-offset: 3px; }
+.content { overflow-wrap: anywhere; }
+.content > p:first-child { font-size: 16px !important; color: #eee8db !important; }
+@media (max-width: 600px) {
+  .panel { padding-top: 48px; border-radius: 16px; }
+}

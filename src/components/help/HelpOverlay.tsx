@@ -1,13 +1,14 @@
 'use client';
 
 import React, { useEffect, useState, useCallback } from 'react';
+import styles from './HelpOverlay.module.css';
 
-const SHADOW = '0 2px 18px rgba(2,2,14,0.95), 0 0 40px rgba(2,2,14,0.8)';
+const SHADOW = 'none';
 const GOLD   = 'rgb(201,168,76)';
-const GOLDDIM= 'rgba(201,168,76,0.6)';
+const GOLDDIM= '#d6bd79';
 const TEXT   = 'rgba(230,220,195,0.92)';
-const TEXTDIM= 'rgba(200,188,158,0.78)';
-const FAINT  = 'rgba(200,188,158,0.35)';
+const TEXTDIM= '#ddd7c8';
+const FAINT  = '#b9ad91';
 
 // ── Markdown renderer minimale ────────────────────────────────────────────────
 
@@ -39,7 +40,7 @@ function parseMd(md: string): React.ReactNode {
       );
     } else if (line.startsWith('## ')) {
       out.push(
-        <h3 key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 11, fontWeight: 600,
+        <h3 key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 12, fontWeight: 600,
           color: GOLDDIM, letterSpacing: '0.2em', textTransform: 'uppercase',
           margin: '14px 0 4px', textShadow: SHADOW }}>
           {line.slice(3)}
@@ -54,7 +55,7 @@ function parseMd(md: string): React.ReactNode {
       out.push(
         <ul key={`ul-${i}`} style={{ margin: '6px 0', paddingLeft: 20, display: 'flex', flexDirection: 'column', gap: 4 }}>
           {items.map((item, j) => (
-            <li key={j} style={{ fontFamily: 'var(--font-mono)', fontSize: 12,
+            <li key={j} style={{ fontFamily: 'system-ui, sans-serif', fontSize: 15,
               color: TEXTDIM, lineHeight: 1.6, textShadow: SHADOW }}>
               {inlineFmt(item)}
             </li>
@@ -64,8 +65,8 @@ function parseMd(md: string): React.ReactNode {
       continue;
     } else if (line.trim() !== '') {
       out.push(
-        <p key={i} style={{ fontFamily: 'var(--font-mono)', fontSize: 12,
-          color: TEXTDIM, lineHeight: 1.7, margin: '6px 0', textShadow: SHADOW }}>
+        <p key={i} style={{ fontFamily: 'system-ui, sans-serif', fontSize: 15,
+          color: TEXTDIM, lineHeight: 1.8, margin: '10px 0', textShadow: SHADOW }}>
           {inlineFmt(line)}
         </p>
       );
@@ -126,27 +127,32 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
 
   return (
     <div
+      className={styles.backdrop}
       onClick={onBackdrop}
       style={{
         position: 'fixed', inset: 0, zIndex: 9000,
-        background: 'rgba(2,2,14,0.52)',
-        backdropFilter: 'blur(3px)',
-        WebkitBackdropFilter: 'blur(3px)',
+        background: 'rgba(2,2,14,0.76)',
+        backdropFilter: 'blur(8px)',
+        WebkitBackdropFilter: 'blur(8px)',
         display: 'flex', alignItems: 'flex-start', justifyContent: 'center',
-        padding: '72px 20px 40px',
+        padding: '24px 16px',
         overflowY: 'auto',
       }}
     >
       {/* Nessun riquadro — contenuto galleggiante con text-shadow */}
       <div
-        style={{ width: '100%', maxWidth: 520, position: 'relative' }}
+        className={styles.panel}
+        role="dialog" aria-modal="true" aria-labelledby="cassandra-help-title"
+        style={{ width: '100%', maxWidth: 640, position: 'relative' }}
         onClick={e => e.stopPropagation()}
       >
         {/* Chiudi */}
         <button
           onClick={onClose}
+          aria-label="Chiudi spiegazione"
+          className={styles.close}
           style={{
-            position: 'absolute', top: -44, right: 0,
+            position: 'absolute', top: 16, right: 16,
             background: 'transparent', border: 'none', cursor: 'pointer',
             fontFamily: 'var(--font-mono)', fontSize: 16,
             color: GOLDDIM, lineHeight: 1,
@@ -169,8 +175,8 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
             }}>
               CONOSCI CASSANDRA
             </div>
-            <div style={{
-              fontFamily: 'var(--font-decorative)', fontSize: 26, fontWeight: 300,
+            <div id="cassandra-help-title" style={{
+              fontFamily: 'var(--font-decorative)', fontSize: 30, fontWeight: 300,
               color: GOLD, lineHeight: 1,
               textShadow: SHADOW,
             }}>
@@ -194,19 +200,14 @@ export default function HelpOverlay({ helpKey, label, onClose }: Props) {
             ...
           </div>
         ) : !contentMd ? (
-          <div style={{ fontFamily: 'var(--font-mono)', fontSize: 12, color: TEXTDIM,
+          <div style={{ fontFamily: 'system-ui, sans-serif', fontSize: 15, color: TEXTDIM,
             fontStyle: 'italic', padding: '8px 0', textShadow: SHADOW }}>
             Contenuto non ancora disponibile.
           </div>
         ) : (
-          <div>{parseMd(contentMd)}</div>
+          <div className={styles.content}>{parseMd(contentMd)}</div>
         )}
 
-        {/* Key debug */}
-        <div style={{ marginTop: 24, fontFamily: 'var(--font-mono)', fontSize: 9,
-          color: FAINT, textShadow: SHADOW }}>
-          {helpKey}
-        </div>
       </div>
     </div>
   );

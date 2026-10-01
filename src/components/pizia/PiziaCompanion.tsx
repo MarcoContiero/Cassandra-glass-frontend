@@ -3,6 +3,8 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import PiziaOrb, { type OrbState } from './PiziaOrb';
 import { posthog } from '@/lib/posthog';
+import styles from './PiziaCompanion.module.css';
+import PiziaMessage from './PiziaMessage';
 
 type PiziaSize = 'ambient' | 'active' | 'expanded';
 
@@ -276,9 +278,9 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
         style={{
           position: 'fixed',
           inset: 0,
-          background: 'rgba(2,2,14,0.28)',
-          backdropFilter: 'blur(0.5px)',
-          WebkitBackdropFilter: 'blur(0.5px)',
+          background: 'rgba(2,2,14,0.70)',
+          backdropFilter: 'blur(6px)',
+          WebkitBackdropFilter: 'blur(6px)',
           zIndex: 190,
           opacity: isExpanded ? 1 : 0,
           pointerEvents: isExpanded ? 'auto' : 'none',
@@ -296,7 +298,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           fontFamily: 'var(--font-mono)',
           fontSize: '8px',
           letterSpacing: '0.3em',
-          color: 'var(--color-text-faint)',
+          color: '#a9a9bf',
           textTransform: 'uppercase',
           zIndex: 201,
           opacity: isExpanded ? 1 : 0,
@@ -310,6 +312,10 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
 
       {/* ── Pizia field ────────────────────────────────────────────────────── */}
       <div
+        className={isExpanded ? styles.panel : undefined}
+        role={isExpanded ? 'dialog' : undefined}
+        aria-modal={isExpanded ? true : undefined}
+        aria-label={isExpanded ? 'Pizia — Oracolo di Cassandra' : undefined}
         style={{
           position: 'fixed',
           zIndex: 200,
@@ -322,6 +328,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           transition: 'bottom 420ms ease, right 420ms ease, transform 420ms ease',
         }}
       >
+        {isExpanded && <button className={styles.close} onClick={handleOverlayClick} aria-label="Chiudi Pizia">✕</button>}
         {/* ── Orb ──────────────────────────────────────────────────────────── */}
         <button
           onMouseEnter={handleOrbEnter}
@@ -338,7 +345,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
             cursor: 'pointer',
             padding: 0,
             opacity: orbOpac,
-            marginBottom: isExpanded ? '28px' : 0,
+            marginBottom: isExpanded ? '12px' : 0,
             transition: 'width 420ms ease, height 420ms ease, opacity 350ms ease, margin-bottom 420ms ease',
             flexShrink: 0,
           }}
@@ -389,7 +396,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
                 fontFamily: 'var(--font-mono)',
                 fontSize: '9px',
                 letterSpacing: '0.2em',
-                color: 'var(--color-text-dim)',
+                color: '#b8b8cc',
                 textTransform: 'uppercase',
                 whiteSpace: 'nowrap',
                 opacity: orbHovered ? 1 : 0,
@@ -405,15 +412,15 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
         {/* ── Floating content — no box ─────────────────────────────────────── */}
         <div
           style={{
-            width: isExpanded ? '480px' : 0,
-            maxWidth: isExpanded ? '480px' : 0,
+            width: isExpanded ? '100%' : 0,
+            maxWidth: isExpanded ? '560px' : 0,
             opacity: isExpanded ? 1 : 0,
             overflow: 'hidden',
             transition: 'max-width 500ms ease, opacity 400ms ease 100ms',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: '28px',
+            gap: '20px',
             textAlign: 'center',
           }}
         >
@@ -432,7 +439,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
               fontFamily: 'var(--font-mono)',
               fontSize: '9px',
               letterSpacing: '0.25em',
-              color: 'var(--color-text-dim)',
+              color: '#b8b8cc',
               textTransform: 'uppercase',
             }}>
               {contextLine || 'Cassandra vede · Pizia interpreta'}
@@ -440,14 +447,14 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           </div>
 
           {/* Messages */}
-          <div style={{
+          <div className={styles.messages} style={{
             display: 'flex',
             flexDirection: 'column',
             gap: '22px',
             width: '100%',
-            maxHeight: '320px',
+            maxHeight: 'min(44dvh, 440px)',
             overflowY: 'auto',
-            scrollbarWidth: 'none',
+            scrollbarWidth: 'thin',
           }}>
             {messages.map((msg, i) =>
               msg.role === 'user' ? (
@@ -456,7 +463,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
                   style={{
                     fontFamily: 'var(--font-mono)',
                     fontSize: '12px',
-                    color: 'var(--color-text-dim)',
+                    color: '#b8b8cc',
                   }}
                 >
                   {msg.content}
@@ -465,18 +472,19 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
                 <div
                   key={i}
                   style={{
-                    fontFamily: 'var(--font-display)',
+                    fontFamily: 'system-ui, sans-serif',
                     fontSize: '16px',
                     fontWeight: 300,
                     color: 'var(--color-text)',
                     lineHeight: 1.7,
-                    maxWidth: '420px',
+                    maxWidth: '100%',
                     margin: '0 auto',
+                    textAlign: 'left',
                     whiteSpace: 'pre-wrap',
                     wordBreak: 'break-word',
                   }}
                 >
-                  {msg.content || (msg.streaming && (
+                  {msg.content ? <PiziaMessage content={msg.content} /> : (msg.streaming && (
                     <span style={{ display: 'flex', gap: '6px', justifyContent: 'center' }}>
                       {[0, 1, 2].map(j => (
                         <span
@@ -500,9 +508,10 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
           </div>
 
           {/* Input */}
-          <div style={{ width: '100%', maxWidth: '360px' }}>
+          <div className={styles.inputArea} style={{ width: '100%', maxWidth: '100%' }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
               <input
+                aria-label="Domanda per Pizia"
                 ref={inputRef}
                 value={input}
                 onChange={e => setInput(e.target.value)}
@@ -565,7 +574,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
                 fontFamily: 'var(--font-mono)',
                 fontSize: '8px',
                 letterSpacing: '0.25em',
-                color: 'var(--color-text-faint)',
+                color: '#a9a9bf',
                 textTransform: 'uppercase',
               }}>
                 {listening ? 'Ascolto…' : 'Invio per chiedere'}
@@ -579,7 +588,7 @@ export default function PiziaCompanion({ currentTab, currentCoin, currentTimefra
                     fontSize: '8px',
                     letterSpacing: '0.25em',
                     textTransform: 'uppercase',
-                    color: voiceMode ? 'var(--color-gold)' : 'var(--color-text-faint)',
+                    color: voiceMode ? 'var(--color-gold)' : '#a9a9bf',
                     background: 'transparent',
                     border: 'none',
                     cursor: 'pointer',
