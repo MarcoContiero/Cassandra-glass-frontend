@@ -19,3 +19,17 @@
 .actions button:last-child { background: transparent; font-size: 12px; }
 .empty { padding: 32px; border: 1px dashed var(--color-border-focus); border-radius: 16px; line-height: 1.7; margin-top: 20px; }
 .error { color: #ed8888; }
+
+.snapshot { font-size: 13px; line-height: 1.6; margin-top: 20px; }
+.price { font-size: 23px; font-weight: 500; }
+.price span { font-size: 11px; opacity: .7; }
+.bias { display: flex; flex-wrap: wrap; gap: 6px; margin: 16px 0; }
+.bias span { border: 1px solid var(--color-border-focus); padding: 4px 8px; border-radius: 6px; font-size: 11px; }
+.snapshot h3 { font-size: 12px; color: var(--color-gold); margin: 20px 0 10px; }
+.scenario { display: flex; flex-direction: column; gap: 4px; padding: 10px 0; border-bottom: 1px solid var(--color-border-focus); overflow-wrap: anywhere; }
+.scenario span { font-size: 11px; opacity: .85; }
+.changes p { margin: 6px 0; overflow-wrap: anywhere; }
+.history { border-top: 1px solid var(--color-border-focus); padding-top: 14px; margin-top: 20px; }
+.history summary { cursor: pointer; color: var(--color-gold); }
+.history h4 { font-size: 12px; margin-bottom: 6px; }
+.history > div { padding: 12px 0; border-bottom: 1px solid var(--color-border-focus); }

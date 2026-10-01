@@ -8,7 +8,12 @@ export const dynamic = "force-dynamic";
 
 export async function GET(req: NextRequest): Promise<Response> {
   const url = req.nextUrl;
-  const search = url.searchParams.toString();
+  const params = new URLSearchParams(url.searchParams);
+  const internalSecret = process.env.INTERNAL_CRON_SECRET;
+  if (!internalSecret || req.headers.get('x-cassandra-internal-token') !== internalSecret) {
+    params.delete('watchlist_snapshot');
+  }
+  const search = params.toString();
   const path = `/api/analisi_light${search ? `?${search}` : ""}`;
 
   console.log("[api/analisi_light] incoming", {
