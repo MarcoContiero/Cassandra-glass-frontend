@@ -22,6 +22,7 @@ type StrategiaAIStrategy = {
 
   entry: number;
   stop?: number | null;
+  sl_price?: number | null;
 
   tp1?: number | null;
   tp2?: number | null;
@@ -506,7 +507,7 @@ export function StrategiaAIOverlay({ data, onClose, supporti = [], resistenze = 
                       Stop
                     </div>
                     <div className="font-mono text-sm text-white">
-                      {formatPrice(s.stop ?? null)}
+                      {formatPrice(s.sl_price ?? s.stop ?? null)}
                     </div>
                   </div>
                 </div>

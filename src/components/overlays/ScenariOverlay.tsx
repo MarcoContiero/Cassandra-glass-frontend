@@ -12,6 +12,7 @@ type ScenarioItem = {
   direzione?: 'LONG' | 'SHORT' | string;
   tf?: string;
   confidence?: number; // 0..100
+  metricLabel?: string;
   trigger?: number | string;
   descrizione?: string;
 };
@@ -228,7 +229,9 @@ function normalizeScenario(raw: any, fallbackTf?: string): ScenarioItem | null {
 
   if (!nome && !codice) return null;
 
-  return { nome, codice, direzione, tf, confidence, trigger, descrizione };
+  const metricLabel = asPct(firstNonEmpty<number>(raw, ['confidence', 'confidenza', 'prob', 'probability'])) != null
+    ? 'Confidenza' : 'Punteggio normalizzato';
+  return { nome, codice, direzione, tf, confidence, metricLabel, trigger, descrizione };
 }
 function uniqBy<T>(arr: T[], key: (x: T) => string): T[] {
   const seen = new Set<string>();
@@ -318,6 +321,7 @@ function extractActiveScenarios(result: any): ScenarioItem[] {
             direzione: String(it?.direzione ?? g).toUpperCase(),
             tf: compactTF(tfKey),
             confidence: conf,
+            metricLabel: 'Peso relativo',
             trigger: it?.trigger ?? it?.level ?? undefined,
             descrizione: `Indicatore ${indicatore}${descr ? ` · ${descr}` : ''} · punteggio ${punti}`,
           });
@@ -541,7 +545,7 @@ export default function ScenarioOverlay({
                               </div>
 
                               <div className="text-xs text-neutral-400">
-                                Conf:&nbsp;<span className="text-neutral-200">{fmtPct(s.confidence)}</span>
+                                <span title={s.metricLabel === 'Peso relativo' ? 'Quota del punteggio totale degli scenari di questo timeframe. Non indica una probabilità.' : undefined}>{s.metricLabel ?? 'Punteggio normalizzato'}:</span>&nbsp;<span className="text-neutral-200">{fmtPct(s.confidence)}</span>
                               </div>
                             </div>
 

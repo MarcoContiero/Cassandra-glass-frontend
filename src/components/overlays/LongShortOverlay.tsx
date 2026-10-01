@@ -17,6 +17,7 @@ interface LongShortOverlayProps {
   spiegazione?: any;
   onClose?: () => void;
   coin?: string;
+  loading?: boolean;
 }
 
 interface NetflowData {
@@ -212,6 +213,7 @@ export default function LongShortOverlay({
   spiegazione,
   onClose,
   coin,
+  loading = false,
 }: LongShortOverlayProps) {
   const netflow = useNetflow(coin);
   const etfFlow = useEtfFlow(coin);
@@ -274,6 +276,18 @@ export default function LongShortOverlay({
     }
     return { globalBias: dir, globalScore: score };
   }, [longshort]);
+
+  const hasBiasData = Object.values(trendPerTf).some(row => typeof row?.score === "number" && Number.isFinite(row.score)) ||
+    Object.values((longshort as any)?.per_tf_map ?? {}).some((row: any) => typeof row?.score === "number" && Number.isFinite(row.score)) ||
+    (typeof longshort?.score === "number" && Number.isFinite(longshort.score));
+
+  if (loading || !hasBiasData) {
+    return <OverlayShell><div className="p-4" role="status">
+      <p>{loading ? "Analisi in corso…" : "Bias non disponibile"}</p>
+      <p className="mt-2 text-xs">{loading ? "Attendi il completamento dell’analisi per leggere la direzione del mercato." : "Non sono disponibili dati di bias per i timeframe selezionati."}</p>
+      {onClose && <button className="mt-4" onClick={onClose}>Chiudi</button>}
+    </div></OverlayShell>;
+  }
 
   return (
     <OverlayShell>

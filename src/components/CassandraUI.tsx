@@ -271,6 +271,7 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
   const [symbol, setSymbol] = useState<string>(initialSymbol || 'BTC');
   const [timeframes, setTimeframes] = useState<string[]>(['15m', '1h', '4h', '12h', '1d']);
   const [result, setResult] = useState<AnalisiLightResponse | null>(null);
+  const [analysisLoading, setAnalysisLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openPrevisti, setOpenPrevisti] = useState(false);
   const [overlayKey, setOverlayKey] = useState<OverlayKey>(null);
@@ -307,6 +308,8 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
   }, [result]);
 
   async function fetchAnalisi() {
+    setAnalysisLoading(true);
+    setOverlayData(null);
     try {
       setError(null);
       setResult(null);
@@ -359,6 +362,8 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
       onPiziaContext?.(buildPiziaContextText(json));
     } catch (e: any) {
       setError(String(e?.message || e));
+    } finally {
+      setAnalysisLoading(false);
     }
   }
 
@@ -597,6 +602,7 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
             spiegazione={(normalizedOverlayData as any)?.spiegazione}
             onClose={() => closeOverlay()}
             coin={symbol}
+            loading={analysisLoading}
           />
         );
       case 'trigger_map':
@@ -649,7 +655,7 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
         return null;
     }
     // dipendenze minime e sicure
-  }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes, ciclicaVm]);
+  }, [overlayKey, normalizedOverlayData, overlayTitle, symbol, timeframes, ciclicaVm, analysisLoading]);
 
   const CARDS = [
     { key: 'longshort'   as OverlayKey, icon: '➠', label: 'Analisi situazione',     desc: 'Direzione del trend per timeframe' },
@@ -753,9 +759,10 @@ export default function CassandraUI({ onPiziaContext, initialSymbol }: Cassandra
           {/* Analizza button */}
           <button
             onClick={() => fetchAnalisi()}
+            disabled={analysisLoading}
             className="ml-auto bg-[var(--color-gold)] text-[var(--color-void)] font-mono text-[10px] tracking-[0.3em] uppercase rounded-none hover:bg-[var(--color-gold-bright)] transition-colors duration-200 px-5 py-1.5"
           >
-            Analizza
+            {analysisLoading ? 'Analisi in corso…' : 'Analizza'}
           </button>
         </div>
 
