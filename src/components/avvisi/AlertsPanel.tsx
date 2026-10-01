@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useState, useCallback } from 'react';
+import { useEffect, useState, useCallback, useRef } from 'react';
 import { useUser } from '@clerk/nextjs';
 
 type AlertEvent = {
@@ -15,6 +15,7 @@ type AlertEvent = {
 };
 
 type Props = {
+  onOpenCoin?: (coin: string) => void;
   onUnreadChange?: (count: number) => void;
 };
 
@@ -26,7 +27,7 @@ function fmtTs(ms: number): string {
 }
 
 function moduloLabel(m: string): string {
-  return { orione: 'Orione', argonauta: 'Argonauta', agema: 'Agema', pizia: 'Pizia' }[m] ?? m;
+  return { orione: 'Orione', argonauta: 'Argonauta', agema: 'Agema', pizia: 'Pizia', watchlist: 'Watchlist' }[m] ?? m;
 }
 
 function WeeklyReportEmailButton({ eventId }: { eventId: number }) {
@@ -91,53 +92,57 @@ function WeeklyReportEmailButton({ eventId }: { eventId: number }) {
   );
 }
 
-export default function AlertsPanel({ onUnreadChange }: Props) {
+export default function AlertsPanel({ onUnreadChange, onOpenCoin }: Props) {
   const { user } = useUser();
   const [events, setEvents] = useState<AlertEvent[]>([]);
   const [loading, setLoading] = useState(true);
 
+  const [totalUnread, setTotalUnread] = useState(0);
+  const fetchGeneration = useRef(0);
+  const [error, setError] = useState('');
+  const [marking, setMarking] = useState(false);
+  const scope = useRef<string | null>(null);
   const userId = user?.id ?? null;
 
+  scope.current = userId;
+
   const fetchEvents = useCallback(async () => {
-    if (!userId) return;
+    if (!userId) { setLoading(false); return; }
+    const generation = ++fetchGeneration.current;
     try {
-      const res = await fetch('/api/alerts/events?limit=100', {
-        headers: { 'X-User-Id': userId },
-      });
-      if (res.ok) {
-        const data = await res.json();
-        setEvents(data);
-        const unread = data.filter((e: AlertEvent) => !e.letto).length;
-        onUnreadChange?.(unread);
-      }
-    } catch { /* ignore */ }
-    finally { setLoading(false); }
+      const [res, count] = await Promise.all([
+        fetch('/api/alerts/events?limit=100', {cache:'no-store'}),
+        fetch('/api/alerts/unread-count', {cache:'no-store'}),
+      ]);
+      if (!res.ok || !count.ok) throw new Error('Impossibile aggiornare gli avvisi. Riprova.');
+      const [data, total] = await Promise.all([res.json(), count.json()]);
+      if (scope.current !== userId || generation !== fetchGeneration.current) return;
+      setEvents(data); setTotalUnread(total.count); setError(''); onUnreadChange?.(total.count);
+    } catch (e) { if (scope.current === userId && generation === fetchGeneration.current) setError(e instanceof Error ? e.message : 'Errore di caricamento'); }
+    finally { if (scope.current === userId && generation === fetchGeneration.current) setLoading(false); }
   }, [userId, onUnreadChange]);
 
-  useEffect(() => { fetchEvents(); }, [fetchEvents]);
+  useEffect(() => {
+    setEvents([]); setTotalUnread(0); setLoading(true); setError('');
+    void fetchEvents();
+    const timer = setInterval(()=>void fetchEvents(), 60000);
+    return ()=>clearInterval(timer);
+  }, [fetchEvents]);
 
-  async function markRead(id: number) {
-    if (!userId) return;
-    await fetch(`/api/alerts/events/${id}/read`, {
-      method: 'POST',
-      headers: { 'X-User-Id': userId },
-    });
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, letto: 1 } : e));
-    const newUnread = events.filter(e => e.id !== id && !e.letto).length;
-    onUnreadChange?.(newUnread);
+  async function updateRead(path: string) {
+    if (!userId || marking) return;
+    setMarking(true);
+    try {
+      const response = await fetch(path, {method:'POST'});
+      if (!response.ok) throw new Error('Impossibile segnare gli avvisi come letti. Riprova.');
+      if (scope.current === userId) await fetchEvents();
+    } catch (e) { if (scope.current === userId) setError(e instanceof Error ? e.message : 'Errore di salvataggio'); }
+    finally { if (scope.current === userId) setMarking(false); }
   }
+  const markRead = (id:number) => updateRead(`/api/alerts/events/${id}/read`);
+  const markAllRead = () => updateRead('/api/alerts/events/read-all');
 
-  async function markAllRead() {
-    if (!userId) return;
-    await fetch('/api/alerts/events/read-all', {
-      method: 'POST',
-      headers: { 'X-User-Id': userId },
-    });
-    setEvents(prev => prev.map(e => ({ ...e, letto: 1 })));
-    onUnreadChange?.(0);
-  }
-
-  const unreadCount = events.filter(e => !e.letto).length;
+  const unreadCount = totalUnread;
 
   return (
     <div style={{ maxWidth: '720px', margin: '0 auto', color: 'var(--color-text)' }}>
@@ -153,6 +158,7 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
         </div>
         {unreadCount > 0 && (
           <button
+            disabled={marking}
             onClick={markAllRead}
             style={{
               fontFamily: 'var(--font-mono)', fontSize: '9px', letterSpacing: '0.2em',
@@ -175,6 +181,8 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
         Ogni alert è una segnalazione di scansione su criteri configurati — non un consiglio operativo.
       </div>
 
+      {error && <p role="alert" style={{color:'#ed8888'}}>{error}</p>}
+      <button onClick={()=>void fetchEvents()} disabled={loading || marking} style={{background:'transparent',color:'var(--color-gold)',border:'1px solid var(--color-border)',padding:'8px 12px',marginBottom:'16px',cursor:'pointer'}}>Aggiorna avvisi</button>
       {/* Lista eventi */}
       {loading ? (
         <div style={{ fontFamily: 'var(--font-mono)', fontSize: '11px', color: 'var(--color-text-dim)', opacity: 0.5 }}>
@@ -229,7 +237,11 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
                 </div>
 
                 <div style={{ fontFamily: 'var(--font-display)', fontSize: '13px', fontWeight: 300, color: 'var(--color-text)', lineHeight: 1.5 }}>
-                  {dettaglio.messaggio ? (
+                  {ev.modulo === 'watchlist' ? (<div>
+                    {Array.isArray(dettaglio.categories) && <p style={{color:'var(--color-gold)',fontSize:'11px'}}>{dettaglio.categories.join(' · ')}</p>}
+                    {Array.isArray(dettaglio.messages) && dettaglio.messages.map((message:string,index:number)=><p key={index} style={{margin:'6px 0'}}>{message}</p>)}
+                    <p style={{fontSize:'11px',color:'var(--color-text-dim)'}}>Rilevamento periodico · {ev.letto ? 'Letto' : 'Da leggere'}</p>
+                  </div>) : dettaglio.messaggio ? (
                     dettaglio.messaggio
                   ) : (
                     <>
@@ -250,6 +262,10 @@ export default function AlertsPanel({ onUnreadChange }: Props) {
                   )}
                 </div>
 
+                {ev.modulo === 'watchlist' && <div style={{display:'flex',gap:'10px',flexWrap:'wrap',marginTop:'12px'}} onClick={e=>e.stopPropagation()}>
+                  {ev.coin && onOpenCoin && <button onClick={()=>{if(!ev.letto) void markRead(ev.id);onOpenCoin(ev.coin!);}} style={{background:'transparent',color:'var(--color-gold)',border:'1px solid var(--color-border)',padding:'8px 12px',cursor:'pointer'}}>Apri analisi {ev.coin} →</button>}
+                  {!ev.letto && <button disabled={marking} onClick={()=>void markRead(ev.id)} style={{background:'transparent',color:'var(--color-text)',border:'1px solid var(--color-border)',padding:'8px 12px',cursor:'pointer'}}>Segna come letto</button>}
+                </div>}
                 {dettaglio.kind === 'weekly_report' && (
                   <WeeklyReportEmailButton eventId={ev.id} />
                 )}

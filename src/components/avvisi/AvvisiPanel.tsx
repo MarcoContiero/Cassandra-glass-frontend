@@ -7,10 +7,11 @@ import AlertFiltersConfig from './AlertFiltersConfig';
 type Tab = 'eventi' | 'filtri';
 
 type Props = {
+  onOpenCoin?: (coin: string) => void;
   onUnreadChange?: (count: number) => void;
 };
 
-export default function AvvisiPanel({ onUnreadChange }: Props) {
+export default function AvvisiPanel({ onUnreadChange, onOpenCoin }: Props) {
   const [tab, setTab] = useState<Tab>('eventi');
 
   const tabStyle = (key: Tab): React.CSSProperties => ({
@@ -42,7 +43,7 @@ export default function AvvisiPanel({ onUnreadChange }: Props) {
         </button>
       </div>
 
-      {tab === 'eventi' && <AlertsPanel onUnreadChange={onUnreadChange} />}
+      {tab === 'eventi' && <AlertsPanel onUnreadChange={onUnreadChange} onOpenCoin={onOpenCoin} />}
       {tab === 'filtri' && <AlertFiltersConfig />}
     </div>
   );

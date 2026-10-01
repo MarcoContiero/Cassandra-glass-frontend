@@ -136,7 +136,7 @@ export default function ProgramsHub() {
       case 'moire':     return <TreMoirePanel onPiziaContext={handlePiziaContext} />;
       case 'orione2':   return <Orione2Page />;
       case 'costellazioni': return <CostellazioniPage />;
-      case 'avvisi':    return <AvvisiPanel onUnreadChange={handleUnreadChange} />;
+      case 'avvisi':    return <AvvisiPanel key={user?.id} onUnreadChange={handleUnreadChange} onOpenCoin={coin => { setWatchlistCoin(coin); handleTabChange('cassandra'); }} />;
       case 'journal':      return <JournalPanel />;
       case 'liquidation':  return <LiquidationPanel />;
       case 'channel':      return <ChannelPanel />;
