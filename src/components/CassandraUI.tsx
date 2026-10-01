@@ -262,12 +262,13 @@ function buildMiddles(result: any) {
 }
 
 interface CassandraUIProps {
+  initialSymbol?: string;
   onPiziaContext?: (ctx: string) => void;
 }
 
-export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
+export default function CassandraUI({ onPiziaContext, initialSymbol }: CassandraUIProps = {}) {
   const { user } = useUser();
-  const [symbol, setSymbol] = useState<string>('BTC');
+  const [symbol, setSymbol] = useState<string>(initialSymbol || 'BTC');
   const [timeframes, setTimeframes] = useState<string[]>(['15m', '1h', '4h', '12h', '1d']);
   const [result, setResult] = useState<AnalisiLightResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -366,7 +367,7 @@ export default function CassandraUI({ onPiziaContext }: CassandraUIProps = {}) {
     const params = new URLSearchParams(window.location.search);
 
     const sym = params.get('symbol');
-    if (sym) {
+    if (sym && !initialSymbol) {
       // "BTCUSDT" -> "BTC" per l'input
       setSymbol(sym.replace(/(USDT|USD)$/i, ''));
     }

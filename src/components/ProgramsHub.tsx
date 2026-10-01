@@ -4,6 +4,7 @@ import React, { useMemo, useState, useCallback, useEffect, useRef } from 'react'
 import { useUser } from '@clerk/nextjs';
 import { ThemeToggle } from './ThemeToggle';
 import CassandraUI from './CassandraUI';
+import WatchlistPanel from './watchlist/WatchlistPanel';
 import ArgonautaPanel from './ArgonautaPanel';
 import OrionePanel from './orione/OrionePanel';
 import AgemaPanel from './agema/AgemaPanel';
@@ -23,10 +24,11 @@ import LiquidationPanel from './liquidation/LiquidationPanel';
 import StarHome from './starhome/StarHome';
 import { posthog } from '@/lib/posthog';
 
-type AppKey = 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'tifide3s' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'channel' | 'home';
+type AppKey = 'watchlist' | 'argonauta' | 'cassandra' | 'orione' | 'agema' | 'dna' | 'moire' | 'orione2' | 'tifide3' | 'tifide3s' | 'avvisi' | 'costellazioni' | 'journal' | 'liquidation' | 'channel' | 'home';
 
 const APPS: { key: AppKey; label: string }[] = [
   { key: 'cassandra',     label: 'Cassandra' },
+  { key: 'watchlist',     label: 'Watchlist' },
   { key: 'argonauta',     label: 'Argonauta' },
   { key: 'orione',        label: 'Orione' },
   { key: 'costellazioni', label: 'Tifide' },
@@ -47,6 +49,7 @@ const ALERT_POLL_MS = 60_000; // polling unread count ogni 60s
 export default function ProgramsHub() {
   const [activeApp, setActiveApp] = useState<AppKey>('home');
   const [cassandraContext, setCassandraContext] = useState<string>('');
+  const [watchlistCoin, setWatchlistCoin] = useState<string | undefined>();
   const [unreadAlerts, setUnreadAlerts] = useState(0);
   // FIX 2026-09-18: il bottone Segnalazioni viveva nel gruppo a destra
   // dell'header, senza overflow gestito — su mobile verticale finiva
@@ -119,6 +122,7 @@ export default function ProgramsHub() {
             onModuleSelect={handleTabChange}
           />
         );
+      case 'watchlist': return <WatchlistPanel key={user?.id} onPiziaContext={handlePiziaContext} onOpenCoin={coin => { setWatchlistCoin(coin); handleTabChange('cassandra'); }} />;
       case 'argonauta': return <ArgonautaPanel onPiziaContext={handlePiziaContext} />;
       case 'orione':    return <OrionePanel onPiziaContext={handlePiziaContext} />;
       case 'tifide3':   return <Tifide3Panel />;
@@ -133,9 +137,9 @@ export default function ProgramsHub() {
       case 'liquidation':  return <LiquidationPanel />;
       case 'channel':      return <ChannelPanel />;
       case 'cassandra':
-      default:          return <CassandraUI onPiziaContext={handlePiziaContext} />;
+      default:          return <CassandraUI key={watchlistCoin} initialSymbol={watchlistCoin} onPiziaContext={handlePiziaContext} />;
     }
-  }, [activeApp, handlePiziaContext, handleUnreadChange]);
+  }, [activeApp, handlePiziaContext, handleUnreadChange, watchlistCoin, user?.id]);
 
   return (
     <div style={{ minHeight: '100vh', background: 'var(--bg-section-main)', color: 'var(--color-text)' }}>
