@@ -23,14 +23,11 @@ export default function WatchlistPanel({ onOpenCoin, onPiziaContext }: {
     if (!user?.id) return () => { controller.abort(); generation.current++; };
     (async () => {
       try {
-        const [saved, config] = await Promise.all([
-          fetch('/api/user/watchlist', { cache: 'no-store', signal: controller.signal }),
-          fetch('/api/config/coins', { cache: 'no-store', signal: controller.signal }),
-        ]);
-        if (!saved.ok || !config.ok) throw new Error('Impossibile caricare la watchlist. Riprova riaprendo la scheda.');
-        const [data, options] = await Promise.all([saved.json(), config.json()]);
+        const saved = await fetch('/api/user/watchlist', { cache: 'no-store', signal: controller.signal });
+        if (!saved.ok) throw new Error('Impossibile caricare la watchlist. Riprova riaprendo la scheda.');
+        const data = await saved.json();
         if (current !== generation.current) return;
-        setCoins(data.coins); setLimit(data.limit); setAvailable(options.coins);
+        setCoins(data.coins); setLimit(data.limit); setAvailable(data.available_coins ?? []);
       } catch (e) {
         if (current === generation.current && !controller.signal.aborted) setError(e instanceof Error ? e.message : 'Errore di caricamento');
       } finally { if (current === generation.current) setLoading(false); }
